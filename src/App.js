@@ -161,6 +161,19 @@ function normalizar(texto) {
     .replace(/[\u0300-\u036f]/g, '')
     .trim();
 }
+
+function setCacheDadosPainel(fonte, dados) {
+  if (typeof window === 'undefined') return;
+
+  window.__BBDI_PAINEL_CACHE__ = window.__BBDI_PAINEL_CACHE__ || {};
+  window.__BBDI_PAINEL_CACHE__[fonte] = Array.isArray(dados) ? dados : [];
+}
+
+function getCacheDadosPainel(fonte) {
+  if (typeof window === 'undefined') return [];
+
+  return window.__BBDI_PAINEL_CACHE__?.[fonte] || [];
+}
 function parseDataBR(dataTexto) {
   if (!dataTexto) return null;
   const partes = String(dataTexto)
@@ -207,7 +220,9 @@ function calcularStatusRespostaConsulta(dataSolicitacao, dataResposta) {
 
   if (!inicio || !fim) return 'Aguardando';
 
-  const minutos = Math.floor(Math.max(0, fim.getTime() - inicio.getTime()) / 60000);
+  const minutos = Math.floor(
+    Math.max(0, fim.getTime() - inicio.getTime()) / 60000
+  );
 
   return minutos <= 60 ? 'No prazo' : 'Atraso';
 }
@@ -1620,7 +1635,9 @@ function TelaFaturamento() {
           };
         })
       );
-      setDados(rs.flatMap((r) => r.dados));
+      const dadosConsolidados = rs.flatMap((r) => r.dados);
+      setDados(dadosConsolidados);
+      rs.forEach((r) => setCacheDadosPainel(r.fonte, r.dados));
       const a = {};
       rs.forEach((r) => {
         a[r.nomeFonte] = r.atualizadoEm;
@@ -1888,7 +1905,9 @@ function TelaEstoque() {
       const r = await fetch(`${API_BASE}?action=dados&fonte=estoque`),
         j = await r.json();
       if (!j.ok) throw new Error(j.erro || 'Erro estoque');
-      setDados(aplicarStatusSeparacaoEstoque(j.dados || []));
+      const dadosEstoque = aplicarStatusSeparacaoEstoque(j.dados || []);
+      setDados(dadosEstoque);
+      setCacheDadosPainel('estoque', dadosEstoque);
       setAtualizadoEm(j.atualizadoEm || '');
     } catch (e) {
       setErro(e.message);
@@ -2152,7 +2171,6 @@ function criarTelaAjusteSaldo({
   };
 }
 
-
 function TelaAjusteSaldo() {
   const filtrosIniciais = {
     empresa: '',
@@ -2194,7 +2212,9 @@ function TelaAjusteSaldo() {
 
       const resultados = await Promise.all(
         fontes.map(async (fonte) => {
-          const resposta = await fetch(`${API_BASE}?action=dados&fonte=${fonte.key}`);
+          const resposta = await fetch(
+            `${API_BASE}?action=dados&fonte=${fonte.key}`
+          );
           const json = await resposta.json();
 
           if (!json.ok) {
@@ -2356,7 +2376,11 @@ function TelaAjusteSaldo() {
         actions={
           <>
             <BotaoLink href={LINK_APP_AJUSTE_SALDO}>Abrir Ajuste</BotaoLink>
-            <button onClick={load} disabled={loading} style={btnAtualizar(loading)}>
+            <button
+              onClick={load}
+              disabled={loading}
+              style={btnAtualizar(loading)}
+            >
               {loading ? 'Atualizando…' : 'Atualizar'}
             </button>
           </>
@@ -2640,7 +2664,9 @@ function TelaProducao({ modo }) {
       const r = await fetch(`${API_BASE}?action=dados&fonte=producao`),
         j = await r.json();
       if (!j.ok) throw new Error(j.erro || 'Erro produção');
-      setDados(j.dados || []);
+      const dadosProducao = j.dados || [];
+      setDados(dadosProducao);
+      setCacheDadosPainel('producao', dadosProducao);
       setAtualizado(j.atualizadoEm || '');
     } catch (e) {
       setErro(e.message);
@@ -4518,16 +4544,21 @@ function TelaIndicadorExpedicaoDiario() {
   );
 }
 
-
 function obterAnoMesIndicador(mesTexto) {
-  const partes = String(mesTexto || '').trim().match(/^(\d{2})\/(\d{4})$/);
+  const partes = String(mesTexto || '')
+    .trim()
+    .match(/^(\d{2})\/(\d{4})$/);
   return partes ? partes[2] : '';
 }
 
 function TelaIndicadorMensal({ tipo }) {
   const expedicao = tipo === 'expedicao';
-  const fonte = expedicao ? 'indicadorExpedicaoMensal' : 'indicadorFaturamentoMensal';
-  const titulo = expedicao ? 'Indicador Mensal — Expedição' : 'Indicador Mensal — Faturamento';
+  const fonte = expedicao
+    ? 'indicadorExpedicaoMensal'
+    : 'indicadorFaturamentoMensal';
+  const titulo = expedicao
+    ? 'Indicador Mensal — Expedição'
+    : 'Indicador Mensal — Faturamento';
   const { dados, loading, erro, atualizado, load } = useIndicador(fonte);
   const [busca, setBusca] = useState('');
   const [anoFiltro, setAnoFiltro] = useState('atual');
@@ -4535,7 +4566,8 @@ function TelaIndicadorMensal({ tipo }) {
   const anoAtual = useMemo(() => String(new Date().getFullYear()), []);
 
   const dadosComAno = useMemo(
-    () => dados.map((item) => ({ ...item, ano: obterAnoMesIndicador(item.mes) })),
+    () =>
+      dados.map((item) => ({ ...item, ano: obterAnoMesIndicador(item.mes) })),
     [dados]
   );
 
@@ -4579,15 +4611,18 @@ function TelaIndicadorMensal({ tipo }) {
           : !anoFiltro || String(item.ano || '') === String(anoFiltro);
 
       const buscaOk =
-        !termo || camposBusca.some((campo) => normalizar(item[campo]).includes(termo));
+        !termo ||
+        camposBusca.some((campo) => normalizar(item[campo]).includes(termo));
 
       return anoOk && buscaOk;
     });
   }, [dadosComAno, busca, anoFiltro, anoAtual, camposBusca]);
 
   const kpis = useMemo(() => {
-    const mp = numeroPercentual(mediaPercentual(dadosFiltrados, 'pedidosGeral')) || 0;
-    const mu = numeroPercentual(mediaPercentual(dadosFiltrados, 'unidadesGeral')) || 0;
+    const mp =
+      numeroPercentual(mediaPercentual(dadosFiltrados, 'pedidosGeral')) || 0;
+    const mu =
+      numeroPercentual(mediaPercentual(dadosFiltrados, 'unidadesGeral')) || 0;
     const rk = dadosFiltrados
       .map((item) => ({ ...item, pct: numeroPercentual(item.pedidosGeral) }))
       .filter((item) => item.pct !== null)
@@ -4699,7 +4734,11 @@ function TelaIndicadorMensal({ tipo }) {
         titulo={titulo}
         atualizadoEm={atualizado || '—'}
         actions={
-          <button onClick={load} disabled={loading} style={btnAtualizar(loading)}>
+          <button
+            onClick={load}
+            disabled={loading}
+            style={btnAtualizar(loading)}
+          >
             {loading ? 'Atualizando…' : 'Atualizar'}
           </button>
         }
@@ -4727,7 +4766,11 @@ function TelaIndicadorMensal({ tipo }) {
           placeholder="Busca no indicador mensal…"
           style={{ ...inputEl, flex: '1 1 220px' }}
         />
-        <select value={anoFiltro} onChange={(e) => setAnoFiltro(e.target.value)} style={selectEl}>
+        <select
+          value={anoFiltro}
+          onChange={(e) => setAnoFiltro(e.target.value)}
+          style={selectEl}
+        >
           <option value="atual">Ano atual</option>
           <option value="">Todos os anos</option>
           {anos.map((ano) => (
@@ -4746,8 +4789,6 @@ function TelaIndicadorMensal({ tipo }) {
           Limpar
         </button>
       </section>
-
-
 
       <section
         style={{
@@ -4779,7 +4820,10 @@ function TelaIndicadorMensal({ tipo }) {
           >
             Desempenho Mensal Detalhado
           </span>
-          <ContadorRegistros filtrados={dadosFiltrados.length} total={dados.length} />
+          <ContadorRegistros
+            filtrados={dadosFiltrados.length}
+            total={dados.length}
+          />
         </div>
 
         <div style={{ overflowX: 'auto' }}>
@@ -4793,43 +4837,86 @@ function TelaIndicadorMensal({ tipo }) {
           >
             <thead>
               <tr>
-                <th colSpan="1" style={grupoHeader('linear-gradient(135deg,#302b63,#24243e)', '#c4b5fd')}>
+                <th
+                  colSpan="1"
+                  style={grupoHeader(
+                    'linear-gradient(135deg,#302b63,#24243e)',
+                    '#c4b5fd'
+                  )}
+                >
                   Mês
                 </th>
-                <th colSpan={expedicao ? 3 : 4} style={grupoHeader('linear-gradient(135deg,#1a1f6e,#2d3282)', '#bfdbfe', true)}>
+                <th
+                  colSpan={expedicao ? 3 : 4}
+                  style={grupoHeader(
+                    'linear-gradient(135deg,#1a1f6e,#2d3282)',
+                    '#bfdbfe',
+                    true
+                  )}
+                >
                   Pedidos (%)
                 </th>
-                <th colSpan={expedicao ? 4 : 5} style={grupoHeader('linear-gradient(135deg,#064e3b,#065f46)', '#a7f3d0', true)}>
+                <th
+                  colSpan={expedicao ? 4 : 5}
+                  style={grupoHeader(
+                    'linear-gradient(135deg,#064e3b,#065f46)',
+                    '#a7f3d0',
+                    true
+                  )}
+                >
                   Unidades (%)
                 </th>
                 {!expedicao && (
-                  <th colSpan="5" style={grupoHeader('linear-gradient(135deg,#374151,#1f2937)', '#d1d5db', true)}>
+                  <th
+                    colSpan="5"
+                    style={grupoHeader(
+                      'linear-gradient(135deg,#374151,#1f2937)',
+                      '#d1d5db',
+                      true
+                    )}
+                  >
                     CDs
                   </th>
                 )}
               </tr>
-              <tr style={{ background: 'linear-gradient(135deg,#f0f3ff,#e8ecff)' }}>
+              <tr
+                style={{
+                  background: 'linear-gradient(135deg,#f0f3ff,#e8ecff)',
+                }}
+              >
                 <th style={subHeader()}>Mês</th>
                 {expedicao ? (
                   <>
                     {['0101', '1020', 'Geral'].map((t, i) => (
-                      <th key={`p${i}`} style={subHeader(i === 0)}>{t}</th>
+                      <th key={`p${i}`} style={subHeader(i === 0)}>
+                        {t}
+                      </th>
                     ))}
                     {['0101', '1020', 'Geral', 'Média'].map((t, i) => (
-                      <th key={`u${i}`} style={subHeader(i === 0)}>{t}</th>
+                      <th key={`u${i}`} style={subHeader(i === 0)}>
+                        {t}
+                      </th>
                     ))}
                   </>
                 ) : (
                   <>
                     {['001', '002', '005', 'Geral'].map((t, i) => (
-                      <th key={`p${i}`} style={subHeader(i === 0)}>{t}</th>
+                      <th key={`p${i}`} style={subHeader(i === 0)}>
+                        {t}
+                      </th>
                     ))}
                     {['001', '002', '005', 'Geral', 'Média'].map((t, i) => (
-                      <th key={`u${i}`} style={subHeader(i === 0)}>{t}</th>
+                      <th key={`u${i}`} style={subHeader(i === 0)}>
+                        {t}
+                      </th>
                     ))}
-                    {['1030-SP', '1040-MG', '0104-MG', '0105-ES', 'Média'].map((t, i) => (
-                      <th key={`c${i}`} style={subHeader(i === 0)}>{t}</th>
-                    ))}
+                    {['1030-SP', '1040-MG', '0104-MG', '0105-ES', 'Média'].map(
+                      (t, i) => (
+                        <th key={`c${i}`} style={subHeader(i === 0)}>
+                          {t}
+                        </th>
+                      )
+                    )}
                   </>
                 )}
               </tr>
@@ -4837,20 +4924,39 @@ function TelaIndicadorMensal({ tipo }) {
             <tbody>
               {loading && !dadosFiltrados.length && (
                 <tr>
-                  <td colSpan={totalColunas} style={{ padding: 28, textAlign: 'center', color: C.txtMuted, fontFamily: C.font }}>
+                  <td
+                    colSpan={totalColunas}
+                    style={{
+                      padding: 28,
+                      textAlign: 'center',
+                      color: C.txtMuted,
+                      fontFamily: C.font,
+                    }}
+                  >
                     Carregando…
                   </td>
                 </tr>
               )}
               {!loading && !dadosFiltrados.length && (
                 <tr>
-                  <td colSpan={totalColunas} style={{ padding: 28, textAlign: 'center', color: C.txtMuted, fontFamily: C.font }}>
+                  <td
+                    colSpan={totalColunas}
+                    style={{
+                      padding: 28,
+                      textAlign: 'center',
+                      color: C.txtMuted,
+                      fontFamily: C.font,
+                    }}
+                  >
                     Nenhum indicador mensal encontrado.
                   </td>
                 </tr>
               )}
               {dadosFiltrados.map((item, idx) => (
-                <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : C.bgStripe }}>
+                <tr
+                  key={idx}
+                  style={{ background: idx % 2 === 0 ? '#fff' : C.bgStripe }}
+                >
                   <td style={tdInfo}>{item.mes || '—'}</td>
                   {expedicao ? (
                     <>
@@ -4897,6 +5003,11 @@ export default function App() {
     () => localStorage.getItem(LOGIN_STORAGE_KEY) === 'true'
   );
   const [tela, setTela] = useState('faturamento');
+  const [pedidoBuscaGlobal, setPedidoBuscaGlobal] = useState('');
+  const [resultadosBuscaGlobal, setResultadosBuscaGlobal] = useState([]);
+  const [buscandoGlobal, setBuscandoGlobal] = useState(false);
+  const [erroBuscaGlobal, setErroBuscaGlobal] = useState('');
+  const [buscaGlobalFeita, setBuscaGlobalFeita] = useState(false);
 
   useEffect(() => {
     const link = document.createElement('link');
@@ -4915,6 +5026,108 @@ export default function App() {
     'indicadorFaturamentoMensal',
     'indicadorExpedicaoMensal',
   ].includes(tela);
+
+  const buscarPedidoGlobal = useCallback(() => {
+    const pedido = String(pedidoBuscaGlobal || '').trim();
+
+    if (!pedido) {
+      setBuscaGlobalFeita(true);
+      setErroBuscaGlobal('Digite um número de pedido para pesquisar.');
+      setResultadosBuscaGlobal([]);
+      return;
+    }
+
+    setBuscaGlobalFeita(true);
+    setBuscandoGlobal(true);
+    setErroBuscaGlobal('');
+
+    const fontes = [
+      {
+        key: 'equipatech',
+        origem: 'Faturamento · Equipatech',
+        telaDestino: 'faturamento',
+      },
+      {
+        key: 'bbbaterias',
+        origem: 'Faturamento · BBBaterias',
+        telaDestino: 'faturamento',
+      },
+      { key: 'estoque', origem: 'Estoque', telaDestino: 'estoque' },
+      { key: 'producao', origem: 'Produção', telaDestino: 'producao' },
+    ];
+
+    try {
+      const termoPedido = normalizar(pedido);
+      const encontrados = [];
+
+      fontes.forEach((fonte) => {
+        const dadosFonte = getCacheDadosPainel(fonte.key);
+        const ehFaturamento =
+          fonte.key === 'equipatech' || fonte.key === 'bbbaterias';
+        const ehEstoque = fonte.key === 'estoque';
+        const ehProducao = fonte.key === 'producao';
+
+        dadosFonte
+          .filter((item) => normalizar(item.pedido).includes(termoPedido))
+          .forEach((item) => {
+            encontrados.push({
+              origem: fonte.origem,
+              telaDestino: fonte.telaDestino,
+              pedido: item.pedido || pedido,
+              filial: item.filial || item.unidadeFaturamento || '-',
+              produto: item.produto || '-',
+              quantidade:
+                item.quantidadeLiberada ||
+                item.quantidade ||
+                item.quantidadeTotal ||
+                '-',
+              status:
+                item.statusSeparacao || item.statusResumo || item.status || '-',
+              data:
+                item.dataLiberacao ||
+                item.dataHoraFinanceiro ||
+                item.dataLancamento ||
+                item.dataHoraEntregueEstoque ||
+                '-',
+              detalhe: ehFaturamento
+                ? `Lista: ${item.lista || '-'} · Faturador: ${
+                    item.faturador || '-'
+                  }`
+                : ehEstoque
+                ? `Produto: ${item.produto || '-'} · Status original: ${
+                    item.statusOriginal || item.status || '-'
+                  }`
+                : ehProducao
+                ? `Transporte: ${item.transporte || '-'} · Cliente: ${
+                    item.cliente || '-'
+                  }`
+                : '-',
+            });
+          });
+      });
+
+      setResultadosBuscaGlobal(encontrados);
+
+      const totalCarregado = fontes.reduce(
+        (total, fonte) => total + getCacheDadosPainel(fonte.key).length,
+        0
+      );
+
+      if (totalCarregado === 0) {
+        setErroBuscaGlobal(
+          'As bases ainda estão carregando. Aguarde alguns segundos e pesquise novamente.'
+        );
+      } else {
+        setErroBuscaGlobal('');
+      }
+    } catch (e) {
+      setResultadosBuscaGlobal([]);
+      setErroBuscaGlobal(e.message || 'Erro ao pesquisar pedido.');
+    } finally {
+      setBuscandoGlobal(false);
+    }
+  }, [pedidoBuscaGlobal]);
+
   function sair() {
     localStorage.removeItem(LOGIN_STORAGE_KEY);
     setLogado(false);
@@ -5193,6 +5406,332 @@ export default function App() {
           boxSizing: 'border-box',
         }}
       >
+        <section
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 30,
+            background: 'rgba(248,250,252,0.92)',
+            backdropFilter: 'blur(12px)',
+            border: `1.5px solid ${C.bdLight}`,
+            borderRadius: C.radius.lg,
+            padding: 10,
+            marginBottom: 18,
+            boxShadow: '0 12px 32px rgba(15,23,42,0.08)',
+          }}
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              buscarPedidoGlobal();
+            }}
+            style={{ display: 'flex', gap: 8, alignItems: 'center' }}
+          >
+            <input
+              value={pedidoBuscaGlobal}
+              onChange={(e) => setPedidoBuscaGlobal(e.target.value)}
+              placeholder="Consulta: Pedido"
+              style={{
+                height: 38,
+                width: 260,
+                border: `1.5px solid ${C.bdMid}`,
+                borderRadius: C.radius.md,
+                padding: '0 12px',
+                fontSize: 13,
+                fontWeight: 700,
+                color: C.txtPri,
+                outline: 'none',
+                fontFamily: C.font,
+                background: '#FFFFFF',
+              }}
+            />
+            <button
+              type="submit"
+              disabled={buscandoGlobal}
+              style={{
+                height: 38,
+                border: 'none',
+                borderRadius: C.radius.md,
+                padding: '0 14px',
+                background: buscandoGlobal ? C.bgMuted : C.primaryGrad,
+                color: '#FFFFFF',
+                fontSize: 13,
+                fontWeight: 900,
+                cursor: buscandoGlobal ? 'not-allowed' : 'pointer',
+                fontFamily: C.font,
+                minWidth: 92,
+              }}
+            >
+              {buscandoGlobal ? 'Buscando...' : 'Buscar'}
+            </button>
+            {buscaGlobalFeita && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPedidoBuscaGlobal('');
+                  setResultadosBuscaGlobal([]);
+                  setErroBuscaGlobal('');
+                  setBuscaGlobalFeita(false);
+                }}
+                style={{
+                  height: 38,
+                  border: `1.5px solid ${C.bdMid}`,
+                  borderRadius: C.radius.md,
+                  padding: '0 12px',
+                  background: '#FFFFFF',
+                  color: C.txtSec,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  fontFamily: C.font,
+                }}
+              >
+                Limpar
+              </button>
+            )}
+            <span
+              style={{
+                marginLeft: 'auto',
+                fontSize: 11,
+                color: C.txtMuted,
+                fontWeight: 800,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Pesquisa nos dados já carregados: Faturamento, Estoque e Produção
+            </span>
+          </form>
+
+          {buscaGlobalFeita && (
+            <div
+              style={{
+                marginTop: 10,
+                background: '#FFFFFF',
+                border: `1.5px solid ${C.bdLight}`,
+                borderRadius: C.radius.md,
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  padding: '10px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  borderBottom: `1px solid ${C.bdLight}`,
+                }}
+              >
+                <div style={{ fontSize: 13, fontWeight: 900, color: C.txtPri }}>
+                  Resultado da busca: {pedidoBuscaGlobal || '—'}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 900,
+                    color: C.txtSec,
+                    background: C.bgMuted,
+                    borderRadius: 999,
+                    padding: '5px 10px',
+                  }}
+                >
+                  {resultadosBuscaGlobal.length} ocorrência(s)
+                </div>
+              </div>
+
+              {erroBuscaGlobal && (
+                <div
+                  style={{
+                    padding: '9px 12px',
+                    color: C.red,
+                    background: C.redBg,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    borderBottom: `1px solid ${C.redBd}`,
+                  }}
+                >
+                  {erroBuscaGlobal}
+                </div>
+              )}
+
+              {buscandoGlobal ? (
+                <div
+                  style={{
+                    padding: 18,
+                    color: C.txtMuted,
+                    fontSize: 12,
+                    fontWeight: 800,
+                  }}
+                >
+                  Pesquisando nos dados já carregados...
+                </div>
+              ) : resultadosBuscaGlobal.length === 0 ? (
+                <div
+                  style={{
+                    padding: 18,
+                    color: C.txtMuted,
+                    fontSize: 12,
+                    fontWeight: 800,
+                  }}
+                >
+                  Nenhum registro encontrado para esse pedido.
+                </div>
+              ) : (
+                <div
+                  style={{
+                    overflowX: 'auto',
+                    maxHeight: 280,
+                    overflowY: 'auto',
+                  }}
+                >
+                  <table
+                    style={{
+                      width: '100%',
+                      borderCollapse: 'collapse',
+                      fontSize: 12,
+                    }}
+                  >
+                    <thead>
+                      <tr style={{ background: '#F3F6FC' }}>
+                        {[
+                          'Origem',
+                          'Pedido',
+                          'Filial',
+                          'Produto',
+                          'Qtd',
+                          'Status',
+                          'Data',
+                          'Detalhe',
+                          '',
+                        ].map((h) => (
+                          <th
+                            key={h}
+                            style={{
+                              padding: '9px 10px',
+                              textAlign: 'left',
+                              fontSize: 10,
+                              color: C.txtSec,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.04em',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resultadosBuscaGlobal.map((item, index) => (
+                        <tr
+                          key={`${item.origem}-${item.pedido}-${index}`}
+                          style={{ borderTop: `1px solid ${C.bdLight}` }}
+                        >
+                          <td
+                            style={{
+                              padding: '9px 10px',
+                              fontWeight: 900,
+                              color: C.txtPri,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {item.origem}
+                          </td>
+                          <td
+                            style={{
+                              padding: '9px 10px',
+                              fontWeight: 900,
+                              color: C.primary,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {item.pedido}
+                          </td>
+                          <td
+                            style={{
+                              padding: '9px 10px',
+                              color: C.txtSec,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {item.filial}
+                          </td>
+                          <td
+                            style={{
+                              padding: '9px 10px',
+                              color: C.txtSec,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {item.produto}
+                          </td>
+                          <td
+                            style={{
+                              padding: '9px 10px',
+                              color: C.txtSec,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {item.quantidade}
+                          </td>
+                          <td
+                            style={{
+                              padding: '9px 10px',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            <Badge
+                              texto={item.status}
+                              tipo={tipoStatus(item.status)}
+                            />
+                          </td>
+                          <td
+                            style={{
+                              padding: '9px 10px',
+                              color: C.txtSec,
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {item.data}
+                          </td>
+                          <td
+                            style={{
+                              padding: '9px 10px',
+                              color: C.txtSec,
+                              minWidth: 220,
+                            }}
+                          >
+                            {item.detalhe}
+                          </td>
+                          <td
+                            style={{ padding: '9px 10px', textAlign: 'right' }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setTela(item.telaDestino)}
+                              style={{
+                                border: `1.5px solid ${C.bdMid}`,
+                                background: '#FFFFFF',
+                                borderRadius: 9,
+                                padding: '6px 10px',
+                                cursor: 'pointer',
+                                color: C.txtPri,
+                                fontWeight: 800,
+                                fontSize: 11,
+                                fontFamily: C.font,
+                              }}
+                            >
+                              Abrir
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
         <div style={{ display: tela === 'faturamento' ? 'block' : 'none' }}>
           <TelaFaturamento />
         </div>
@@ -5202,7 +5741,7 @@ export default function App() {
         <div style={{ display: tela === 'ajusteSaldo' ? 'block' : 'none' }}>
           <TelaAjusteSaldo />
         </div>
-        
+
         <div style={{ display: tela === 'consultaPecas' ? 'block' : 'none' }}>
           <TelaConsultaPecas />
         </div>
