@@ -95,6 +95,18 @@ const FILTROS_PRODUCAO_INICIAIS = {
   transporte: '',
   status: '',
 };
+const FILTROS_PEDIDO_VENDA_1020_INICIAIS = {
+  dataHoraFinanceiro: '',
+  pedido: '',
+  cliente: '',
+  produto: '',
+  quantidadeLiberada: '',
+  equipa01: '',
+  equipa98: '',
+  bateria01: '',
+  endereco: '',
+  status: '',
+};
 const FILTROS_PRODUCAO_RESUMO_INICIAIS = {
   pedido: '',
   cliente: '',
@@ -354,6 +366,13 @@ function numeroInteiro(valor) {
 function somaCampo(dados, campo) {
   return dados.reduce((t, i) => t + numeroInteiro(i[campo]), 0);
 }
+
+function formatarInteiroTabela(valor) {
+  if (valor === null || valor === undefined || valor === '') return '—';
+
+  const numero = numeroInteiro(valor);
+  return String(numero);
+}
 function filtrarDados(dados, busca, filtros, camposBusca) {
   const termo = normalizar(busca);
   return dados.filter((item) => {
@@ -427,7 +446,10 @@ function tipoStatus(status) {
     s.includes('concluída')
   )
     return 'verde';
-  if (s.includes('avisar vendedor')) return 'vermelho';
+  if (s.includes('nao comprar') || s.includes('não comprar')) return 'vermelho';
+  if (s.includes('comprar')) return 'verde';
+  if (s.includes('avisar vendedor')) return 'laranja';
+  if (s.includes('avisado')) return 'azul';
   if (s === 'produzir') return 'azul';
   if (s.includes('nao produzir') || s.includes('não produzir')) return 'verde';
   if (s.includes('no prazo')) return 'verde';
@@ -637,7 +659,12 @@ function Kpi({ titulo, valor, subtitulo, onClick, ativo }) {
   const gradients = [C.grad1, C.grad4, C.grad2, C.grad5, C.grad6, C.grad3];
   const idx =
     Math.abs(titulo.charCodeAt(0) + titulo.charCodeAt(1)) % gradients.length;
-  const grad = gradients[idx];
+  const grad =
+    normalizar(titulo) === 'comprar'
+      ? C.grad2
+      : normalizar(titulo).includes('avisar vendedor')
+      ? C.grad5
+      : gradients[idx];
   return (
     <div
       onClick={onClick}
@@ -1884,6 +1911,257 @@ function TelaFaturamento() {
         onFiltro={(c, v) => setFiltrosColuna((p) => ({ ...p, [c]: v }))}
         carregando={carregando}
         mensagemVazia="Nenhum pedido encontrado."
+      />
+    </>
+  );
+}
+
+function TelaPedidoVenda1020() {
+  const [dados, setDados] = useState([]);
+  const [busca, setBusca] = useState('');
+  const [periodoFiltro, setPeriodoFiltro] = useState('todos');
+  const [diasPeriodo, setDiasPeriodo] = useState('7');
+  const [filtrosColuna, setFiltrosColuna] = useState(
+    FILTROS_PEDIDO_VENDA_1020_INICIAIS
+  );
+  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState('');
+  const [atualizadoEm, setAtualizadoEm] = useState('');
+  const [tipoRelatorio, setTipoRelatorio] = useState('');
+
+  const load = useCallback(async () => {
+    setCarregando(true);
+    setErro('');
+
+    try {
+      const resposta = await fetch(
+        `${API_BASE}?action=dados&fonte=pedidoVenda1020`
+      );
+      const json = await resposta.json();
+
+      if (!json.ok) {
+        throw new Error(json.erro || 'Erro ao carregar Pedido de Venda 1020');
+      }
+
+      const dadosPedidoVenda = json.dados || [];
+
+      setDados(dadosPedidoVenda);
+      setCacheDadosPainel('pedidoVenda1020', dadosPedidoVenda);
+      setAtualizadoEm(json.atualizadoEm || '');
+      setTipoRelatorio(json.tipoRelatorio || '');
+    } catch (e) {
+      setErro(e.message);
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    const i = setInterval(load, 60000);
+    return () => clearInterval(i);
+  }, [load]);
+
+  const dadosPeriodo = useMemo(
+    () =>
+      filtrarPorPeriodo(
+        dados,
+        'dataHoraFinanceiro',
+        periodoFiltro,
+        diasPeriodo
+      ),
+    [dados, periodoFiltro, diasPeriodo]
+  );
+
+  const dadosFiltrados = useMemo(
+    () =>
+      filtrarDados(dadosPeriodo, busca, filtrosColuna, [
+        'dataHoraFinanceiro',
+        'pedido',
+        'cliente',
+        'produto',
+        'quantidadeLiberada',
+        'equipa01',
+        'equipa98',
+        'bateria01',
+        'endereco',
+        'status',
+      ]),
+    [dadosPeriodo, busca, filtrosColuna]
+  );
+
+  const kpis = useMemo(() => {
+    const comprar = dadosFiltrados.filter((item) => {
+      const status = normalizar(item.status);
+      return (
+        status.includes('comprar') &&
+        !status.includes('nao comprar') &&
+        !status.includes('não comprar')
+      );
+    }).length;
+
+    const avisarVendedor = dadosFiltrados.filter((item) => {
+      const status = normalizar(item.status);
+      return status.includes('avisar vendedor');
+    }).length;
+
+    return {
+      comprar,
+      avisarVendedor,
+    };
+  }, [dadosFiltrados]);
+
+  const colunas = [
+    {
+      campo: 'dataHoraFinanceiro',
+      titulo: 'Financeiro',
+      width: 132,
+    },
+    {
+      campo: 'pedido',
+      titulo: 'Pedido',
+      bold: true,
+      width: 76,
+    },
+    {
+      campo: 'cliente',
+      titulo: 'Cliente',
+      width: 108,
+      wrap: true,
+    },
+    {
+      campo: 'produto',
+      titulo: 'Produto',
+      bold: true,
+      width: 170,
+      wrap: true,
+    },
+    {
+      campo: 'quantidadeLiberada',
+      titulo: 'Qt Lib.',
+      bold: true,
+      width: 70,
+      render: (i) => formatarInteiroTabela(i.quantidadeLiberada),
+    },
+    {
+      campo: 'equipa01',
+      titulo: 'Equipa 01',
+      width: 72,
+      render: (i) => formatarInteiroTabela(i.equipa01),
+    },
+    {
+      campo: 'equipa98',
+      titulo: 'Equipa 98',
+      width: 72,
+      render: (i) => formatarInteiroTabela(i.equipa98),
+    },
+    {
+      campo: 'bateria01',
+      titulo: 'Bateria',
+      width: 72,
+      render: (i) => formatarInteiroTabela(i.bateria01),
+    },
+    {
+      campo: 'endereco',
+      titulo: 'Transportadora',
+      width: 130,
+      wrap: true,
+    },
+    {
+      campo: 'status',
+      titulo: 'Status',
+      width: 104,
+      render: (i) => <Badge texto={i.status} tipo={tipoStatus(i.status)} />,
+    },
+  ];
+
+  function limparTudo() {
+    setBusca('');
+    setPeriodoFiltro('todos');
+    setDiasPeriodo('7');
+    setFiltrosColuna(FILTROS_PEDIDO_VENDA_1020_INICIAIS);
+  }
+
+  return (
+    <>
+      <PageHeader
+        titulo="Pedido de Venda 1020"
+        atualizadoEm={atualizadoEm || '—'}
+        extraInfo={
+          tipoRelatorio ? (
+            <span>
+              Tipo relatório:{' '}
+              <strong style={{ color: C.txtSec }}>{tipoRelatorio}</strong>
+            </span>
+          ) : null
+        }
+        actions={
+          <button
+            onClick={load}
+            disabled={carregando}
+            style={btnAtualizar(carregando)}
+          >
+            {carregando ? 'Atualizando…' : 'Atualizar'}
+          </button>
+        }
+      />
+
+      {erro && <div style={erroEl}>{erro}</div>}
+
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2,minmax(0,1fr))',
+          gap: 12,
+          marginBottom: 18,
+        }}
+      >
+        <Kpi
+          titulo="Comprar"
+          valor={kpis.comprar}
+          onClick={() => {
+            setBusca('');
+            setFiltrosColuna({
+              ...FILTROS_PEDIDO_VENDA_1020_INICIAIS,
+              status: 'Comprar',
+            });
+          }}
+          ativo={filtrosColuna.status === 'Comprar'}
+        />
+        <Kpi
+          titulo="Avisar Vendedor"
+          valor={kpis.avisarVendedor}
+          onClick={() => {
+            setBusca('');
+            setFiltrosColuna({
+              ...FILTROS_PEDIDO_VENDA_1020_INICIAIS,
+              status: 'Avisar vendedor',
+            });
+          }}
+          ativo={normalizar(filtrosColuna.status).includes('avisar vendedor')}
+        />
+      </section>
+
+      <FiltroTopo
+        busca={busca}
+        setBusca={setBusca}
+        limparFiltros={limparTudo}
+        placeholder="Busca em pedido de venda…"
+        periodoFiltro={periodoFiltro}
+        setPeriodoFiltro={setPeriodoFiltro}
+        diasPeriodo={diasPeriodo}
+        setDiasPeriodo={setDiasPeriodo}
+      />
+
+      <TabelaPadrao
+        titulo="Pedido de Venda — 1020"
+        dadosBase={dados}
+        dadosFiltrados={dadosFiltrados}
+        colunas={colunas}
+        filtros={filtrosColuna}
+        onFiltro={(c, v) => setFiltrosColuna((p) => ({ ...p, [c]: v }))}
+        carregando={carregando}
+        mensagemVazia="Nenhum pedido de venda encontrado."
       />
     </>
   );
@@ -5054,6 +5332,11 @@ export default function App() {
       },
       { key: 'estoque', origem: 'Estoque', telaDestino: 'estoque' },
       { key: 'producao', origem: 'Produção', telaDestino: 'producao' },
+      {
+        key: 'pedidoVenda1020',
+        origem: 'Pedido de Venda · 1020',
+        telaDestino: 'pedidoVenda1020',
+      },
     ];
 
     try {
@@ -5066,6 +5349,7 @@ export default function App() {
           fonte.key === 'equipatech' || fonte.key === 'bbbaterias';
         const ehEstoque = fonte.key === 'estoque';
         const ehProducao = fonte.key === 'producao';
+        const ehPedidoVenda = fonte.key === 'pedidoVenda1020';
 
         dadosFonte
           .filter((item) => normalizar(item.pedido).includes(termoPedido))
@@ -5100,6 +5384,10 @@ export default function App() {
                 : ehProducao
                 ? `Transporte: ${item.transporte || '-'} · Cliente: ${
                     item.cliente || '-'
+                  }`
+                : ehPedidoVenda
+                ? `Cliente: ${item.cliente || '-'} · Transportadora: ${
+                    item.endereco || '-'
                   }`
                 : '-',
             });
@@ -5252,6 +5540,13 @@ export default function App() {
             onClick={() => setTela('faturamento')}
           >
             Faturamento
+          </MenuBtn>
+          <MenuBtn
+            icon="V"
+            ativo={tela === 'pedidoVenda1020'}
+            onClick={() => setTela('pedidoVenda1020')}
+          >
+            Pedido de Venda
           </MenuBtn>
           <div
             style={{
@@ -5498,7 +5793,8 @@ export default function App() {
                 whiteSpace: 'nowrap',
               }}
             >
-              Pesquisa nos dados já carregados: Faturamento, Estoque e Produção
+              Pesquisa nos dados já carregados: Faturamento, Estoque, Produção e
+              Pedido de Venda
             </span>
           </form>
 
@@ -5734,6 +6030,9 @@ export default function App() {
         </section>
         <div style={{ display: tela === 'faturamento' ? 'block' : 'none' }}>
           <TelaFaturamento />
+        </div>
+        <div style={{ display: tela === 'pedidoVenda1020' ? 'block' : 'none' }}>
+          <TelaPedidoVenda1020 />
         </div>
         <div style={{ display: tela === 'estoque' ? 'block' : 'none' }}>
           <TelaEstoque />
