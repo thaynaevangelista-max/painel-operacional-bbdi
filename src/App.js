@@ -95,18 +95,6 @@ const FILTROS_PRODUCAO_INICIAIS = {
   transporte: '',
   status: '',
 };
-const FILTROS_PEDIDO_VENDA_1020_INICIAIS = {
-  dataHoraFinanceiro: '',
-  pedido: '',
-  cliente: '',
-  produto: '',
-  quantidadeLiberada: '',
-  equipa01: '',
-  equipa98: '',
-  bateria01: '',
-  endereco: '',
-  status: '',
-};
 const FILTROS_PRODUCAO_RESUMO_INICIAIS = {
   pedido: '',
   cliente: '',
@@ -117,6 +105,18 @@ const FILTROS_PRODUCAO_RESUMO_INICIAIS = {
   naoProduzir: '',
   transportes: '',
   statusResumo: '',
+};
+const FILTROS_PEDIDO_VENDA_INICIAIS = {
+  dataHoraFinanceiro: '',
+  pedido: '',
+  cliente: '',
+  produto: '',
+  quantidadeLiberada: '',
+  equipa01: '',
+  equipa98: '',
+  bateria01: '',
+  endereco: '',
+  status: '',
 };
 const FILTROS_INDICADOR_DIARIO_INICIAIS = {
   semana: '',
@@ -162,6 +162,14 @@ const FILTROS_INDICADOR_EXPEDICAO_DIARIO_INICIAIS = {
   geralAtraso: '',
   geralFaturados: '',
   geralTotalEnviados: '',
+};
+
+const FILTROS_INDICADOR_ABASTECIMENTO_ESTOQUE_INICIAIS = {
+  data: '',
+  meta: '',
+  realizado: '',
+  percentualCalculado: '',
+  statusMeta: '',
 };
 
 // ─── Helpers (lógica preservada) ───────────────────────────────────────────────
@@ -366,13 +374,6 @@ function numeroInteiro(valor) {
 function somaCampo(dados, campo) {
   return dados.reduce((t, i) => t + numeroInteiro(i[campo]), 0);
 }
-
-function formatarInteiroTabela(valor) {
-  if (valor === null || valor === undefined || valor === '') return '—';
-
-  const numero = numeroInteiro(valor);
-  return String(numero);
-}
 function filtrarDados(dados, busca, filtros, camposBusca) {
   const termo = normalizar(busca);
   return dados.filter((item) => {
@@ -446,10 +447,7 @@ function tipoStatus(status) {
     s.includes('concluída')
   )
     return 'verde';
-  if (s.includes('nao comprar') || s.includes('não comprar')) return 'vermelho';
-  if (s.includes('comprar')) return 'verde';
-  if (s.includes('avisar vendedor')) return 'laranja';
-  if (s.includes('avisado')) return 'azul';
+  if (s.includes('avisar vendedor')) return 'vermelho';
   if (s === 'produzir') return 'azul';
   if (s.includes('nao produzir') || s.includes('não produzir')) return 'verde';
   if (s.includes('no prazo')) return 'verde';
@@ -463,6 +461,41 @@ function tipoStatus(status) {
   if (s.includes('ajustado') || s.includes('resolvido')) return 'verde';
   return 'cinza';
 }
+function tipoStatusPedidoVenda(status) {
+  const s = normalizar(status);
+
+  if (s.includes('avisado')) return 'azul';
+
+  if (
+    s.includes('comprar') &&
+    !s.includes('nao comprar') &&
+    !s.includes('não comprar')
+  ) {
+    return 'verde';
+  }
+
+  if (s.includes('nao comprar') || s.includes('não comprar')) {
+    return 'vermelho';
+  }
+
+  return tipoStatus(status);
+}
+
+function formatarNumeroInteiro(valor) {
+  if (valor === null || valor === undefined || valor === '') return '0';
+
+  const numero = Number(
+    String(valor)
+      .replace(/\./g, '')
+      .replace(',', '.')
+      .replace(/[^0-9.-]/g, '')
+  );
+
+  if (Number.isNaN(numero)) return String(valor || '0');
+
+  return Math.round(numero).toLocaleString('pt-BR');
+}
+
 function tipoSeparacao(status) {
   const s = normalizar(status);
   if (!s) return 'cinza';
@@ -659,12 +692,7 @@ function Kpi({ titulo, valor, subtitulo, onClick, ativo }) {
   const gradients = [C.grad1, C.grad4, C.grad2, C.grad5, C.grad6, C.grad3];
   const idx =
     Math.abs(titulo.charCodeAt(0) + titulo.charCodeAt(1)) % gradients.length;
-  const grad =
-    normalizar(titulo) === 'comprar'
-      ? C.grad2
-      : normalizar(titulo).includes('avisar vendedor')
-      ? C.grad5
-      : gradients[idx];
+  const grad = gradients[idx];
   return (
     <div
       onClick={onClick}
@@ -1916,257 +1944,6 @@ function TelaFaturamento() {
   );
 }
 
-function TelaPedidoVenda1020() {
-  const [dados, setDados] = useState([]);
-  const [busca, setBusca] = useState('');
-  const [periodoFiltro, setPeriodoFiltro] = useState('todos');
-  const [diasPeriodo, setDiasPeriodo] = useState('7');
-  const [filtrosColuna, setFiltrosColuna] = useState(
-    FILTROS_PEDIDO_VENDA_1020_INICIAIS
-  );
-  const [carregando, setCarregando] = useState(false);
-  const [erro, setErro] = useState('');
-  const [atualizadoEm, setAtualizadoEm] = useState('');
-  const [tipoRelatorio, setTipoRelatorio] = useState('');
-
-  const load = useCallback(async () => {
-    setCarregando(true);
-    setErro('');
-
-    try {
-      const resposta = await fetch(
-        `${API_BASE}?action=dados&fonte=pedidoVenda1020`
-      );
-      const json = await resposta.json();
-
-      if (!json.ok) {
-        throw new Error(json.erro || 'Erro ao carregar Pedido de Venda 1020');
-      }
-
-      const dadosPedidoVenda = json.dados || [];
-
-      setDados(dadosPedidoVenda);
-      setCacheDadosPainel('pedidoVenda1020', dadosPedidoVenda);
-      setAtualizadoEm(json.atualizadoEm || '');
-      setTipoRelatorio(json.tipoRelatorio || '');
-    } catch (e) {
-      setErro(e.message);
-    } finally {
-      setCarregando(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-    const i = setInterval(load, 60000);
-    return () => clearInterval(i);
-  }, [load]);
-
-  const dadosPeriodo = useMemo(
-    () =>
-      filtrarPorPeriodo(
-        dados,
-        'dataHoraFinanceiro',
-        periodoFiltro,
-        diasPeriodo
-      ),
-    [dados, periodoFiltro, diasPeriodo]
-  );
-
-  const dadosFiltrados = useMemo(
-    () =>
-      filtrarDados(dadosPeriodo, busca, filtrosColuna, [
-        'dataHoraFinanceiro',
-        'pedido',
-        'cliente',
-        'produto',
-        'quantidadeLiberada',
-        'equipa01',
-        'equipa98',
-        'bateria01',
-        'endereco',
-        'status',
-      ]),
-    [dadosPeriodo, busca, filtrosColuna]
-  );
-
-  const kpis = useMemo(() => {
-    const comprar = dadosFiltrados.filter((item) => {
-      const status = normalizar(item.status);
-      return (
-        status.includes('comprar') &&
-        !status.includes('nao comprar') &&
-        !status.includes('não comprar')
-      );
-    }).length;
-
-    const avisarVendedor = dadosFiltrados.filter((item) => {
-      const status = normalizar(item.status);
-      return status.includes('avisar vendedor');
-    }).length;
-
-    return {
-      comprar,
-      avisarVendedor,
-    };
-  }, [dadosFiltrados]);
-
-  const colunas = [
-    {
-      campo: 'dataHoraFinanceiro',
-      titulo: 'Financeiro',
-      width: 132,
-    },
-    {
-      campo: 'pedido',
-      titulo: 'Pedido',
-      bold: true,
-      width: 76,
-    },
-    {
-      campo: 'cliente',
-      titulo: 'Cliente',
-      width: 108,
-      wrap: true,
-    },
-    {
-      campo: 'produto',
-      titulo: 'Produto',
-      bold: true,
-      width: 170,
-      wrap: true,
-    },
-    {
-      campo: 'quantidadeLiberada',
-      titulo: 'Qt Lib.',
-      bold: true,
-      width: 70,
-      render: (i) => formatarInteiroTabela(i.quantidadeLiberada),
-    },
-    {
-      campo: 'equipa01',
-      titulo: 'Equipa 01',
-      width: 72,
-      render: (i) => formatarInteiroTabela(i.equipa01),
-    },
-    {
-      campo: 'equipa98',
-      titulo: 'Equipa 98',
-      width: 72,
-      render: (i) => formatarInteiroTabela(i.equipa98),
-    },
-    {
-      campo: 'bateria01',
-      titulo: 'Bateria',
-      width: 72,
-      render: (i) => formatarInteiroTabela(i.bateria01),
-    },
-    {
-      campo: 'endereco',
-      titulo: 'Transportadora',
-      width: 130,
-      wrap: true,
-    },
-    {
-      campo: 'status',
-      titulo: 'Status',
-      width: 104,
-      render: (i) => <Badge texto={i.status} tipo={tipoStatus(i.status)} />,
-    },
-  ];
-
-  function limparTudo() {
-    setBusca('');
-    setPeriodoFiltro('todos');
-    setDiasPeriodo('7');
-    setFiltrosColuna(FILTROS_PEDIDO_VENDA_1020_INICIAIS);
-  }
-
-  return (
-    <>
-      <PageHeader
-        titulo="Pedido de Venda 1020"
-        atualizadoEm={atualizadoEm || '—'}
-        extraInfo={
-          tipoRelatorio ? (
-            <span>
-              Tipo relatório:{' '}
-              <strong style={{ color: C.txtSec }}>{tipoRelatorio}</strong>
-            </span>
-          ) : null
-        }
-        actions={
-          <button
-            onClick={load}
-            disabled={carregando}
-            style={btnAtualizar(carregando)}
-          >
-            {carregando ? 'Atualizando…' : 'Atualizar'}
-          </button>
-        }
-      />
-
-      {erro && <div style={erroEl}>{erro}</div>}
-
-      <section
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(2,minmax(0,1fr))',
-          gap: 12,
-          marginBottom: 18,
-        }}
-      >
-        <Kpi
-          titulo="Comprar"
-          valor={kpis.comprar}
-          onClick={() => {
-            setBusca('');
-            setFiltrosColuna({
-              ...FILTROS_PEDIDO_VENDA_1020_INICIAIS,
-              status: 'Comprar',
-            });
-          }}
-          ativo={filtrosColuna.status === 'Comprar'}
-        />
-        <Kpi
-          titulo="Avisar Vendedor"
-          valor={kpis.avisarVendedor}
-          onClick={() => {
-            setBusca('');
-            setFiltrosColuna({
-              ...FILTROS_PEDIDO_VENDA_1020_INICIAIS,
-              status: 'Avisar vendedor',
-            });
-          }}
-          ativo={normalizar(filtrosColuna.status).includes('avisar vendedor')}
-        />
-      </section>
-
-      <FiltroTopo
-        busca={busca}
-        setBusca={setBusca}
-        limparFiltros={limparTudo}
-        placeholder="Busca em pedido de venda…"
-        periodoFiltro={periodoFiltro}
-        setPeriodoFiltro={setPeriodoFiltro}
-        diasPeriodo={diasPeriodo}
-        setDiasPeriodo={setDiasPeriodo}
-      />
-
-      <TabelaPadrao
-        titulo="Pedido de Venda — 1020"
-        dadosBase={dados}
-        dadosFiltrados={dadosFiltrados}
-        colunas={colunas}
-        filtros={filtrosColuna}
-        onFiltro={(c, v) => setFiltrosColuna((p) => ({ ...p, [c]: v }))}
-        carregando={carregando}
-        mensagemVazia="Nenhum pedido de venda encontrado."
-      />
-    </>
-  );
-}
-
 function TelaEstoque() {
   const [dados, setDados] = useState([]);
   const [busca, setBusca] = useState('');
@@ -2788,6 +2565,7 @@ function TelaConsultaPecas() {
         ),
       }));
       setDados(registros);
+      setCacheDadosPainel('consultaPecas', registros);
       setAtualizado(j.atualizadoEm || '');
     } catch (e) {
       setErro(e.message);
@@ -3109,6 +2887,228 @@ function TelaProducao({ modo }) {
         onFiltro={(c, v) => setFc((p) => ({ ...p, [c]: v }))}
         carregando={loading}
         mensagemVazia={modo === 'resumo' ? 'Nenhum resumo.' : 'Nenhum item.'}
+      />
+    </>
+  );
+}
+
+function TelaPedidoVenda() {
+  const [dados, setDados] = useState([]);
+  const [busca, setBusca] = useState('');
+  const [pf, setPf] = useState('todos');
+  const [dp, setDp] = useState('7');
+  const [fc, setFc] = useState(FILTROS_PEDIDO_VENDA_INICIAIS);
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState('');
+  const [atualizado, setAtualizado] = useState('');
+  const [tipoRelatorio, setTipoRelatorio] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErro('');
+
+    try {
+      const resposta = await fetch(
+        `${API_BASE}?action=dados&fonte=pedidoVenda1020`
+      );
+      const json = await resposta.json();
+
+      if (!json.ok) {
+        throw new Error(json.erro || 'Erro ao carregar Pedido de Venda');
+      }
+
+      const registros = json.dados || [];
+
+      setDados(registros);
+      setCacheDadosPainel('pedidoVenda1020', registros);
+      setAtualizado(json.atualizadoEm || '');
+      setTipoRelatorio(json.tipoRelatorio || json.nome || '');
+    } catch (e) {
+      setErro(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    const intervalo = setInterval(load, 60000);
+    return () => clearInterval(intervalo);
+  }, [load]);
+
+  const dadosPeriodo = useMemo(
+    () => filtrarPorPeriodo(dados, 'dataHoraFinanceiro', pf, dp),
+    [dados, pf, dp]
+  );
+
+  const dadosFiltrados = useMemo(
+    () =>
+      filtrarDados(dadosPeriodo, busca, fc, [
+        'dataHoraFinanceiro',
+        'pedido',
+        'cliente',
+        'produto',
+        'quantidadeLiberada',
+        'equipa01',
+        'equipa98',
+        'bateria01',
+        'endereco',
+        'status',
+      ]),
+    [dadosPeriodo, busca, fc]
+  );
+
+  const kpis = useMemo(() => {
+    const pedidosUnicos = new Set(
+      dadosFiltrados
+        .map((item) => String(item.pedido || '').trim())
+        .filter((pedido) => pedido !== '' && pedido !== '0')
+    ).size;
+
+    const comprar = dadosFiltrados.filter((item) => {
+      const status = normalizar(item.status);
+      return (
+        status.includes('comprar') &&
+        !status.includes('nao comprar') &&
+        !status.includes('não comprar')
+      );
+    }).length;
+
+    const naoComprar = dadosFiltrados.filter((item) => {
+      const status = normalizar(item.status);
+      return status.includes('nao comprar') || status.includes('não comprar');
+    }).length;
+
+    const avisado = dadosFiltrados.filter((item) =>
+      normalizar(item.status).includes('avisado')
+    ).length;
+
+    const quantidadeTotal = dadosFiltrados.reduce((total, item) => {
+      const valor = Number(
+        String(item.quantidadeLiberada || '0')
+          .replace(/\./g, '')
+          .replace(',', '.')
+          .replace(/[^0-9.-]/g, '')
+      );
+
+      return total + (Number.isNaN(valor) ? 0 : valor);
+    }, 0);
+
+    return {
+      pedidosUnicos,
+      comprar,
+      naoComprar,
+      avisado,
+      quantidadeTotal: Math.round(quantidadeTotal),
+    };
+  }, [dadosFiltrados]);
+
+  const colunas = [
+    { campo: 'dataHoraFinanceiro', titulo: 'Lib. Financeiro', width: 132 },
+    { campo: 'pedido', titulo: 'Pedido', bold: true, width: 78 },
+    { campo: 'cliente', titulo: 'Cliente', width: 100 },
+    { campo: 'produto', titulo: 'Produto', bold: true, width: 150, wrap: true },
+    {
+      campo: 'quantidadeLiberada',
+      titulo: 'Qt',
+      width: 58,
+      render: (item) => formatarNumeroInteiro(item.quantidadeLiberada),
+    },
+    {
+      campo: 'equipa01',
+      titulo: 'Equipa 01',
+      width: 78,
+      render: (item) => formatarNumeroInteiro(item.equipa01),
+    },
+    {
+      campo: 'equipa98',
+      titulo: 'Equipa 98',
+      width: 78,
+      render: (item) => formatarNumeroInteiro(item.equipa98),
+    },
+    {
+      campo: 'bateria01',
+      titulo: 'Bateria',
+      width: 72,
+      render: (item) => formatarNumeroInteiro(item.bateria01),
+    },
+    { campo: 'endereco', titulo: 'Endereço', width: 110, wrap: true },
+    {
+      campo: 'status',
+      titulo: 'Status',
+      width: 104,
+      render: (item) => (
+        <Badge texto={item.status} tipo={tipoStatusPedidoVenda(item.status)} />
+      ),
+    },
+  ];
+
+  return (
+    <>
+      <PageHeader
+        titulo="Pedido de Venda"
+        atualizadoEm={atualizado || '—'}
+        extraInfo={
+          tipoRelatorio ? (
+            <span>
+              Relatório:{' '}
+              <strong style={{ color: C.txtSec }}>{tipoRelatorio}</strong>
+            </span>
+          ) : null
+        }
+        actions={
+          <button
+            onClick={load}
+            disabled={loading}
+            style={btnAtualizar(loading)}
+          >
+            {loading ? 'Atualizando…' : 'Atualizar'}
+          </button>
+        }
+      />
+
+      {erro && <div style={erroEl}>{erro}</div>}
+
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(5,minmax(0,1fr))',
+          gap: 12,
+          marginBottom: 18,
+        }}
+      >
+        <Kpi titulo="Pedidos Únicos" valor={kpis.pedidosUnicos} />
+        <Kpi titulo="Comprar" valor={kpis.comprar} />
+        <Kpi titulo="Não Comprar" valor={kpis.naoComprar} />
+        <Kpi titulo="Avisado" valor={kpis.avisado} />
+        <Kpi titulo="Quantidade Total" valor={kpis.quantidadeTotal} />
+      </section>
+
+      <FiltroTopo
+        busca={busca}
+        setBusca={setBusca}
+        limparFiltros={() => {
+          setBusca('');
+          setPf('todos');
+          setDp('7');
+          setFc(FILTROS_PEDIDO_VENDA_INICIAIS);
+        }}
+        placeholder="Busca no pedido de venda..."
+        periodoFiltro={pf}
+        setPeriodoFiltro={setPf}
+        diasPeriodo={dp}
+        setDiasPeriodo={setDp}
+      />
+
+      <TabelaPadrao
+        titulo="Pedidos de Venda"
+        dadosBase={dados}
+        dadosFiltrados={dadosFiltrados}
+        colunas={colunas}
+        filtros={fc}
+        onFiltro={(c, v) => setFc((p) => ({ ...p, [c]: v }))}
+        carregando={loading}
+        mensagemVazia="Nenhum pedido de venda encontrado."
       />
     </>
   );
@@ -4822,6 +4822,586 @@ function TelaIndicadorExpedicaoDiario() {
   );
 }
 
+function TelaIndicadorAbastecimentoEstoque() {
+  const { dados, loading, erro, atualizado, load } = useIndicador(
+    'indicadorAbastecimentoEstoque'
+  );
+
+  const [busca, setBusca] = useState('');
+  const [mesFiltro, setMesFiltro] = useState('atual');
+  const [pf, setPf] = useState('todos');
+  const [dp, setDp] = useState('30');
+  const [fc, setFc] = useState(
+    FILTROS_INDICADOR_ABASTECIMENTO_ESTOQUE_INICIAIS
+  );
+
+  const mesAtual = useMemo(() => {
+    const hoje = new Date();
+    return `${String(hoje.getMonth() + 1).padStart(
+      2,
+      '0'
+    )}/${hoje.getFullYear()}`;
+  }, []);
+
+  function obterMesPorData(valor) {
+    const data = parseDataPeriodo(valor);
+
+    if (!data) return '';
+
+    return `${String(data.getMonth() + 1).padStart(
+      2,
+      '0'
+    )}/${data.getFullYear()}`;
+  }
+
+  function obterMetaComparacao() {
+    return 95;
+  }
+
+  function obterStatusMeta(percentual) {
+    const numero = numeroPercentual(percentual);
+    const metaComparacao = obterMetaComparacao();
+
+    if (numero === null) return 'Sem percentual';
+    if (numero >= metaComparacao) return 'Meta atingida';
+    if (numero >= metaComparacao - 2) return 'Atenção';
+    return 'Abaixo da meta';
+  }
+
+  function tipoStatusMeta(status) {
+    const s = normalizar(status);
+
+    if (s.includes('atingida')) return 'verde';
+    if (s.includes('atencao')) return 'laranja';
+    if (s.includes('abaixo')) return 'vermelho';
+
+    return 'cinza';
+  }
+
+  const dadosTratados = useMemo(
+    () =>
+      (dados || []).map((item) => {
+        const percentualDireto = numeroPercentual(item.percentual);
+        const metaNumero = numeroInteiro(item.meta);
+        const realizadoNumero = numeroInteiro(item.realizado);
+
+        const percentualNumero =
+          percentualDireto !== null
+            ? percentualDireto
+            : metaNumero > 0
+            ? (realizadoNumero / metaNumero) * 100
+            : null;
+
+        const percentualCalculado =
+          percentualNumero === null
+            ? ''
+            : `${percentualNumero.toFixed(2).replace('.', ',')}%`;
+
+        const statusMeta = obterStatusMeta(percentualCalculado);
+
+        return {
+          ...item,
+          mes: obterMesPorData(item.data),
+          metaSistema: '95%',
+          percentualCalculado,
+          percentualNumero,
+          statusMeta,
+        };
+      }),
+    [dados]
+  );
+
+  const meses = useMemo(
+    () => opcoesUnicas(dadosTratados, 'mes'),
+    [dadosTratados]
+  );
+
+  const dadosMes = useMemo(() => {
+    if (mesFiltro === 'atual') {
+      return dadosTratados.filter(
+        (item) => String(item.mes || '') === mesAtual
+      );
+    }
+
+    if (!mesFiltro) return dadosTratados;
+
+    return dadosTratados.filter(
+      (item) => String(item.mes || '') === String(mesFiltro)
+    );
+  }, [dadosTratados, mesFiltro, mesAtual]);
+
+  const dadosPeriodo = useMemo(
+    () => filtrarPorPeriodo(dadosMes, 'data', pf, dp),
+    [dadosMes, pf, dp]
+  );
+
+  const dadosFiltrados = useMemo(
+    () =>
+      filtrarDados(dadosPeriodo, busca, fc, [
+        'data',
+        'mes',
+        'meta',
+        'metaSistema',
+        'realizado',
+        'percentualCalculado',
+        'statusMeta',
+      ]),
+    [dadosPeriodo, busca, fc]
+  );
+
+  const kpis = useMemo(() => {
+    const percentuais = dadosFiltrados
+      .map((item) => item.percentualNumero)
+      .filter((numero) => numero !== null && numero !== undefined);
+
+    const media =
+      percentuais.length > 0
+        ? percentuais.reduce((total, numero) => total + numero, 0) /
+          percentuais.length
+        : null;
+
+    const ordenados = dadosFiltrados
+      .filter((item) => item.percentualNumero !== null)
+      .sort((a, b) => b.percentualNumero - a.percentualNumero);
+
+    return {
+      registros: dadosFiltrados.length,
+      media: media === null ? '—' : `${media.toFixed(2).replace('.', ',')}%`,
+      metaAtingida: dadosFiltrados.filter((item) =>
+        normalizar(item.statusMeta).includes('atingida')
+      ).length,
+      abaixoMeta: dadosFiltrados.filter((item) =>
+        normalizar(item.statusMeta).includes('abaixo')
+      ).length,
+      melhor: ordenados[0] || null,
+      pior: ordenados[ordenados.length - 1] || null,
+    };
+  }, [dadosFiltrados]);
+
+  const colunas = [
+    { campo: 'data', titulo: 'Data', bold: true, width: 120 },
+    { campo: 'mes', titulo: 'Mês', width: 90 },
+    { campo: 'metaSistema', titulo: 'Meta', width: 90 },
+    { campo: 'realizado', titulo: 'Realizado', width: 90 },
+    {
+      campo: 'percentualCalculado',
+      titulo: 'Percentual',
+      bold: true,
+      width: 110,
+      render: (item) => (
+        <Badge
+          texto={item.percentualCalculado || '—'}
+          tipo={tipoStatusMeta(item.statusMeta)}
+        />
+      ),
+    },
+    {
+      campo: 'statusMeta',
+      titulo: 'Status',
+      width: 130,
+      render: (item) => (
+        <Badge texto={item.statusMeta} tipo={tipoStatusMeta(item.statusMeta)} />
+      ),
+    },
+  ];
+
+  return (
+    <>
+      <PageHeader
+        titulo="Abastecimento Estoque"
+        atualizadoEm={atualizado || '—'}
+        extraInfo={
+          <span>
+            Meta considerada: <strong style={{ color: C.txtSec }}>95%</strong>
+          </span>
+        }
+        actions={
+          <button
+            onClick={load}
+            disabled={loading}
+            style={btnAtualizar(loading)}
+          >
+            {loading ? 'Atualizando…' : 'Atualizar'}
+          </button>
+        }
+      />
+
+      {erro && <div style={erroEl}>{erro}</div>}
+
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4,minmax(0,1fr))',
+          gap: 12,
+          marginBottom: 18,
+        }}
+      >
+        <Kpi titulo="Registros" valor={kpis.registros} />
+        <Kpi titulo="Média Picking" valor={kpis.media} />
+        <Kpi titulo="Meta Atingida" valor={kpis.metaAtingida} />
+        <Kpi titulo="Abaixo da Meta" valor={kpis.abaixoMeta} />
+      </section>
+
+      <section
+        style={{
+          marginBottom: 16,
+          display: 'flex',
+          gap: 8,
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        }}
+      >
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Busca nos registros de abastecimento..."
+          style={inputEl}
+        />
+
+        <select
+          value={mesFiltro}
+          onChange={(e) => setMesFiltro(e.target.value)}
+          style={selectEl}
+        >
+          <option value="atual">Mês atual</option>
+          <option value="">Todos os meses</option>
+          {meses.map((mes) => (
+            <option key={mes} value={mes}>
+              {mes}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={pf}
+          onChange={(e) => setPf(e.target.value)}
+          style={selectEl}
+        >
+          <option value="todos">Todos os períodos</option>
+          <option value="hoje">Hoje</option>
+          <option value="ontem">Ontem</option>
+          <option value="ultimos">Últimos X dias</option>
+        </select>
+
+        {pf === 'ultimos' && (
+          <input
+            type="number"
+            min="1"
+            value={dp}
+            onChange={(e) => setDp(e.target.value)}
+            style={{ ...selectEl, width: 64 }}
+          />
+        )}
+
+        <button
+          onClick={() => {
+            setBusca('');
+            setMesFiltro('atual');
+            setPf('todos');
+            setDp('30');
+            setFc(FILTROS_INDICADOR_ABASTECIMENTO_ESTOQUE_INICIAIS);
+          }}
+          style={btnLimpar}
+        >
+          Limpar filtros
+        </button>
+      </section>
+
+      <TabelaPadrao
+        titulo="Registros Diários — Abastecimento do Estoque"
+        dadosBase={dadosTratados}
+        dadosFiltrados={dadosFiltrados}
+        colunas={colunas}
+        filtros={fc}
+        onFiltro={(c, v) => setFc((p) => ({ ...p, [c]: v }))}
+        carregando={loading}
+        mensagemVazia="Nenhum registro de abastecimento encontrado."
+      />
+    </>
+  );
+}
+
+function TelaIndicadorAbastecimentoMensal() {
+  const { dados, loading, erro, atualizado, load } = useIndicador(
+    'indicadorAbastecimentoEstoque'
+  );
+
+  const [busca, setBusca] = useState('');
+  const [anoFiltro, setAnoFiltro] = useState('atual');
+
+  const anoAtual = useMemo(() => String(new Date().getFullYear()), []);
+
+  function obterMesAnoPorData(valor) {
+    const data = parseDataPeriodo(valor);
+
+    if (!data) return '';
+
+    return `${String(data.getMonth() + 1).padStart(
+      2,
+      '0'
+    )}/${data.getFullYear()}`;
+  }
+
+  function obterAnoPorMesAno(valor) {
+    const partes = String(valor || '').match(/^(\d{2})\/(\d{4})$/);
+    return partes ? partes[2] : '';
+  }
+
+  function statusMetaMensal(percentual) {
+    const numero = numeroPercentual(percentual);
+
+    if (numero === null) return 'Sem percentual';
+    if (numero >= 95) return 'Meta atingida';
+    if (numero >= 93) return 'Atenção';
+    return 'Abaixo da meta';
+  }
+
+  function tipoStatusMetaMensal(status) {
+    const s = normalizar(status);
+
+    if (s.includes('atingida')) return 'verde';
+    if (s.includes('atencao')) return 'laranja';
+    if (s.includes('abaixo')) return 'vermelho';
+
+    return 'cinza';
+  }
+
+  const dadosTratados = useMemo(
+    () =>
+      (dados || [])
+        .map((item) => {
+          const percentualDireto = numeroPercentual(item.percentual);
+          const metaNumero = numeroInteiro(item.meta);
+          const realizadoNumero = numeroInteiro(item.realizado);
+
+          const percentualNumero =
+            percentualDireto !== null
+              ? percentualDireto
+              : metaNumero > 0
+              ? (realizadoNumero / metaNumero) * 100
+              : null;
+
+          const mesAno = obterMesAnoPorData(item.data);
+
+          return {
+            ...item,
+            mesAno,
+            ano: obterAnoPorMesAno(mesAno),
+            percentualNumero,
+          };
+        })
+        .filter(
+          (item) =>
+            item.mesAno &&
+            item.percentualNumero !== null &&
+            item.percentualNumero !== undefined
+        ),
+    [dados]
+  );
+
+  const dadosMensais = useMemo(() => {
+    const mapa = new Map();
+
+    dadosTratados.forEach((item) => {
+      if (!mapa.has(item.mesAno)) {
+        mapa.set(item.mesAno, {
+          mesAno: item.mesAno,
+          ano: item.ano,
+          totalPercentual: 0,
+          registros: 0,
+        });
+      }
+
+      const registro = mapa.get(item.mesAno);
+      registro.totalPercentual += item.percentualNumero;
+      registro.registros += 1;
+    });
+
+    return Array.from(mapa.values())
+      .map((item) => {
+        const mediaNumero =
+          item.registros > 0 ? item.totalPercentual / item.registros : null;
+
+        const percentual =
+          mediaNumero === null
+            ? ''
+            : `${mediaNumero.toFixed(2).replace('.', ',')}%`;
+
+        return {
+          mesAno: item.mesAno,
+          ano: item.ano,
+          percentual,
+          percentualNumero: mediaNumero,
+          statusMeta: statusMetaMensal(percentual),
+        };
+      })
+      .sort((a, b) => {
+        const [mesA, anoA] = String(a.mesAno).split('/').map(Number);
+        const [mesB, anoB] = String(b.mesAno).split('/').map(Number);
+        return anoA === anoB ? mesA - mesB : anoA - anoB;
+      });
+  }, [dadosTratados]);
+
+  const anos = useMemo(() => opcoesUnicas(dadosMensais, 'ano'), [dadosMensais]);
+
+  const dadosFiltrados = useMemo(() => {
+    const termo = normalizar(busca);
+
+    return dadosMensais.filter((item) => {
+      const anoOk =
+        anoFiltro === 'atual'
+          ? String(item.ano || '') === anoAtual
+          : !anoFiltro || String(item.ano || '') === String(anoFiltro);
+
+      const buscaOk =
+        !termo ||
+        normalizar(item.mesAno).includes(termo) ||
+        normalizar(item.percentual).includes(termo) ||
+        normalizar(item.statusMeta).includes(termo);
+
+      return anoOk && buscaOk;
+    });
+  }, [dadosMensais, busca, anoFiltro, anoAtual]);
+
+  const kpis = useMemo(() => {
+    const percentuais = dadosFiltrados
+      .map((item) => item.percentualNumero)
+      .filter((numero) => numero !== null && numero !== undefined);
+
+    const media =
+      percentuais.length > 0
+        ? percentuais.reduce((total, numero) => total + numero, 0) /
+          percentuais.length
+        : null;
+
+    const ordenados = [...dadosFiltrados]
+      .filter((item) => item.percentualNumero !== null)
+      .sort((a, b) => b.percentualNumero - a.percentualNumero);
+
+    return {
+      meses: dadosFiltrados.length,
+      media: media === null ? '—' : `${media.toFixed(2).replace('.', ',')}%`,
+      melhor: ordenados[0] || null,
+      pior: ordenados[ordenados.length - 1] || null,
+    };
+  }, [dadosFiltrados]);
+
+  const colunas = [
+    { campo: 'mesAno', titulo: 'Mês/Ano', bold: true, width: 120 },
+    {
+      campo: 'percentual',
+      titulo: 'Percentual',
+      bold: true,
+      width: 120,
+      render: (item) => (
+        <Badge
+          texto={item.percentual || '—'}
+          tipo={tipoStatusMetaMensal(item.statusMeta)}
+        />
+      ),
+    },
+  ];
+
+  return (
+    <>
+      <PageHeader
+        titulo="Abastecimento Mensal"
+        atualizadoEm={atualizado || '—'}
+        extraInfo={
+          <span>
+            Meta considerada: <strong style={{ color: C.txtSec }}>95%</strong>
+          </span>
+        }
+        actions={
+          <button
+            onClick={load}
+            disabled={loading}
+            style={btnAtualizar(loading)}
+          >
+            {loading ? 'Atualizando…' : 'Atualizar'}
+          </button>
+        }
+      />
+
+      {erro && <div style={erroEl}>{erro}</div>}
+
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4,minmax(0,1fr))',
+          gap: 12,
+          marginBottom: 18,
+        }}
+      >
+        <Kpi titulo="Meses Analisados" valor={kpis.meses} />
+        <Kpi titulo="Média Geral" valor={kpis.media} />
+        <Kpi
+          titulo="Melhor Mês"
+          valor={kpis.melhor ? kpis.melhor.percentual : '—'}
+          subtitulo={kpis.melhor ? kpis.melhor.mesAno : ''}
+        />
+        <Kpi
+          titulo="Pior Mês"
+          valor={kpis.pior ? kpis.pior.percentual : '—'}
+          subtitulo={kpis.pior ? kpis.pior.mesAno : ''}
+        />
+      </section>
+
+      <section
+        style={{
+          marginBottom: 16,
+          display: 'flex',
+          gap: 8,
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        }}
+      >
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Busca por mês ou percentual..."
+          style={inputEl}
+        />
+
+        <select
+          value={anoFiltro}
+          onChange={(e) => setAnoFiltro(e.target.value)}
+          style={selectEl}
+        >
+          <option value="atual">Ano atual</option>
+          <option value="">Todos os anos</option>
+          {anos.map((ano) => (
+            <option key={ano} value={ano}>
+              {ano}
+            </option>
+          ))}
+        </select>
+
+        <button
+          onClick={() => {
+            setBusca('');
+            setAnoFiltro('atual');
+          }}
+          style={btnLimpar}
+        >
+          Limpar filtros
+        </button>
+      </section>
+
+      <TabelaPadrao
+        titulo="Abastecimento Mensal — Média por Mês"
+        dadosBase={dadosMensais}
+        dadosFiltrados={dadosFiltrados}
+        colunas={colunas}
+        filtros={{}}
+        onFiltro={() => {}}
+        carregando={loading}
+        mensagemVazia="Nenhum indicador mensal de abastecimento encontrado."
+      />
+    </>
+  );
+}
+
 function obterAnoMesIndicador(mesTexto) {
   const partes = String(mesTexto || '')
     .trim()
@@ -5276,11 +5856,872 @@ function TelaIndicadorMensal({ tipo }) {
 
 // ─── App Shell ─────────────────────────────────────────────────────────────────
 
+function TelaDashboard({ setTela }) {
+  const [dadosDashboard, setDadosDashboard] = useState({
+    equipatech: [],
+    bbbaterias: [],
+    producao: [],
+    estoque: [],
+    consultaPecas: [],
+    ajusteSaldo: [],
+    ajusteSaldoBBBaterias: [],
+    pedidoVenda1020: [],
+    indicadorFaturamentoMensal: [],
+    indicadorExpedicaoMensal: [],
+    indicadorAbastecimentoEstoque: [],
+  });
+  const [atualizacoesDashboard, setAtualizacoesDashboard] = useState({});
+  const [atualizadoEm, setAtualizadoEm] = useState('');
+  const [carregando, setCarregando] = useState(false);
+  const [errosFontes, setErrosFontes] = useState([]);
+
+  const carregarDashboard = useCallback(async () => {
+    setCarregando(true);
+
+    const fontes = [
+      'equipatech',
+      'bbbaterias',
+      'producao',
+      'estoque',
+      'consultaPecas',
+      'ajusteSaldo',
+      'ajusteSaldoBBBaterias',
+      'pedidoVenda1020',
+      'indicadorFaturamentoMensal',
+      'indicadorExpedicaoMensal',
+      'indicadorAbastecimentoEstoque',
+    ];
+
+    const buscarFonte = async (fonte) => {
+      try {
+        const resposta = await fetch(`${API_BASE}?action=dados&fonte=${fonte}`);
+        const json = await resposta.json();
+
+        if (!json.ok) {
+          throw new Error(json.erro || `Erro ao carregar ${fonte}`);
+        }
+
+        let dados = json.dados || [];
+
+        if (fonte === 'estoque') {
+          dados = aplicarStatusSeparacaoEstoque(dados);
+        }
+
+        setCacheDadosPainel(fonte, dados);
+
+        return {
+          fonte,
+          ok: true,
+          dados,
+          atualizadoEm: json.atualizadoEm || '',
+        };
+      } catch (e) {
+        return {
+          fonte,
+          ok: false,
+          dados: [],
+          erro: e.message,
+          atualizadoEm: '',
+        };
+      }
+    };
+
+    try {
+      const respostas = await Promise.all(fontes.map(buscarFonte));
+      const novoEstado = {};
+      const novasAtualizacoes = {};
+
+      respostas.forEach((item) => {
+        novoEstado[item.fonte] = item.dados || [];
+        novasAtualizacoes[item.fonte] = item.atualizadoEm || '';
+      });
+
+      setDadosDashboard((estadoAtual) => ({
+        ...estadoAtual,
+        ...novoEstado,
+      }));
+
+      setAtualizacoesDashboard((estadoAtual) => ({
+        ...estadoAtual,
+        ...novasAtualizacoes,
+      }));
+
+      const erros = respostas
+        .filter((item) => !item.ok)
+        .map((item) => `${item.fonte}: ${item.erro}`);
+
+      setErrosFontes(erros);
+      setAtualizadoEm(new Date().toLocaleString('pt-BR'));
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    carregarDashboard();
+    const intervalo = setInterval(carregarDashboard, 60000);
+    return () => clearInterval(intervalo);
+  }, [carregarDashboard]);
+
+  function horaFonte(fonte) {
+    const valor = String(atualizacoesDashboard[fonte] || '').trim();
+
+    if (!valor) return '';
+
+    const hora = valor.match(/\b\d{2}:\d{2}(?::\d{2})?\b/);
+    if (hora) return hora[0];
+
+    return valor;
+  }
+
+  const resumo = useMemo(() => {
+    const faturamentoEQ = dadosDashboard.equipatech || [];
+    const faturamentoBB = dadosDashboard.bbbaterias || [];
+    const producao = dadosDashboard.producao || [];
+    const estoque = dadosDashboard.estoque || [];
+    const consultaPecas = dadosDashboard.consultaPecas || [];
+    const ajusteEQ = dadosDashboard.ajusteSaldo || [];
+    const ajusteBB = dadosDashboard.ajusteSaldoBBBaterias || [];
+    const pedidoVenda = dadosDashboard.pedidoVenda1020 || [];
+    const indicadorMensalFaturamento =
+      dadosDashboard.indicadorFaturamentoMensal || [];
+    const indicadorMensalExpedicao =
+      dadosDashboard.indicadorExpedicaoMensal || [];
+    const indicadorAbastecimentoEstoque =
+      dadosDashboard.indicadorAbastecimentoEstoque || [];
+
+    const pedidosUnicos = (lista) =>
+      new Set(
+        lista
+          .map((item) => String(item.pedido || '').trim())
+          .filter((pedido) => pedido !== '' && pedido !== '0')
+      ).size;
+
+    const producaoProduzir = producao.filter(
+      (item) => normalizar(item.status) === 'produzir'
+    );
+
+    const estoquePendente = estoque.filter((item) => {
+      const status = normalizar(item.status);
+      return !status.includes('conclu') && !status.includes('entregue');
+    });
+
+    const consultaAguardando = consultaPecas.filter(
+      (item) =>
+        item.aguardandoResposta === true || normalizar(item.dataResposta) === ''
+    );
+
+    const ajustePendente = [...ajusteEQ, ...ajusteBB].filter((item) => {
+      const status = normalizar(item.status);
+      return (
+        status.includes('pendente') || status.includes('verificando saldo')
+      );
+    });
+
+    const pedidoVendaComprar = pedidoVenda.filter((item) => {
+      const status = normalizar(item.status);
+      return (
+        status.includes('comprar') &&
+        !status.includes('nao comprar') &&
+        !status.includes('não comprar')
+      );
+    });
+
+    const mediasMensaisFaturamento = indicadorMensalFaturamento
+      .filter((item) => String(item.unidadesMedia || '').trim() !== '')
+      .map((item) => ({
+        mes: item.mes || '',
+        media: item.unidadesMedia || '',
+        mediaNumero: numeroPercentual(item.unidadesMedia),
+      }))
+      .filter((item) => item.mediaNumero !== null);
+
+    const mediasMensaisCds = indicadorMensalFaturamento
+      .filter((item) => String(item.pedidosMediaCD || '').trim() !== '')
+      .map((item) => ({
+        mes: item.mes || '',
+        media: item.pedidosMediaCD || '',
+        mediaNumero: numeroPercentual(item.pedidosMediaCD),
+      }))
+      .filter((item) => item.mediaNumero !== null);
+
+    const mediasMensaisExpedicao = indicadorMensalExpedicao
+      .filter((item) => String(item.pedidosGeral || '').trim() !== '')
+      .map((item) => ({
+        mes: item.mes || '',
+        media: item.pedidosGeral || '',
+        mediaNumero: numeroPercentual(item.pedidosGeral),
+      }))
+      .filter((item) => item.mediaNumero !== null);
+
+    const ultimaMediaMensalFaturamento =
+      mediasMensaisFaturamento[mediasMensaisFaturamento.length - 1] || null;
+
+    const ultimaMediaMensalCds =
+      mediasMensaisCds[mediasMensaisCds.length - 1] || null;
+
+    const ultimaMediaMensalExpedicao =
+      mediasMensaisExpedicao[mediasMensaisExpedicao.length - 1] || null;
+
+    const registrosAbastecimentoEstoque = indicadorAbastecimentoEstoque
+      .map((item) => {
+        const percentualDireto = numeroPercentual(item.percentual);
+        const metaNumero = numeroInteiro(item.meta);
+        const realizadoNumero = numeroInteiro(item.realizado);
+
+        const percentualCalculado =
+          percentualDireto !== null
+            ? percentualDireto
+            : metaNumero > 0
+            ? (realizadoNumero / metaNumero) * 100
+            : null;
+
+        return {
+          data: item.data || '',
+          meta: item.meta || '',
+          realizado: item.realizado || '',
+          percentualNumero: percentualCalculado,
+          percentual:
+            percentualCalculado === null
+              ? ''
+              : `${percentualCalculado.toFixed(2).replace('.', ',')}%`,
+          metaComparacao: 95,
+        };
+      })
+      .filter((item) => item.percentualNumero !== null);
+
+    const ultimoAbastecimentoEstoque =
+      registrosAbastecimentoEstoque[registrosAbastecimentoEstoque.length - 1] ||
+      null;
+
+    return {
+      pedidosBB: pedidosUnicos(faturamentoBB),
+      pedidosEQ: pedidosUnicos(faturamentoEQ),
+      produzir: pedidosUnicos(producaoProduzir),
+      produzirSkus: producaoProduzir.length,
+      estoquePendente: pedidosUnicos(estoquePendente),
+      estoqueSkusPendentes: estoquePendente.length,
+      consultaAguardando: consultaAguardando.length,
+      consultaAguardando1h: consultaAguardando.filter(
+        (item) => item.aguardandoMaisDe1h
+      ).length,
+      ajustePendente: ajustePendente.length,
+      pedidoVendaComprar: pedidosUnicos(pedidoVendaComprar),
+      pedidoVendaComprarSkus: pedidoVendaComprar.length,
+      totalFaturamento:
+        pedidosUnicos(faturamentoBB) + pedidosUnicos(faturamentoEQ),
+      mediaMensalFaturamento: ultimaMediaMensalFaturamento
+        ? ultimaMediaMensalFaturamento.media
+        : '—',
+      mediaMensalFaturamentoMes: ultimaMediaMensalFaturamento
+        ? ultimaMediaMensalFaturamento.mes
+        : 'Sem dados',
+      mediaMensalCds: ultimaMediaMensalCds ? ultimaMediaMensalCds.media : '—',
+      mediaMensalCdsMes: ultimaMediaMensalCds
+        ? ultimaMediaMensalCds.mes
+        : 'Sem dados',
+      mediaMensalExpedicao: ultimaMediaMensalExpedicao
+        ? ultimaMediaMensalExpedicao.media
+        : '—',
+      mediaMensalExpedicaoMes: ultimaMediaMensalExpedicao
+        ? ultimaMediaMensalExpedicao.mes
+        : 'Sem dados',
+      abastecimentoEstoquePercentual: ultimoAbastecimentoEstoque
+        ? ultimoAbastecimentoEstoque.percentual
+        : '—',
+      abastecimentoEstoqueData: ultimoAbastecimentoEstoque
+        ? ultimoAbastecimentoEstoque.data
+        : 'Sem dados',
+      abastecimentoEstoqueMeta: ultimoAbastecimentoEstoque
+        ? ultimoAbastecimentoEstoque.metaComparacao
+        : 100,
+    };
+  }, [dadosDashboard]);
+
+  function corMetaIndicador(valor, meta) {
+    const numero = numeroPercentual(valor);
+
+    if (numero === null) return '#64748B';
+
+    if (numero >= meta) return '#16A34A';
+
+    if (numero >= meta - 2) return '#F59E0B';
+
+    return '#DC2626';
+  }
+
+  const cardsOperacao = [
+    {
+      titulo: 'Faturamento BBBaterias',
+      valor: resumo.pedidosBB,
+      detalhe: 'Total de pedidos da BBBaterias',
+      cor: '#2563EB',
+      icon: 'bb',
+      tela: 'faturamento',
+      horario: horaFonte('bbbaterias'),
+    },
+    {
+      titulo: 'Faturamento Equipatech',
+      valor: resumo.pedidosEQ,
+      detalhe: 'Total de pedidos da Equipatech',
+      cor: '#0F766E',
+      icon: 'eq',
+      tela: 'faturamento',
+      horario: horaFonte('equipatech'),
+    },
+    {
+      titulo: 'Total Faturamento',
+      valor: resumo.totalFaturamento,
+      detalhe: 'BB + EQ no faturamento',
+      cor: '#475569',
+      icon: 'total',
+      tela: 'faturamento',
+      horario: '',
+    },
+    {
+      titulo: 'Para Produzir',
+      valor: resumo.produzir,
+      detalhe: `${resumo.produzirSkus} SKU(s) com status Produzir`,
+      cor: '#7C3AED',
+      icon: 'producao',
+      tela: 'producao',
+      horario: horaFonte('producao'),
+    },
+    {
+      titulo: 'Estoque Pendente',
+      valor: resumo.estoquePendente,
+      detalhe: `${resumo.estoqueSkusPendentes} SKU(s) ainda pendentes`,
+      cor: '#EA580C',
+      icon: 'estoque',
+      tela: 'estoque',
+      horario: horaFonte('estoque'),
+    },
+    {
+      titulo: 'Consulta de Peças',
+      valor: resumo.consultaAguardando,
+      detalhe: `${resumo.consultaAguardando1h} aguardando há mais de 1h`,
+      cor: '#DC2626',
+      icon: 'consulta',
+      tela: 'consultaPecas',
+      horario: horaFonte('consultaPecas'),
+    },
+    {
+      titulo: 'Ajuste de Saldo',
+      valor: resumo.ajustePendente,
+      detalhe: 'Pendentes ou verificando saldo',
+      cor: '#64748B',
+      icon: 'ajuste',
+      tela: 'ajusteSaldo',
+      horario: horaFonte('ajusteSaldo') || horaFonte('ajusteSaldoBBBaterias'),
+    },
+    {
+      titulo: 'Pedido de Venda',
+      valor: resumo.pedidoVendaComprar,
+      detalhe: `${resumo.pedidoVendaComprarSkus} SKU(s) com status Comprar`,
+      cor: '#16A34A',
+      icon: 'pedidoVenda',
+      tela: 'pedidoVenda',
+      horario: horaFonte('pedidoVenda1020'),
+    },
+  ];
+
+  const cardsIndicadores = [
+    {
+      titulo: 'Média Mensal Faturamento',
+      valor: resumo.mediaMensalFaturamento,
+      detalhe: `Meta 97% · ${resumo.mediaMensalFaturamentoMes}`,
+      cor: corMetaIndicador(resumo.mediaMensalFaturamento, 97),
+      icon: 'indicadorMensal',
+      tela: 'indicadorFaturamentoMensal',
+      horario: horaFonte('indicadorFaturamentoMensal'),
+    },
+    {
+      titulo: 'Média Mensal CDs',
+      valor: resumo.mediaMensalCds,
+      detalhe: `Meta 97% · ${resumo.mediaMensalCdsMes}`,
+      cor: corMetaIndicador(resumo.mediaMensalCds, 97),
+      icon: 'cds',
+      tela: 'indicadorFaturamentoMensal',
+      horario: horaFonte('indicadorFaturamentoMensal'),
+    },
+    {
+      titulo: 'Média Mensal Expedição',
+      valor: resumo.mediaMensalExpedicao,
+      detalhe: `Meta 99% · ${resumo.mediaMensalExpedicaoMes}`,
+      cor: corMetaIndicador(resumo.mediaMensalExpedicao, 99),
+      icon: 'expedicao',
+      tela: 'indicadorExpedicaoMensal',
+      horario: horaFonte('indicadorExpedicaoMensal'),
+    },
+    {
+      titulo: 'Abastecimento Estoque',
+      valor: resumo.abastecimentoEstoquePercentual,
+      detalhe: `Meta 95% · ${resumo.abastecimentoEstoqueData}`,
+      cor: corMetaIndicador(
+        resumo.abastecimentoEstoquePercentual,
+        resumo.abastecimentoEstoqueMeta
+      ),
+      icon: 'abastecimento',
+      tela: null,
+      horario: horaFonte('indicadorAbastecimentoEstoque'),
+    },
+  ];
+
+  function DashboardIcon({ tipo }) {
+    const svgBase = {
+      width: 34,
+      height: 34,
+      viewBox: '0 0 24 24',
+      fill: 'none',
+      stroke: 'currentColor',
+      strokeWidth: 2,
+      strokeLinecap: 'round',
+      strokeLinejoin: 'round',
+      ariaHidden: true,
+    };
+
+    if (tipo === 'bb') {
+      return (
+        <svg {...svgBase}>
+          <path d="M4 7h16" />
+          <path d="M5 7l1.2 12h11.6L19 7" />
+          <path d="M9 7V5a3 3 0 0 1 6 0v2" />
+          <path d="M9 12h6" />
+        </svg>
+      );
+    }
+
+    if (tipo === 'eq') {
+      return (
+        <svg {...svgBase}>
+          <path d="M4 6h16v12H4z" />
+          <path d="M7 9h10" />
+          <path d="M7 13h6" />
+          <path d="M17 17l3 3" />
+        </svg>
+      );
+    }
+
+    if (tipo === 'total') {
+      return (
+        <svg {...svgBase}>
+          <path d="M4 19V5" />
+          <path d="M4 19h16" />
+          <path d="M8 16v-5" />
+          <path d="M12 16V8" />
+          <path d="M16 16v-3" />
+        </svg>
+      );
+    }
+
+    if (tipo === 'producao') {
+      return (
+        <svg {...svgBase}>
+          <path d="M3 21h18" />
+          <path d="M5 21V10l5 3V9l5 4V7h4v14" />
+          <path d="M8 17h1" />
+          <path d="M12 17h1" />
+          <path d="M16 17h1" />
+        </svg>
+      );
+    }
+
+    if (tipo === 'estoque') {
+      return (
+        <svg {...svgBase}>
+          <path d="M21 8l-9-5-9 5 9 5 9-5z" />
+          <path d="M3 8v8l9 5 9-5V8" />
+          <path d="M12 13v8" />
+        </svg>
+      );
+    }
+
+    if (tipo === 'consulta') {
+      return (
+        <svg {...svgBase}>
+          <path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+          <path d="M15 15l5 5" />
+          <path d="M13 13l2 2" />
+          <path d="M4 20h7" />
+          <path d="M4 16h5" />
+        </svg>
+      );
+    }
+
+    if (tipo === 'ajuste') {
+      return (
+        <svg {...svgBase}>
+          <path d="M12 3v18" />
+          <path d="M5 7h14" />
+          <path d="M6 7l-3 6h6L6 7z" />
+          <path d="M18 7l-3 6h6l-3-6z" />
+          <path d="M9 21h6" />
+        </svg>
+      );
+    }
+
+    if (tipo === 'indicadorMensal') {
+      return (
+        <svg {...svgBase}>
+          <path d="M4 19h16" />
+          <path d="M4 5v14" />
+          <path d="M8 15l3-4 3 2 4-6" />
+          <path d="M17 7h1v1" />
+        </svg>
+      );
+    }
+
+    if (tipo === 'cds') {
+      return (
+        <svg {...svgBase}>
+          <path d="M4 20h16" />
+          <path d="M6 20V8h5v12" />
+          <path d="M13 20V4h5v16" />
+          <path d="M8 11h1" />
+          <path d="M15 7h1" />
+        </svg>
+      );
+    }
+
+    if (tipo === 'expedicao') {
+      return (
+        <svg {...svgBase}>
+          <path d="M3 7h11v9H3z" />
+          <path d="M14 10h4l3 3v3h-7" />
+          <path d="M7 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
+          <path d="M17 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
+        </svg>
+      );
+    }
+
+    if (tipo === 'abastecimento') {
+      return (
+        <svg {...svgBase}>
+          <path d="M4 19h16" />
+          <path d="M5 16l4-4 3 3 6-8" />
+          <path d="M16 7h2v2" />
+          <path d="M6 5h5" />
+          <path d="M6 9h3" />
+        </svg>
+      );
+    }
+
+    return (
+      <svg {...svgBase}>
+        <path d="M6 3h12v18H6z" />
+        <path d="M9 7h6" />
+        <path d="M9 11h6" />
+        <path d="M9 15h4" />
+        <path d="M17 19l3 2" />
+      </svg>
+    );
+  }
+
+  function DashCard({ item }) {
+    return (
+      <button
+        type="button"
+        onClick={() => item.tela && setTela(item.tela)}
+        style={{
+          border: 'none',
+          background: item.cor,
+          color: '#FFFFFF',
+          borderRadius: 9,
+          minHeight: 116,
+          padding: 0,
+          overflow: 'hidden',
+          boxShadow: '0 8px 18px rgba(15,23,42,0.14)',
+          cursor: item.tela ? 'pointer' : 'default',
+          textAlign: 'left',
+          fontFamily: C.font,
+        }}
+      >
+        <div
+          style={{
+            padding: '11px 16px',
+            borderBottom: '1px solid rgba(0,0,0,0.10)',
+            fontSize: 14,
+            fontWeight: 600,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 10,
+          }}
+        >
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {item.titulo}
+          </span>
+
+          {item.horario && (
+            <span
+              style={{
+                flexShrink: 0,
+                fontSize: 11,
+                fontWeight: 500,
+                opacity: 0.9,
+                background: 'rgba(255,255,255,0.16)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: 999,
+                padding: '3px 8px',
+              }}
+            >
+              {item.horario}
+            </span>
+          )}
+        </div>
+
+        <div
+          style={{
+            minHeight: 76,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 20,
+            padding: '12px 16px',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: 16,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(255,255,255,0.18)',
+              color: '#FFFFFF',
+              fontSize: 25,
+              lineHeight: 1,
+              flexShrink: 0,
+            }}
+          >
+            <DashboardIcon tipo={item.icon} />
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: 0,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 31,
+                lineHeight: 1,
+                fontWeight: 650,
+                letterSpacing: '-0.04em',
+                marginBottom: 8,
+              }}
+            >
+              {item.valor}
+            </div>
+
+            <div
+              style={{
+                fontSize: 11,
+                lineHeight: 1.3,
+                fontWeight: 500,
+                opacity: 0.95,
+                background: 'rgba(0,0,0,0.08)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: 8,
+                padding: '6px 10px',
+                maxWidth: '100%',
+              }}
+            >
+              {item.detalhe}
+            </div>
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  return (
+    <>
+      <section
+        style={{
+          borderRadius: 6,
+          overflow: 'hidden',
+          background: '#FFFFFF',
+          border: `1.5px solid ${C.bdLight}`,
+          boxShadow: C.shadowCard,
+        }}
+      >
+        <div
+          style={{
+            background: '#6B747B',
+            color: '#FFFFFF',
+            height: 40,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 14,
+            fontSize: 23,
+            fontWeight: 750,
+            letterSpacing: '-0.03em',
+            fontFamily: C.font,
+          }}
+        >
+          <span>DASHBOARD OPERACIONAL</span>
+          <button
+            type="button"
+            onClick={carregarDashboard}
+            disabled={carregando}
+            title="Atualizar dashboard"
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: '#FFFFFF',
+              cursor: carregando ? 'not-allowed' : 'pointer',
+              fontSize: 25,
+              lineHeight: 1,
+              fontWeight: 900,
+            }}
+          >
+            ↻
+          </button>
+        </div>
+
+        <div style={{ padding: 18 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 10,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: C.txtSec,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                fontFamily: C.font,
+              }}
+            >
+              Núcleo Operacional
+            </div>
+            <div
+              style={{
+                height: 1,
+                flex: 1,
+                marginLeft: 14,
+                background: C.bdLight,
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+              gap: 16,
+            }}
+          >
+            {cardsOperacao.map((card) => (
+              <DashCard key={card.titulo} item={card} />
+            ))}
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginTop: 24,
+              marginBottom: 10,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: C.txtSec,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                fontFamily: C.font,
+              }}
+            >
+              Núcleo de Indicadores
+            </div>
+            <div
+              style={{
+                height: 1,
+                flex: 1,
+                marginLeft: 14,
+                background: C.bdLight,
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+              gap: 16,
+            }}
+          >
+            {cardsIndicadores.map((card) => (
+              <DashCard key={card.titulo} item={card} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div
+        style={{
+          marginTop: 12,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 12,
+          color: C.txtMuted,
+          fontSize: 11,
+          fontWeight: 700,
+          fontFamily: C.font,
+        }}
+      >
+        <span>
+          Última atualização do dashboard: {atualizadoEm || 'carregando...'}
+        </span>
+        {carregando && <span>Atualizando dados...</span>}
+      </div>
+
+      {errosFontes.length > 0 && (
+        <div
+          style={{
+            marginTop: 12,
+            border: '1px solid #FED7AA',
+            background: '#FFF7ED',
+            color: '#9A3412',
+            borderRadius: 12,
+            padding: 12,
+            fontSize: 12,
+            fontWeight: 750,
+          }}
+        >
+          Algumas fontes não carregaram: {errosFontes.join(' | ')}
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function App() {
   const [logado, setLogado] = useState(
     () => localStorage.getItem(LOGIN_STORAGE_KEY) === 'true'
   );
-  const [tela, setTela] = useState('faturamento');
+  const [tela, setTela] = useState('dashboard');
   const [pedidoBuscaGlobal, setPedidoBuscaGlobal] = useState('');
   const [resultadosBuscaGlobal, setResultadosBuscaGlobal] = useState([]);
   const [buscandoGlobal, setBuscandoGlobal] = useState(false);
@@ -5303,6 +6744,8 @@ export default function App() {
     'indicadorExpedicaoDiario',
     'indicadorFaturamentoMensal',
     'indicadorExpedicaoMensal',
+    'indicadorAbastecimentoEstoque',
+    'indicadorAbastecimentoMensal',
   ].includes(tela);
 
   const buscarPedidoGlobal = useCallback(() => {
@@ -5332,11 +6775,6 @@ export default function App() {
       },
       { key: 'estoque', origem: 'Estoque', telaDestino: 'estoque' },
       { key: 'producao', origem: 'Produção', telaDestino: 'producao' },
-      {
-        key: 'pedidoVenda1020',
-        origem: 'Pedido de Venda · 1020',
-        telaDestino: 'pedidoVenda1020',
-      },
     ];
 
     try {
@@ -5349,7 +6787,6 @@ export default function App() {
           fonte.key === 'equipatech' || fonte.key === 'bbbaterias';
         const ehEstoque = fonte.key === 'estoque';
         const ehProducao = fonte.key === 'producao';
-        const ehPedidoVenda = fonte.key === 'pedidoVenda1020';
 
         dadosFonte
           .filter((item) => normalizar(item.pedido).includes(termoPedido))
@@ -5384,10 +6821,6 @@ export default function App() {
                 : ehProducao
                 ? `Transporte: ${item.transporte || '-'} · Cliente: ${
                     item.cliente || '-'
-                  }`
-                : ehPedidoVenda
-                ? `Cliente: ${item.cliente || '-'} · Transportadora: ${
-                    item.endereco || '-'
                   }`
                 : '-',
             });
@@ -5535,18 +6968,18 @@ export default function App() {
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <MenuBtn
+            icon="D"
+            ativo={tela === 'dashboard'}
+            onClick={() => setTela('dashboard')}
+          >
+            Dashboard
+          </MenuBtn>
+          <MenuBtn
             icon="F"
             ativo={tela === 'faturamento'}
             onClick={() => setTela('faturamento')}
           >
             Faturamento
-          </MenuBtn>
-          <MenuBtn
-            icon="V"
-            ativo={tela === 'pedidoVenda1020'}
-            onClick={() => setTela('pedidoVenda1020')}
-          >
-            Pedido de Venda
           </MenuBtn>
           <div
             style={{
@@ -5629,6 +7062,13 @@ export default function App() {
               </div>
             )}
           </div>
+          <MenuBtn
+            icon="PV"
+            ativo={tela === 'pedidoVenda'}
+            onClick={() => setTela('pedidoVenda')}
+          >
+            Pedido de Venda
+          </MenuBtn>
           <div
             style={{
               borderRadius: C.radius.md,
@@ -5672,6 +7112,18 @@ export default function App() {
                   onClick={() => setTela('indicadorExpedicaoMensal')}
                 >
                   Expedição Mensal
+                </SubMenuBtn>
+                <SubMenuBtn
+                  ativo={tela === 'indicadorAbastecimentoEstoque'}
+                  onClick={() => setTela('indicadorAbastecimentoEstoque')}
+                >
+                  Abastecimento Estoque
+                </SubMenuBtn>
+                <SubMenuBtn
+                  ativo={tela === 'indicadorAbastecimentoMensal'}
+                  onClick={() => setTela('indicadorAbastecimentoMensal')}
+                >
+                  Abastecimento Mensal
                 </SubMenuBtn>
               </div>
             )}
@@ -5793,8 +7245,7 @@ export default function App() {
                 whiteSpace: 'nowrap',
               }}
             >
-              Pesquisa nos dados já carregados: Faturamento, Estoque, Produção e
-              Pedido de Venda
+              Pesquisa nos dados já carregados: Faturamento, Estoque e Produção
             </span>
           </form>
 
@@ -6028,11 +7479,11 @@ export default function App() {
             </div>
           )}
         </section>
+        <div style={{ display: tela === 'dashboard' ? 'block' : 'none' }}>
+          <TelaDashboard setTela={setTela} />
+        </div>
         <div style={{ display: tela === 'faturamento' ? 'block' : 'none' }}>
           <TelaFaturamento />
-        </div>
-        <div style={{ display: tela === 'pedidoVenda1020' ? 'block' : 'none' }}>
-          <TelaPedidoVenda1020 />
         </div>
         <div style={{ display: tela === 'estoque' ? 'block' : 'none' }}>
           <TelaEstoque />
@@ -6049,6 +7500,9 @@ export default function App() {
         </div>
         <div style={{ display: tela === 'producaoResumo' ? 'block' : 'none' }}>
           <TelaProducao modo="resumo" />
+        </div>
+        <div style={{ display: tela === 'pedidoVenda' ? 'block' : 'none' }}>
+          <TelaPedidoVenda />
         </div>
         <div style={{ display: tela === 'indicadorDiario' ? 'block' : 'none' }}>
           <TelaIndicadorDiario />
@@ -6073,6 +7527,21 @@ export default function App() {
           }}
         >
           <TelaIndicadorMensal tipo="expedicao" />
+        </div>
+        <div
+          style={{
+            display:
+              tela === 'indicadorAbastecimentoEstoque' ? 'block' : 'none',
+          }}
+        >
+          <TelaIndicadorAbastecimentoEstoque />
+        </div>
+        <div
+          style={{
+            display: tela === 'indicadorAbastecimentoMensal' ? 'block' : 'none',
+          }}
+        >
+          <TelaIndicadorAbastecimentoMensal />
         </div>
       </main>
     </div>
