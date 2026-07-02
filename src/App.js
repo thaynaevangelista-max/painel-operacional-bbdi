@@ -13,6 +13,9 @@ const LINK_APP_GESTAO =
 const LINK_APP_AJUSTE_SALDO =
   'https://script.google.com/a/macros/bbdi.com.br/s/AKfycby7AXNqbSs5ZRnLYa22oCk68S-i2Wuz_Nd8B-c1seLu6qdvfgdX1LvbA2p1Dww7FESZoA/exec';
 
+const LINK_DASHBOARD_OPERACIONAL_LOGISTICA =
+  'https://time-operacional.netlify.app/';
+
 const LOGIN_USUARIO = 'BBDI';
 const LOGIN_SENHA = 'BBDI@2026';
 const LOGIN_STORAGE_KEY = 'painel_operacional_logado';
@@ -6973,6 +6976,19 @@ export default function App() {
             onClick={() => setTela('dashboard')}
           >
             Dashboard
+          </MenuBtn>
+          <MenuBtn
+            icon="OP"
+            ativo={false}
+            onClick={() =>
+              window.open(
+                LINK_DASHBOARD_OPERACIONAL_LOGISTICA,
+                '_blank',
+                'noopener,noreferrer'
+              )
+            }
+          >
+            Operação Logística
           </MenuBtn>
           <MenuBtn
             icon="F"
