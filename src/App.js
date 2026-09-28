@@ -109,6 +109,20 @@ const FILTROS_PRODUCAO_RESUMO_INICIAIS = {
   transportes: '',
   statusResumo: '',
 };
+const FILTROS_ANALISE_TRANSFORMACOES_INICIAIS = {
+  produto: '',
+  saldoEquipatech: '',
+  semanasEstoque: '',
+  produzirSemanas: '',
+  transformarQuantidades: '',
+  statusTransformacao: '',
+  opcao1: '',
+  saldo1: '',
+  opcao2: '',
+  saldo2: '',
+  opcao3: '',
+  saldo3: '',
+};
 const FILTROS_PEDIDO_VENDA_INICIAIS = {
   dataHoraFinanceiro: '',
   pedido: '',
@@ -197,6 +211,62 @@ function getCacheDadosPainel(fonte) {
 
   return window.__BBDI_PAINEL_CACHE__?.[fonte] || [];
 }
+
+function iniciarAtualizacaoSincronizada(callback) {
+  let ativo = true;
+  let timerId = null;
+  let executando = false;
+
+  const executar = async () => {
+    if (!ativo || executando) return;
+
+    executando = true;
+
+    try {
+      await callback();
+    } catch (erro) {
+      console.error('Falha na atualização sincronizada:', erro);
+    } finally {
+      executando = false;
+    }
+  };
+
+  const agendarProximoMinuto = () => {
+    if (!ativo) return;
+
+    const agoraMs = Date.now();
+    const proximoMinutoMs =
+      (Math.floor(agoraMs / 60000) + 1) * 60000;
+
+    const esperaMs = Math.max(
+      0,
+      proximoMinutoMs - agoraMs + 100
+    );
+
+    timerId = setTimeout(async () => {
+      if (!ativo) return;
+
+      await executar();
+      agendarProximoMinuto();
+    }, esperaMs);
+  };
+
+  // Carrega imediatamente ao abrir a tela.
+  executar();
+
+  // Depois sincroniza pelo relógio cheio:
+  // 13:02:00, 13:03:00, 13:04:00...
+  agendarProximoMinuto();
+
+  return () => {
+    ativo = false;
+
+    if (timerId) {
+      clearTimeout(timerId);
+    }
+  };
+}
+
 function parseDataBR(dataTexto) {
   if (!dataTexto) return null;
   const partes = String(dataTexto)
@@ -1708,9 +1778,7 @@ function TelaFaturamento() {
     }
   }, []);
   useEffect(() => {
-    carregarDados();
-    const i = setInterval(carregarDados, 60000);
-    return () => clearInterval(i);
+    return iniciarAtualizacaoSincronizada(carregarDados);
   }, [carregarDados]);
 
   const dadosComTempo = useMemo(
@@ -1974,9 +2042,7 @@ function TelaEstoque() {
     }
   }, []);
   useEffect(() => {
-    load();
-    const i = setInterval(load, 60000);
-    return () => clearInterval(i);
+    return iniciarAtualizacaoSincronizada(load);
   }, [load]);
   const dadosPeriodo = useMemo(
     () =>
@@ -2133,10 +2199,8 @@ function criarTelaAjusteSaldo({
       }
     }, []);
     useEffect(() => {
-      load();
-      const i = setInterval(load, 60000);
-      return () => clearInterval(i);
-    }, [load]);
+    return iniciarAtualizacaoSincronizada(load);
+  }, [load]);
     const dadosPeriodo = useMemo(
       () => filtrarPorPeriodo(dados, campoData, pf, dp),
       [dados, pf, dp]
@@ -2334,9 +2398,7 @@ function TelaAjusteSaldo() {
   }, []);
 
   useEffect(() => {
-    load();
-    const i = setInterval(load, 60000);
-    return () => clearInterval(i);
+    return iniciarAtualizacaoSincronizada(load);
   }, [load]);
 
   const dadosPeriodo = useMemo(
@@ -2577,9 +2639,7 @@ function TelaConsultaPecas() {
     }
   }, []);
   useEffect(() => {
-    load();
-    const i = setInterval(load, 60000);
-    return () => clearInterval(i);
+    return iniciarAtualizacaoSincronizada(load);
   }, [load]);
   const dadosPeriodo = useMemo(
     () => filtrarPorPeriodo(dados, 'dataHora', pf, dp),
@@ -2734,9 +2794,7 @@ function TelaProducao({ modo }) {
     }
   }, []);
   useEffect(() => {
-    load();
-    const i = setInterval(load, 60000);
-    return () => clearInterval(i);
+    return iniciarAtualizacaoSincronizada(load);
   }, [load]);
   useEffect(() => {
     setBusca('');
@@ -2895,6 +2953,324 @@ function TelaProducao({ modo }) {
   );
 }
 
+
+function TelaAnaliseTransformacoes() {
+  const [dados, setDados] = useState([]);
+  const [kpis, setKpis] = useState({
+    totalModelos: 0,
+    modelosParaTransformar: 0,
+    modelosComFalta: 0,
+    suficientes: 0,
+  });
+  const [busca, setBusca] = useState('');
+  const [fc, setFc] = useState(FILTROS_ANALISE_TRANSFORMACOES_INICIAIS);
+  const [loading, setLoading] = useState(false);
+  const [salvandoSemanas, setSalvandoSemanas] = useState(false);
+  const [erro, setErro] = useState('');
+  const [mensagem, setMensagem] = useState('');
+  const [atualizado, setAtualizado] = useState('');
+  const [semanasGlobal, setSemanasGlobal] = useState('2');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErro('');
+
+    try {
+      const resposta = await fetch(
+        `${API_BASE}?action=dados&fonte=analiseTransformacoes`,
+        { cache: 'no-store' }
+      );
+      const json = await resposta.json();
+
+      if (!json.ok) {
+        throw new Error(json.erro || 'Erro ao carregar análise de transformações');
+      }
+
+      const registros = (json.dados || []).map((item) => ({
+        ...item,
+        statusTransformacao: normalizar(item.transformarQuantidades).includes('faltam')
+          ? 'TRANSFORMAR'
+          : 'OK',
+      }));
+
+      setDados(registros);
+      setKpis(
+        json.kpis || {
+          totalModelos: registros.length,
+          modelosParaTransformar: 0,
+          modelosComFalta: 0,
+          suficientes: 0,
+        }
+      );
+      setCacheDadosPainel('analiseTransformacoes', registros);
+      setAtualizado(json.atualizadoEm || '');
+    } catch (e) {
+      setErro(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    return iniciarAtualizacaoSincronizada(load);
+  }, [load]);
+
+  const dadosFiltrados = useMemo(
+    () =>
+      filtrarDados(dados, busca, fc, [
+        'produto',
+        'saldoEquipatech',
+        'semanasEstoque',
+        'produzirSemanas',
+        'transformarQuantidades',
+        'statusTransformacao',
+        'opcao1',
+        'saldo1',
+        'opcao2',
+        'saldo2',
+        'opcao3',
+        'saldo3',
+      ]),
+    [dados, busca, fc]
+  );
+
+  const aplicarSemanasEmTodos = useCallback(async () => {
+    const semanas = Number(semanasGlobal);
+
+    if (![1, 2, 3, 4].includes(semanas)) {
+      setErro('Selecione 1, 2, 3 ou 4 semanas.');
+      return;
+    }
+
+    const texto = semanas === 1 ? '1 SEMANA' : `${semanas} SEMANAS`;
+
+    const confirmou = window.confirm(
+      `Aplicar "${texto}" na coluna PRODUZIR X SEMANAS de todos os produtos?`
+    );
+
+    if (!confirmou) return;
+
+    setSalvandoSemanas(true);
+    setErro('');
+    setMensagem('');
+
+    try {
+      const resposta = await fetch(
+        `${API_BASE}?action=atualizarSemanasTransformacao&semanas=${semanas}&_=${Date.now()}`,
+        { cache: 'no-store' }
+      );
+      const json = await resposta.json();
+
+      if (!json.ok) {
+        throw new Error(json.erro || 'Não foi possível atualizar as semanas.');
+      }
+
+      setMensagem(
+        `${json.valorAplicado} aplicado em ${json.totalAtualizados || 0} modelo(s).`
+      );
+
+      await load();
+    } catch (e) {
+      setErro(e.message);
+    } finally {
+      setSalvandoSemanas(false);
+    }
+  }, [semanasGlobal, load]);
+
+  const tipoTransformacao = (item) => {
+    if (item.precisaTransformar && item.temOpcaoTransformacao) return 'vermelho';
+    if (item.precisaTransformar) return 'laranja';
+    if (normalizar(item.transformarQuantidades).includes('suficiente'))
+      return 'verde';
+    return 'cinza';
+  };
+
+  const colunas = [
+    { campo: 'produto', titulo: 'Produto', bold: true, width: 125 },
+    { campo: 'saldoEquipatech', titulo: 'Saldo Total', width: 90 },
+    { campo: 'semanasEstoque', titulo: 'Semanas em Estoque', width: 145, wrap: true },
+    { campo: 'produzirSemanas', titulo: 'Produzir X Semanas', width: 125 },
+    {
+      campo: 'transformarQuantidades',
+      titulo: 'Transformar X Quantidades',
+      width: 210,
+      wrap: true,
+      render: (item) => (
+        <Badge
+          texto={item.transformarQuantidades || '—'}
+          tipo={tipoTransformacao(item)}
+        />
+      ),
+    },
+    {
+      campo: 'statusTransformacao',
+      titulo: 'Transformar / OK',
+      width: 115,
+      render: (item) => (
+        <Badge
+          texto={item.statusTransformacao}
+          tipo={item.statusTransformacao === 'TRANSFORMAR' ? 'vermelho' : 'verde'}
+        />
+      ),
+    },
+    { campo: 'opcao1', titulo: 'Opção 1', width: 125 },
+    { campo: 'saldo1', titulo: 'Saldo', width: 70 },
+    { campo: 'opcao2', titulo: 'Opção 2', width: 125 },
+    { campo: 'saldo2', titulo: 'Saldo', width: 70 },
+    { campo: 'opcao3', titulo: 'Opção 3', width: 125 },
+    { campo: 'saldo3', titulo: 'Saldo', width: 70 },
+  ];
+
+  return (
+    <>
+      <PageHeader
+        titulo="Análise de Transformação"
+        atualizadoEm={atualizado || '—'}
+        actions={
+          <button
+            onClick={load}
+            disabled={loading}
+            style={btnAtualizar(loading)}
+          >
+            {loading ? 'Atualizando…' : 'Atualizar'}
+          </button>
+        }
+      />
+
+      {erro && <div style={erroEl}>{erro}</div>}
+
+      {mensagem && (
+        <div
+          style={{
+            background: C.greenBg,
+            color: C.green,
+            padding: 12,
+            borderRadius: C.radius.md,
+            marginBottom: 16,
+            fontWeight: 700,
+            border: `1.5px solid ${C.greenBd}`,
+            fontSize: 12,
+            fontFamily: C.font,
+          }}
+        >
+          {mensagem}
+        </div>
+      )}
+
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4,minmax(0,1fr))',
+          gap: 12,
+          marginBottom: 18,
+        }}
+      >
+        <Kpi titulo="Total de Modelos" valor={kpis.totalModelos || 0} />
+        <Kpi
+          titulo="Para Transformar"
+          valor={kpis.modelosParaTransformar || 0}
+        />
+        <Kpi titulo="Com Falta" valor={kpis.modelosComFalta || 0} />
+        <Kpi titulo="Suficientes" valor={kpis.suficientes || 0} />
+      </section>
+
+      <section
+        style={{
+          background: C.bgCard,
+          border: `1.5px solid ${C.bdLight}`,
+          borderRadius: C.radius.lg,
+          padding: 16,
+          marginBottom: 16,
+          boxShadow: C.shadowCard,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ marginRight: 8 }}>
+          <div
+            style={{
+              fontWeight: 900,
+              color: C.txtPri,
+              fontSize: 13,
+              fontFamily: C.font,
+            }}
+          >
+            Produzir X semanas
+          </div>
+          <div
+            style={{
+              color: C.txtMuted,
+              fontSize: 10,
+              marginTop: 2,
+              fontFamily: C.font,
+            }}
+          >
+            Escolha uma opção e aplique na coluna D de todos os produtos.
+          </div>
+        </div>
+
+        <select
+          value={semanasGlobal}
+          onChange={(e) => setSemanasGlobal(e.target.value)}
+          style={{ ...selectEl, minWidth: 135 }}
+          disabled={salvandoSemanas}
+        >
+          <option value="1">1 SEMANA</option>
+          <option value="2">2 SEMANAS</option>
+          <option value="3">3 SEMANAS</option>
+          <option value="4">4 SEMANAS</option>
+        </select>
+
+        <button
+          type="button"
+          onClick={aplicarSemanasEmTodos}
+          disabled={salvandoSemanas}
+          style={{
+            height: 36,
+            border: 'none',
+            borderRadius: C.radius.md,
+            padding: '0 16px',
+            background: salvandoSemanas ? C.bgMuted : C.primaryGrad,
+            color: salvandoSemanas ? C.txtMuted : '#fff',
+            fontWeight: 800,
+            fontSize: 12,
+            cursor: salvandoSemanas ? 'not-allowed' : 'pointer',
+            fontFamily: C.font,
+            boxShadow: salvandoSemanas
+              ? 'none'
+              : '0 4px 14px rgba(102,126,234,0.35)',
+          }}
+        >
+          {salvandoSemanas ? 'Aplicando…' : 'Aplicar para todos'}
+        </button>
+      </section>
+
+      <FiltroTopo
+        busca={busca}
+        setBusca={setBusca}
+        limparFiltros={() => {
+          setBusca('');
+          setFc(FILTROS_ANALISE_TRANSFORMACOES_INICIAIS);
+        }}
+        placeholder="Busca por produto, opção ou status…"
+      />
+
+      <TabelaPadrao
+        titulo="Análise de Transformações"
+        dadosBase={dados}
+        dadosFiltrados={dadosFiltrados}
+        colunas={colunas}
+        filtros={fc}
+        onFiltro={(c, v) => setFc((p) => ({ ...p, [c]: v }))}
+        carregando={loading}
+        mensagemVazia="Nenhum modelo encontrado."
+      />
+    </>
+  );
+}
+
 function TelaPedidoVenda() {
   const [dados, setDados] = useState([]);
   const [busca, setBusca] = useState('');
@@ -2934,9 +3310,7 @@ function TelaPedidoVenda() {
   }, []);
 
   useEffect(() => {
-    load();
-    const intervalo = setInterval(load, 60000);
-    return () => clearInterval(intervalo);
+    return iniciarAtualizacaoSincronizada(load);
   }, [load]);
 
   const dadosPeriodo = useMemo(
@@ -3140,9 +3514,7 @@ function useIndicador(fonte, filtrosIniciais) {
     }
   }, [fonte]);
   useEffect(() => {
-    load();
-    const i = setInterval(load, 60000);
-    return () => clearInterval(i);
+    return iniciarAtualizacaoSincronizada(load);
   }, [load]);
   return { dados, loading, erro, atualizado, load };
 }
@@ -5857,13 +6229,45 @@ function TelaIndicadorMensal({ tipo }) {
   );
 }
 
+// ─── Cache visual do Dashboard ─────────────────────────────────────────────────
+
+const DASHBOARD_SNAPSHOT_KEY = 'bbdi_dashboard_snapshot_v1';
+
+function lerSnapshotDashboard() {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const salvo = localStorage.getItem(DASHBOARD_SNAPSHOT_KEY);
+    return salvo ? JSON.parse(salvo) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function salvarSnapshotDashboard(snapshot) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    localStorage.setItem(DASHBOARD_SNAPSHOT_KEY, JSON.stringify(snapshot));
+  } catch (e) {
+    // Se o navegador bloquear o armazenamento, o painel continua funcionando.
+  }
+}
+
 // ─── App Shell ─────────────────────────────────────────────────────────────────
 
 function TelaDashboard({ setTela }) {
+  const [snapshotInicialDashboard] = useState(() => lerSnapshotDashboard());
+  const [resumoCacheDashboard, setResumoCacheDashboard] = useState(
+    () => snapshotInicialDashboard?.resumo || null
+  );
+  const [carregouDashboardUmaVez, setCarregouDashboardUmaVez] = useState(false);
+
   const [dadosDashboard, setDadosDashboard] = useState({
     equipatech: [],
     bbbaterias: [],
     producao: [],
+    analiseTransformacoes: [],
     estoque: [],
     consultaPecas: [],
     ajusteSaldo: [],
@@ -5873,8 +6277,12 @@ function TelaDashboard({ setTela }) {
     indicadorExpedicaoMensal: [],
     indicadorAbastecimentoEstoque: [],
   });
-  const [atualizacoesDashboard, setAtualizacoesDashboard] = useState({});
-  const [atualizadoEm, setAtualizadoEm] = useState('');
+  const [atualizacoesDashboard, setAtualizacoesDashboard] = useState(
+    () => snapshotInicialDashboard?.atualizacoesDashboard || {}
+  );
+  const [atualizadoEm, setAtualizadoEm] = useState(
+    () => snapshotInicialDashboard?.atualizadoEm || ''
+  );
   const [carregando, setCarregando] = useState(false);
   const [errosFontes, setErrosFontes] = useState([]);
 
@@ -5885,6 +6293,7 @@ function TelaDashboard({ setTela }) {
       'equipatech',
       'bbbaterias',
       'producao',
+      'analiseTransformacoes',
       'estoque',
       'consultaPecas',
       'ajusteSaldo',
@@ -5911,6 +6320,18 @@ function TelaDashboard({ setTela }) {
         }
 
         setCacheDadosPainel(fonte, dados);
+
+        // Atualiza o card desta fonte assim que ela responder,
+        // sem esperar todas as outras fontes terminarem.
+        setDadosDashboard((estadoAtual) => ({
+          ...estadoAtual,
+          [fonte]: dados,
+        }));
+
+        setAtualizacoesDashboard((estadoAtual) => ({
+          ...estadoAtual,
+          [fonte]: json.atualizadoEm || '',
+        }));
 
         return {
           fonte,
@@ -5957,13 +6378,12 @@ function TelaDashboard({ setTela }) {
       setAtualizadoEm(new Date().toLocaleString('pt-BR'));
     } finally {
       setCarregando(false);
+      setCarregouDashboardUmaVez(true);
     }
   }, []);
 
   useEffect(() => {
-    carregarDashboard();
-    const intervalo = setInterval(carregarDashboard, 60000);
-    return () => clearInterval(intervalo);
+    return iniciarAtualizacaoSincronizada(carregarDashboard);
   }, [carregarDashboard]);
 
   function horaFonte(fonte) {
@@ -5977,10 +6397,11 @@ function TelaDashboard({ setTela }) {
     return valor;
   }
 
-  const resumo = useMemo(() => {
+  const resumoCalculado = useMemo(() => {
     const faturamentoEQ = dadosDashboard.equipatech || [];
     const faturamentoBB = dadosDashboard.bbbaterias || [];
     const producao = dadosDashboard.producao || [];
+    const analiseTransformacoes = dadosDashboard.analiseTransformacoes || [];
     const estoque = dadosDashboard.estoque || [];
     const consultaPecas = dadosDashboard.consultaPecas || [];
     const ajusteEQ = dadosDashboard.ajusteSaldo || [];
@@ -6003,6 +6424,12 @@ function TelaDashboard({ setTela }) {
     const producaoProduzir = producao.filter(
       (item) => normalizar(item.status) === 'produzir'
     );
+
+    const modelosParaTransformar = analiseTransformacoes.filter(
+      (item) =>
+        item.precisaTransformar === true &&
+        item.temOpcaoTransformacao === true
+    ).length;
 
     const estoquePendente = estoque.filter((item) => {
       const status = normalizar(item.status);
@@ -6102,6 +6529,7 @@ function TelaDashboard({ setTela }) {
       pedidosEQ: pedidosUnicos(faturamentoEQ),
       produzir: pedidosUnicos(producaoProduzir),
       produzirSkus: producaoProduzir.length,
+      modelosParaTransformar,
       estoquePendente: pedidosUnicos(estoquePendente),
       estoqueSkusPendentes: estoquePendente.length,
       consultaAguardando: consultaAguardando.length,
@@ -6140,6 +6568,31 @@ function TelaDashboard({ setTela }) {
         : 100,
     };
   }, [dadosDashboard]);
+
+  // Ao abrir o site, mostra imediatamente o último resumo salvo no navegador.
+  // Assim que a atualização atual terminar, troca pelos dados novos.
+  const resumo =
+    !carregouDashboardUmaVez && resumoCacheDashboard
+      ? resumoCacheDashboard
+      : resumoCalculado;
+
+  useEffect(() => {
+    if (!carregouDashboardUmaVez) return;
+
+    setResumoCacheDashboard(resumoCalculado);
+
+    salvarSnapshotDashboard({
+      resumo: resumoCalculado,
+      atualizacoesDashboard,
+      atualizadoEm,
+      salvoEm: Date.now(),
+    });
+  }, [
+    carregouDashboardUmaVez,
+    resumoCalculado,
+    atualizacoesDashboard,
+    atualizadoEm,
+  ]);
 
   function corMetaIndicador(valor, meta) {
     const numero = numeroPercentual(valor);
@@ -6189,6 +6642,15 @@ function TelaDashboard({ setTela }) {
       icon: 'producao',
       tela: 'producao',
       horario: horaFonte('producao'),
+    },
+    {
+      titulo: 'Análise de Transformação',
+      valor: resumo.modelosParaTransformar ?? 0,
+      detalhe: 'Modelos com falta e opção disponível',
+      cor: '#0891B2',
+      icon: 'transformacao',
+      tela: 'analiseTransformacoes',
+      horario: horaFonte('analiseTransformacoes'),
     },
     {
       titulo: 'Estoque Pendente',
@@ -6325,6 +6787,17 @@ function TelaDashboard({ setTela }) {
           <path d="M8 17h1" />
           <path d="M12 17h1" />
           <path d="M16 17h1" />
+        </svg>
+      );
+    }
+
+    if (tipo === 'transformacao') {
+      return (
+        <svg {...svgBase}>
+          <path d="M7 7h10" />
+          <path d="M14 4l3 3-3 3" />
+          <path d="M17 17H7" />
+          <path d="M10 14l-3 3 3 3" />
         </svg>
       );
     }
@@ -6741,7 +7214,7 @@ export default function App() {
   }, []);
 
   const estoqueAtivo = ['estoque', 'ajusteSaldo'].includes(tela);
-  const producaoAtivo = ['producao', 'producaoResumo'].includes(tela);
+  const producaoAtivo = ['producao', 'producaoResumo', 'analiseTransformacoes'].includes(tela);
   const indicAtivo = [
     'indicadorDiario',
     'indicadorExpedicaoDiario',
@@ -7074,6 +7547,12 @@ export default function App() {
                   onClick={() => setTela('producaoResumo')}
                 >
                   Resumo por Pedido
+                </SubMenuBtn>
+                <SubMenuBtn
+                  ativo={tela === 'analiseTransformacoes'}
+                  onClick={() => setTela('analiseTransformacoes')}
+                >
+                  Análise de Transformação
                 </SubMenuBtn>
               </div>
             )}
@@ -7516,6 +7995,13 @@ export default function App() {
         </div>
         <div style={{ display: tela === 'producaoResumo' ? 'block' : 'none' }}>
           <TelaProducao modo="resumo" />
+        </div>
+        <div
+          style={{
+            display: tela === 'analiseTransformacoes' ? 'block' : 'none',
+          }}
+        >
+          <TelaAnaliseTransformacoes />
         </div>
         <div style={{ display: tela === 'pedidoVenda' ? 'block' : 'none' }}>
           <TelaPedidoVenda />
