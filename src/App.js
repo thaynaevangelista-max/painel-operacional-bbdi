@@ -1,8 +1,16 @@
+// VERSAO: CONSULTA_TRANSFORMACAO_VISUAL_CORRIGIDO_2026_09_28 + MODULO_POSTAGENS_2026_10_14 + MODULO_VIA_LEITOR_2026_10_14
 // Cole este arquivo em src/App.js
 // Design "Aurora" — moderno com gradientes suaves, fonte Nunito, visual completamente renovado.
 // Toda lógica, APIs e campos preservados sem alteração.
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 const API_BASE =
   'https://script.google.com/macros/s/AKfycbzpxMBPabGe5Xk16KQBmqmC7_SDzJrncmiAqTgU_Y0az1IkDzUawCW3qQ1gHCrutqlv/exec';
@@ -15,6 +23,12 @@ const LINK_APP_AJUSTE_SALDO =
 
 const LINK_DASHBOARD_OPERACIONAL_LOGISTICA =
   'https://time-operacional.netlify.app/';
+
+// Supabase da Central de Expedição — somente LEITURA (funções/views criadas por fase_c_14_view_postagens_painel.sql).
+// A chave abaixo é a chave PÚBLICA (anon). Nunca coloque aqui a chave service_role / secret.
+const SUPABASE_URL = 'https://njvcostescybgwbnipec.supabase.co';
+const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qdmNvc3Rlc2N5Ymd3Ym5pcGVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNzkxNzMsImV4cCI6MjEwNTc1NTE3M30.ZR9V23Fs-MzYznZCIRrTf2uXwc5oHiltb8hpmgJHADI';
 
 const LOGIN_USUARIO = 'BBDI';
 const LOGIN_SENHA = 'BBDI@2026';
@@ -115,7 +129,6 @@ const FILTROS_ANALISE_TRANSFORMACOES_INICIAIS = {
   semanasEstoque: '',
   produzirSemanas: '',
   transformarQuantidades: '',
-  statusTransformacao: '',
   opcao1: '',
   saldo1: '',
   opcao2: '',
@@ -235,13 +248,9 @@ function iniciarAtualizacaoSincronizada(callback) {
     if (!ativo) return;
 
     const agoraMs = Date.now();
-    const proximoMinutoMs =
-      (Math.floor(agoraMs / 60000) + 1) * 60000;
+    const proximoMinutoMs = (Math.floor(agoraMs / 60000) + 1) * 60000;
 
-    const esperaMs = Math.max(
-      0,
-      proximoMinutoMs - agoraMs + 100
-    );
+    const esperaMs = Math.max(0, proximoMinutoMs - agoraMs + 100);
 
     timerId = setTimeout(async () => {
       if (!ativo) return;
@@ -265,6 +274,72 @@ function iniciarAtualizacaoSincronizada(callback) {
       clearTimeout(timerId);
     }
   };
+}
+
+const BASE_TRANSFORMACOES_STORAGE_KEY = 'bbdi_base_transformacoes_v1';
+
+function normalizarCodigoTransformacao(valor) {
+  return String(valor || '')
+    .trim()
+    .toUpperCase();
+}
+
+function regraTransformacaoValida(valor) {
+  const texto = String(valor || '').trim();
+  return texto !== '' && texto !== '-' && texto !== '--';
+}
+
+function lerBaseTransformacoesLocal() {
+  if (typeof window === 'undefined') {
+    return { dados: [], atualizadoEm: '' };
+  }
+
+  try {
+    const salvo = JSON.parse(
+      window.localStorage.getItem(BASE_TRANSFORMACOES_STORAGE_KEY) || 'null'
+    );
+
+    if (!salvo || !Array.isArray(salvo.dados)) {
+      return { dados: [], atualizadoEm: '' };
+    }
+
+    return {
+      dados: salvo.dados,
+      atualizadoEm: salvo.atualizadoEm || '',
+    };
+  } catch (e) {
+    return { dados: [], atualizadoEm: '' };
+  }
+}
+
+function salvarBaseTransformacoesLocal(dados, atualizadoEm) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(
+      BASE_TRANSFORMACOES_STORAGE_KEY,
+      JSON.stringify({
+        dados: Array.isArray(dados) ? dados : [],
+        atualizadoEm: atualizadoEm || '',
+      })
+    );
+  } catch (e) {
+    // Cache local opcional.
+  }
+}
+
+function criarIndiceBaseTransformacoes(lista) {
+  const indice = new Map();
+
+  (Array.isArray(lista) ? lista : []).forEach((item) => {
+    const chave = normalizarCodigoTransformacao(item.produto);
+
+    if (chave && !indice.has(chave)) {
+      indice.set(chave, item);
+    }
+  });
+
+  return indice;
 }
 
 function parseDataBR(dataTexto) {
@@ -667,64 +742,233 @@ function gerarResumoProducaoLocal(dados) {
 
 const C = {
   // Sidebar
-  sidebarBg: 'linear-gradient(180deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
-  sidebarBd: 'rgba(255,255,255,0.07)',
+  sidebarBg: 'var(--side-bg)',
+  sidebarBd: 'var(--side-bd)',
 
-  // Accent gradients
-  grad1: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', // violet
-  grad2: 'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)', // teal-green
-  grad3: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', // pink-red
-  grad4: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', // sky-blue
-  grad5: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)', // pink-gold
-  grad6: 'linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)', // lavender
+  // Cores de destaque (planas — a paleta muda com o tema claro/escuro)
+  grad1: 'var(--accent)',
+  grad2: 'var(--green)',
+  grad3: 'var(--red)',
+  grad4: 'var(--blue)',
+  grad5: 'var(--amber)',
+  grad6: 'var(--purple)',
 
   // Primary accent
-  primary: '#667eea',
-  primaryDark: '#5a67d8',
-  primaryLight: '#ebf4ff',
-  primaryGrad: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  primary: 'var(--accent-tx)',
+  primaryDark: 'var(--accent-2)',
+  primaryLight: 'var(--accent-soft)',
+  primaryGrad: 'var(--accent)',
 
   // Backgrounds
-  bgPage: 'linear-gradient(135deg, #f5f7fa 0%, #eef1f8 100%)',
-  bgCard: '#ffffff',
-  bgCardGrad: 'linear-gradient(135deg, #ffffff 0%, #f8f9ff 100%)',
-  bgStripe: '#f8f9ff',
-  bgMuted: '#f0f3ff',
+  bgPage: 'var(--page)',
+  bgCard: 'var(--surf)',
+  bgCardGrad: 'var(--surf)',
+  bgStripe: 'var(--surf-alt)',
+  bgMuted: 'var(--surf-muted)',
 
   // Text
-  txtPri: '#1a1f36',
-  txtSec: '#525f7f',
-  txtMuted: '#8898aa',
+  txtPri: 'var(--txt)',
+  txtSec: 'var(--txt-2)',
+  txtMuted: 'var(--txt-muted)',
 
   // Borders
-  bdLight: '#e8ecf4',
-  bdMid: '#d2d9e8',
+  bdLight: 'var(--bd)',
+  bdMid: 'var(--bd-strong)',
 
   // Status colors
-  green: '#11998e',
-  greenBg: '#e6faf7',
-  greenBd: '#a7e9e3',
-  red: '#e53e3e',
-  redBg: '#fff5f5',
-  redBd: '#fed7d7',
-  amber: '#d97706',
-  amberBg: '#fffbeb',
-  amberBd: '#fde68a',
-  blue: '#3182ce',
-  blueBg: '#ebf8ff',
-  blueBd: '#bee3f8',
+  green: 'var(--green)',
+  greenBg: 'var(--green-bg)',
+  greenBd: 'var(--green-bd)',
+  red: 'var(--red)',
+  redBg: 'var(--red-bg)',
+  redBd: 'var(--red-bd)',
+  amber: 'var(--amber)',
+  amberBg: 'var(--amber-bg)',
+  amberBd: 'var(--amber-bd)',
+  blue: 'var(--blue)',
+  blueBg: 'var(--blue-bg)',
+  blueBd: 'var(--blue-bd)',
+  orange: 'var(--orange)',
+  orangeBg: 'var(--orange-bg)',
+  orangeBd: 'var(--orange-bd)',
 
   // Shadows
-  shadowSm: '0 2px 8px rgba(102,126,234,0.08), 0 1px 3px rgba(0,0,0,0.05)',
-  shadowMd: '0 4px 20px rgba(102,126,234,0.12), 0 2px 8px rgba(0,0,0,0.06)',
-  shadowLg: '0 8px 32px rgba(102,126,234,0.16), 0 4px 12px rgba(0,0,0,0.08)',
-  shadowXl: '0 20px 60px rgba(15,12,41,0.35)',
-  shadowCard: '0 2px 16px rgba(102,126,234,0.10), 0 1px 4px rgba(0,0,0,0.04)',
+  shadowSm: 'var(--sh-sm)',
+  shadowMd: 'var(--sh-md)',
+  shadowLg: 'var(--sh-lg)',
+  shadowXl: 'var(--sh-xl)',
+  shadowCard: 'var(--sh-card)',
 
-  radius: { sm: 6, md: 12, lg: 16, xl: 20, pill: 999 },
-  font: "'Nunito', 'Segoe UI', sans-serif",
-  fontMono: "'JetBrains Mono', monospace",
+  radius: { sm: 6, md: 8, lg: 10, xl: 12, pill: 999 },
+  font: "'Inter', 'Segoe UI', system-ui, sans-serif",
+  fontMono: "'JetBrains Mono', ui-monospace, monospace",
 };
+
+// ─── Tema claro / escuro ───────────────────────────────────────────────────────
+// Todas as cores do painel saem destas variáveis. O tema fica em <html data-tema="claro|escuro">.
+
+const TEMA_STORAGE_KEY = 'bbdi_tema';
+
+const TEMA_CSS = `
+:root{
+  color-scheme: light;
+  --page:#f3f5f9; --surf:#ffffff; --surf-alt:#f8fafc; --surf-head:#eef2f7; --surf-muted:#eef2f7;
+  --txt:#0f172a; --txt-2:#475569; --txt-muted:#64748b;
+  --bd:#e2e8f0; --bd-strong:#cbd5e1;
+  --accent:#2f5bea; --accent-2:#2549c9; --accent-soft:#eaf0ff; --accent-tx:#2549c9; --accent-rgb:47,91,234;
+  --green:#0f9d6e; --green-bg:#e7f7f0; --green-bd:#a7e3c8; --green-tx:#0b7a55;
+  --red:#d92d20; --red-bg:#fdecea; --red-bd:#f5c2c0; --red-tx:#b3261e;
+  --amber:#d97706; --amber-bg:#fff7e0; --amber-bd:#f0d99a; --amber-tx:#8a4b00;
+  --blue:#2f7fd6; --blue-bg:#e8f2fd; --blue-bd:#b9d6f5; --blue-tx:#1d4ed8;
+  --purple:#7c3aed; --purple-bg:#ede9fe; --purple-bd:#d3c6fb; --purple-tx:#6d28d9;
+  --orange:#ea580c; --orange-bg:#ffedd5; --orange-bd:#fdc89a; --orange-tx:#c2410c;
+  --side-bg:#0f172a; --side-bd:rgba(255,255,255,0.07);
+  --sh-sm:0 1px 2px rgba(15,23,42,0.06);
+  --sh-md:0 4px 12px rgba(15,23,42,0.08);
+  --sh-lg:0 10px 28px rgba(15,23,42,0.12);
+  --sh-xl:0 24px 60px rgba(15,23,42,0.35);
+  --sh-card:0 1px 2px rgba(15,23,42,0.05), 0 1px 3px rgba(15,23,42,0.04);
+}
+:root[data-tema="escuro"]{
+  color-scheme: dark;
+  --page:#0b1120; --surf:#111a2e; --surf-alt:#0e1628; --surf-head:#16223a; --surf-muted:#18243d;
+  --txt:#e8edf7; --txt-2:#b6c2d9; --txt-muted:#8493ad;
+  --bd:#22304a; --bd-strong:#2f4062;
+  --accent:#3f6df0; --accent-2:#5b86ff; --accent-soft:rgba(107,140,255,0.15); --accent-tx:#9db3ff; --accent-rgb:107,140,255;
+  --green:#34d399; --green-bg:rgba(52,211,153,0.12); --green-bd:rgba(52,211,153,0.38); --green-tx:#6ee7b7;
+  --red:#f87171; --red-bg:rgba(248,113,113,0.12); --red-bd:rgba(248,113,113,0.38); --red-tx:#fca5a5;
+  --amber:#fbbf24; --amber-bg:rgba(251,191,36,0.12); --amber-bd:rgba(251,191,36,0.38); --amber-tx:#fcd34d;
+  --blue:#60a5fa; --blue-bg:rgba(96,165,250,0.12); --blue-bd:rgba(96,165,250,0.38); --blue-tx:#93c5fd;
+  --purple:#a78bfa; --purple-bg:rgba(167,139,250,0.14); --purple-bd:rgba(167,139,250,0.4); --purple-tx:#c4b5fd;
+  --orange:#fb923c; --orange-bg:rgba(251,146,60,0.13); --orange-bd:rgba(251,146,60,0.4); --orange-tx:#fdba74;
+  --side-bg:#070c18; --side-bd:rgba(255,255,255,0.06);
+  --sh-sm:0 1px 2px rgba(0,0,0,0.35);
+  --sh-md:0 4px 14px rgba(0,0,0,0.38);
+  --sh-lg:0 10px 30px rgba(0,0,0,0.45);
+  --sh-xl:0 24px 60px rgba(0,0,0,0.6);
+  --sh-card:0 1px 2px rgba(0,0,0,0.30), 0 0 0 1px rgba(255,255,255,0.02);
+}
+html,body{background:var(--page);margin:0}
+.bbdi-nav{background:transparent;transition:background .15s,color .15s}
+.bbdi-nav:hover{background:rgba(255,255,255,0.06)}
+.bbdi-card-btn{transition:transform .15s,box-shadow .15s,border-color .15s}
+.bbdi-card-btn:hover{transform:translateY(-1px);box-shadow:var(--sh-md)!important}
+body{color:var(--txt);-webkit-font-smoothing:antialiased;transition:background-color .2s,color .2s}
+::selection{background:rgba(var(--accent-rgb),0.25)}
+input,select,textarea{color-scheme:inherit}
+input::placeholder,textarea::placeholder{color:var(--txt-muted);opacity:.8}
+input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid rgba(var(--accent-rgb),0.45);outline-offset:1px}
+button:focus-visible,a:focus-visible{outline:2px solid rgba(var(--accent-rgb),0.55);outline-offset:2px}
+select option{background:var(--surf);color:var(--txt)}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:var(--bd-strong);border-radius:8px;border:2px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-track{background:transparent}
+@media print{:root,:root[data-tema="escuro"]{--page:#fff;--surf:#fff;--txt:#000;--txt-2:#222;--txt-muted:#444;--bd:#ccc;--bd-strong:#999}}
+`;
+
+function temaInicial() {
+  try {
+    const salvo = localStorage.getItem(TEMA_STORAGE_KEY);
+    if (salvo === 'claro' || salvo === 'escuro') return salvo;
+  } catch (e) {
+    // sem armazenamento: segue a preferência do sistema
+  }
+  return typeof window !== 'undefined' &&
+    window.matchMedia &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+    ? 'escuro'
+    : 'claro';
+}
+
+function useTema() {
+  const [tema, setTema] = useState(temaInicial);
+  useLayoutEffect(() => {
+    let el = document.getElementById('bbdi-tema-css');
+    if (!el) {
+      el = document.createElement('style');
+      el.id = 'bbdi-tema-css';
+      document.head.appendChild(el);
+    }
+    el.textContent = TEMA_CSS;
+  }, []);
+  useLayoutEffect(() => {
+    document.documentElement.setAttribute('data-tema', tema);
+    try {
+      localStorage.setItem(TEMA_STORAGE_KEY, tema);
+    } catch (e) {
+      // sem armazenamento
+    }
+  }, [tema]);
+  const alternar = useCallback(
+    () => setTema((t) => (t === 'escuro' ? 'claro' : 'escuro')),
+    []
+  );
+  return [tema, alternar];
+}
+
+function BotaoTema({ tema, alternar, compacto, sobreEscuro }) {
+  const escuro = tema === 'escuro';
+  return (
+    <button
+      type="button"
+      onClick={alternar}
+      title={escuro ? 'Mudar para o modo claro' : 'Mudar para o modo escuro'}
+      aria-label={
+        escuro ? 'Mudar para o modo claro' : 'Mudar para o modo escuro'
+      }
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        height: 36,
+        padding: compacto ? '0 10px' : '0 12px',
+        borderRadius: C.radius.md,
+        border: sobreEscuro
+          ? '1px solid rgba(255,255,255,0.16)'
+          : `1px solid ${C.bdMid}`,
+        background: sobreEscuro ? 'rgba(255,255,255,0.08)' : C.bgCard,
+        color: sobreEscuro ? '#e8edf7' : C.txtSec,
+        cursor: 'pointer',
+        fontFamily: C.font,
+        fontSize: 12,
+        fontWeight: 600,
+        boxShadow: sobreEscuro ? 'none' : C.shadowSm,
+      }}
+    >
+      {escuro ? (
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+        </svg>
+      ) : (
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
+        </svg>
+      )}
+      {!compacto && <span>{escuro ? 'Modo claro' : 'Modo escuro'}</span>}
+    </button>
+  );
+}
 
 // ─── Componentes visuais ───────────────────────────────────────────────────────
 
@@ -745,7 +989,7 @@ function Badge({ texto, tipo }) {
         gap: 4,
         background: cor.bg,
         color: cor.color,
-        border: `1.5px solid ${cor.bd}`,
+        border: `1px solid ${cor.bd}`,
         padding: '2px 9px',
         borderRadius: C.radius.pill,
         fontSize: 10,
@@ -774,10 +1018,10 @@ function Kpi({ titulo, valor, subtitulo, onClick, ativo }) {
         borderRadius: C.radius.xl,
         padding: '18px 20px 16px',
         cursor: onClick ? 'pointer' : 'default',
-        boxShadow: ativo ? `0 8px 28px rgba(102,126,234,0.25)` : C.shadowCard,
-        border: ativo
-          ? '2px solid rgba(102,126,234,0.4)'
-          : `1.5px solid ${C.bdLight}`,
+        boxShadow: ativo
+          ? `0 8px 28px rgba(var(--accent-rgb),0.25)`
+          : C.shadowCard,
+        border: ativo ? `1px solid ${C.primary}` : `1px solid ${C.bdLight}`,
         position: 'relative',
         overflow: 'hidden',
         transition: 'all 180ms ease',
@@ -796,18 +1040,6 @@ function Kpi({ titulo, valor, subtitulo, onClick, ativo }) {
       />
       <div
         style={{
-          position: 'absolute',
-          bottom: -18,
-          right: -12,
-          width: 72,
-          height: 72,
-          borderRadius: '50%',
-          background: grad,
-          opacity: 0.06,
-        }}
-      />
-      <div
-        style={{
           fontSize: 10,
           fontWeight: 800,
           color: C.txtMuted,
@@ -822,7 +1054,7 @@ function Kpi({ titulo, valor, subtitulo, onClick, ativo }) {
       <div
         style={{
           fontSize: 30,
-          fontWeight: 900,
+          fontWeight: 800,
           color: ativo ? C.primary : C.txtPri,
           fontFamily: C.fontMono,
           letterSpacing: '-0.04em',
@@ -872,14 +1104,16 @@ function CabecalhoComFiltro({
           fontSize: 9,
           cursor: 'pointer',
           padding: 0,
-          fontWeight: 900,
+          fontWeight: 800,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           flexShrink: 0,
-          background: sortOrder ? 'rgba(102,126,234,0.12)' : 'transparent',
+          background: sortOrder
+            ? 'rgba(var(--accent-rgb),0.12)'
+            : 'transparent',
           border: sortOrder
-            ? '1px solid rgba(102,126,234,0.4)'
+            ? '1px solid rgba(var(--accent-rgb),0.4)'
             : `1px solid ${C.bdMid}`,
           color: sortOrder ? C.primary : C.txtMuted,
         }}
@@ -898,9 +1132,9 @@ function CabecalhoComFiltro({
           padding: 0,
           color: 'transparent',
           flexShrink: 0,
-          background: ativo ? 'rgba(102,126,234,0.10)' : 'transparent',
+          background: ativo ? 'rgba(var(--accent-rgb),0.10)' : 'transparent',
           border: ativo
-            ? '1px solid rgba(102,126,234,0.4)'
+            ? '1px solid rgba(var(--accent-rgb),0.4)'
             : `1px solid ${C.bdMid}`,
         }}
       >
@@ -918,14 +1152,15 @@ function CabecalhoComFiltro({
 function MenuBtn({ ativo, onClick, children, icon }) {
   return (
     <button
+      className="bbdi-nav"
       onClick={onClick}
       style={{
         width: '100%',
         borderRadius: C.radius.md,
-        padding: '10px 13px',
+        padding: '9px 12px',
         cursor: 'pointer',
         textAlign: 'left',
-        fontWeight: 700,
+        fontWeight: 600,
         fontSize: 13,
         display: 'flex',
         alignItems: 'center',
@@ -933,12 +1168,10 @@ function MenuBtn({ ativo, onClick, children, icon }) {
         fontFamily: C.font,
         letterSpacing: '-0.01em',
         transition: 'all 150ms ease',
-        color: ativo ? '#fff' : 'rgba(255,255,255,0.55)',
-        background: ativo ? C.primaryGrad : 'transparent',
-        border: ativo
-          ? '1px solid rgba(255,255,255,0.15)'
-          : '1px solid transparent',
-        boxShadow: ativo ? '0 4px 20px rgba(102,126,234,0.45)' : 'none',
+        color: ativo ? '#fff' : 'rgba(226,232,240,0.74)',
+        background: ativo ? 'rgba(255,255,255,0.09)' : undefined,
+        border: '1px solid transparent',
+        boxShadow: ativo ? 'inset 3px 0 0 #5b86ff' : 'none',
       }}
     >
       <span
@@ -947,15 +1180,13 @@ function MenuBtn({ ativo, onClick, children, icon }) {
           height: 26,
           borderRadius: 8,
           flexShrink: 0,
-          background: ativo
-            ? 'rgba(255,255,255,0.22)'
-            : 'rgba(255,255,255,0.08)',
+          background: ativo ? '#3f6df0' : 'rgba(255,255,255,0.07)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: 11,
-          fontWeight: 900,
-          color: ativo ? '#fff' : 'rgba(255,255,255,0.45)',
+          fontWeight: 800,
+          color: ativo ? '#fff' : 'rgba(226,232,240,0.6)',
         }}
       >
         {icon}
@@ -968,14 +1199,15 @@ function MenuBtn({ ativo, onClick, children, icon }) {
 function MenuGrupBtn({ ativo, onClick, children, icon }) {
   return (
     <button
+      className="bbdi-nav"
       onClick={onClick}
       style={{
         width: '100%',
         borderRadius: C.radius.md,
-        padding: '10px 13px',
+        padding: '9px 12px',
         cursor: 'pointer',
         textAlign: 'left',
-        fontWeight: 700,
+        fontWeight: 600,
         fontSize: 13,
         display: 'flex',
         alignItems: 'center',
@@ -983,12 +1215,10 @@ function MenuGrupBtn({ ativo, onClick, children, icon }) {
         fontFamily: C.font,
         letterSpacing: '-0.01em',
         transition: 'all 150ms ease',
-        color: ativo ? '#fff' : 'rgba(255,255,255,0.55)',
-        background: ativo ? C.primaryGrad : 'transparent',
-        border: ativo
-          ? '1px solid rgba(255,255,255,0.15)'
-          : '1px solid transparent',
-        boxShadow: ativo ? '0 4px 20px rgba(102,126,234,0.45)' : 'none',
+        color: ativo ? '#fff' : 'rgba(226,232,240,0.74)',
+        background: ativo ? 'rgba(255,255,255,0.09)' : undefined,
+        border: '1px solid transparent',
+        boxShadow: ativo ? 'inset 3px 0 0 #5b86ff' : 'none',
       }}
     >
       <span
@@ -997,15 +1227,13 @@ function MenuGrupBtn({ ativo, onClick, children, icon }) {
           height: 26,
           borderRadius: 8,
           flexShrink: 0,
-          background: ativo
-            ? 'rgba(255,255,255,0.22)'
-            : 'rgba(255,255,255,0.08)',
+          background: ativo ? '#3f6df0' : 'rgba(255,255,255,0.07)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: 11,
-          fontWeight: 900,
-          color: ativo ? '#fff' : 'rgba(255,255,255,0.45)',
+          fontWeight: 800,
+          color: ativo ? '#fff' : 'rgba(226,232,240,0.6)',
         }}
       >
         {icon}
@@ -1014,7 +1242,7 @@ function MenuGrupBtn({ ativo, onClick, children, icon }) {
       <span
         style={{
           fontSize: 13,
-          color: ativo ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)',
+          color: ativo ? 'rgba(255,255,255,0.8)' : 'rgba(226,232,240,0.4)',
           fontWeight: 700,
         }}
       >
@@ -1027,6 +1255,7 @@ function MenuGrupBtn({ ativo, onClick, children, icon }) {
 function SubMenuBtn({ ativo, onClick, children }) {
   return (
     <button
+      className="bbdi-nav"
       onClick={onClick}
       style={{
         width: '100%',
@@ -1040,11 +1269,11 @@ function SubMenuBtn({ ativo, onClick, children }) {
         fontSize: 12,
         fontFamily: C.font,
         transition: 'all 140ms ease',
-        color: ativo ? '#e9d5ff' : 'rgba(255,255,255,0.40)',
-        background: ativo ? 'rgba(167,139,250,0.22)' : 'transparent',
+        color: ativo ? '#fff' : 'rgba(226,232,240,0.6)',
+        background: ativo ? 'rgba(255,255,255,0.09)' : undefined,
         borderLeft: ativo
-          ? '3px solid #a78bfa'
-          : '3px solid rgba(255,255,255,0.10)',
+          ? '3px solid #5b86ff'
+          : '3px solid rgba(255,255,255,0.08)',
       }}
     >
       {children}
@@ -1072,8 +1301,8 @@ function BotaoLink({ href, children, variante = 'primario' }) {
         letterSpacing: '-0.01em',
         background: p ? C.primaryGrad : C.bgCard,
         color: p ? '#fff' : C.txtPri,
-        border: p ? 'none' : `1.5px solid ${C.bdMid}`,
-        boxShadow: p ? '0 4px 14px rgba(102,126,234,0.35)' : C.shadowSm,
+        border: p ? 'none' : `1px solid ${C.bdMid}`,
+        boxShadow: p ? '0 4px 14px rgba(var(--accent-rgb),0.35)' : C.shadowSm,
       }}
     >
       {children}
@@ -1090,7 +1319,7 @@ function ContadorRegistros({ filtrados, total }) {
         fontWeight: 700,
         fontFamily: C.font,
         background: C.bgMuted,
-        border: `1.5px solid ${C.bdLight}`,
+        border: `1px solid ${C.bdLight}`,
         borderRadius: C.radius.pill,
         padding: '4px 11px',
       }}
@@ -1119,7 +1348,7 @@ function TabelaPadrao({
     <section
       style={{
         background: C.bgCard,
-        border: `1.5px solid ${C.bdLight}`,
+        border: `1px solid ${C.bdLight}`,
         borderRadius: C.radius.xl,
         overflow: 'hidden',
         boxShadow: C.shadowCard,
@@ -1128,11 +1357,11 @@ function TabelaPadrao({
       <div
         style={{
           padding: '14px 18px',
-          borderBottom: `1.5px solid ${C.bdLight}`,
+          borderBottom: `1px solid ${C.bdLight}`,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'linear-gradient(135deg,#fafbff 0%,#f5f7ff 100%)',
+          background: C.bgStripe,
         }}
       >
         <span
@@ -1163,7 +1392,7 @@ function TabelaPadrao({
           <thead>
             <tr
               style={{
-                background: 'linear-gradient(135deg,#f0f3ff 0%,#e8ecff 100%)',
+                background: C.bgMuted,
               }}
             >
               {colunas.map((col) => (
@@ -1176,9 +1405,9 @@ function TabelaPadrao({
                     fontSize: 9,
                     textTransform: 'uppercase',
                     whiteSpace: 'nowrap',
-                    fontWeight: 900,
+                    fontWeight: 800,
                     letterSpacing: '0.07em',
-                    borderBottom: `1.5px solid ${C.bdLight}`,
+                    borderBottom: `1px solid ${C.bdLight}`,
                     width: col.width,
                     minWidth: col.minWidth || col.width,
                   }}
@@ -1236,7 +1465,7 @@ function TabelaPadrao({
                 key={`r${idx}`}
                 style={{
                   borderTop: `1px solid ${C.bdLight}`,
-                  background: idx % 2 === 0 ? '#fff' : C.bgStripe,
+                  background: idx % 2 === 0 ? C.bgCard : C.bgStripe,
                   transition: 'background 100ms',
                 }}
               >
@@ -1278,9 +1507,7 @@ function PageHeader({ titulo, atualizadoEm, extraInfo, actions }) {
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         boxShadow: C.shadowCard,
-        border: `1.5px solid ${C.bdLight}`,
-        borderTop: `3px solid transparent`,
-        borderImage: `${C.grad1} 1`,
+        border: `1px solid ${C.bdLight}`,
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -1312,10 +1539,10 @@ function PageHeader({ titulo, atualizadoEm, extraInfo, actions }) {
         <h1
           style={{
             margin: 0,
-            fontSize: 24,
+            fontSize: 22,
             color: C.txtPri,
-            fontWeight: 900,
-            letterSpacing: '-0.04em',
+            fontWeight: 700,
+            letterSpacing: '-0.03em',
             fontFamily: C.font,
           }}
         >
@@ -1362,7 +1589,7 @@ function PageHeader({ titulo, atualizadoEm, extraInfo, actions }) {
 
 const btnAtualizar = (loading) => ({
   height: 36,
-  border: `1.5px solid ${C.bdMid}`,
+  border: `1px solid ${C.bdMid}`,
   background: loading ? C.bgMuted : C.bgCard,
   borderRadius: C.radius.md,
   padding: '0 16px',
@@ -1380,12 +1607,12 @@ const erroEl = {
   borderRadius: C.radius.md,
   marginBottom: 16,
   fontWeight: 700,
-  border: `1.5px solid ${C.redBd}`,
+  border: `1px solid ${C.redBd}`,
   fontSize: 12,
   fontFamily: C.font,
 };
 const inputEl = {
-  border: `1.5px solid ${C.bdMid}`,
+  border: `1px solid ${C.bdMid}`,
   borderRadius: C.radius.md,
   padding: '8px 12px',
   fontSize: 12,
@@ -1400,7 +1627,7 @@ const inputEl = {
   boxShadow: C.shadowSm,
 };
 const selectEl = {
-  border: `1.5px solid ${C.bdMid}`,
+  border: `1px solid ${C.bdMid}`,
   borderRadius: C.radius.md,
   padding: '6px 10px',
   fontSize: 12,
@@ -1484,7 +1711,7 @@ function FiltroTopo({
 
 // ─── Login ─────────────────────────────────────────────────────────────────────
 
-function TelaLogin({ onLogin }) {
+function TelaLogin({ onLogin, tema, alternarTema }) {
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
@@ -1510,8 +1737,12 @@ function TelaLogin({ onLogin }) {
         justifyContent: 'center',
         padding: 20,
         fontFamily: C.font,
+        position: 'relative',
       }}
     >
+      <div style={{ position: 'absolute', top: 16, right: 16 }}>
+        <BotaoTema tema={tema} alternar={alternarTema} sobreEscuro />
+      </div>
       {/* Glow */}
       <div
         style={{
@@ -1522,7 +1753,7 @@ function TelaLogin({ onLogin }) {
           width: 500,
           height: 500,
           background:
-            'radial-gradient(circle, rgba(102,126,234,0.18) 0%, transparent 65%)',
+            'radial-gradient(circle, rgba(var(--accent-rgb),0.18) 0%, transparent 65%)',
           pointerEvents: 'none',
         }}
       />
@@ -1531,11 +1762,11 @@ function TelaLogin({ onLogin }) {
         style={{
           width: '100%',
           maxWidth: 400,
-          background: 'rgba(255,255,255,0.97)',
-          borderRadius: 24,
+          background: C.bgCard,
+          borderRadius: 16,
           padding: 36,
           boxShadow: C.shadowXl,
-          border: '1px solid rgba(255,255,255,0.6)',
+          border: `1px solid ${C.bdLight}`,
           position: 'relative',
         }}
       >
@@ -1545,9 +1776,9 @@ function TelaLogin({ onLogin }) {
             top: 0,
             left: 0,
             right: 0,
-            height: 5,
+            height: 4,
             background: C.primaryGrad,
-            borderRadius: '24px 24px 0 0',
+            borderRadius: '16px 16px 0 0',
           }}
         />
         <div
@@ -1563,15 +1794,15 @@ function TelaLogin({ onLogin }) {
               width: 48,
               height: 48,
               borderRadius: 14,
-              background: C.primaryGrad,
+              background: '#3f6df0',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontWeight: 900,
+              fontWeight: 800,
               fontSize: 22,
               color: '#fff',
               flexShrink: 0,
-              boxShadow: '0 6px 20px rgba(102,126,234,0.4)',
+              boxShadow: '0 4px 14px rgba(63,109,240,0.4)',
             }}
           >
             B
@@ -1581,7 +1812,7 @@ function TelaLogin({ onLogin }) {
               style={{
                 margin: 0,
                 fontSize: 20,
-                fontWeight: 900,
+                fontWeight: 800,
                 color: C.txtPri,
                 letterSpacing: '-0.04em',
               }}
@@ -1625,7 +1856,7 @@ function TelaLogin({ onLogin }) {
           style={{
             width: '100%',
             boxSizing: 'border-box',
-            border: `1.5px solid ${C.bdMid}`,
+            border: `1px solid ${C.bdMid}`,
             borderRadius: C.radius.md,
             padding: '12px 14px',
             fontSize: 14,
@@ -1661,7 +1892,7 @@ function TelaLogin({ onLogin }) {
           style={{
             width: '100%',
             boxSizing: 'border-box',
-            border: `1.5px solid ${C.bdMid}`,
+            border: `1px solid ${C.bdMid}`,
             borderRadius: C.radius.md,
             padding: '12px 14px',
             fontSize: 14,
@@ -1681,7 +1912,7 @@ function TelaLogin({ onLogin }) {
               fontSize: 12,
               fontWeight: 700,
               marginTop: 14,
-              border: `1.5px solid ${C.redBd}`,
+              border: `1px solid ${C.redBd}`,
             }}
           >
             {erro}
@@ -1701,7 +1932,7 @@ function TelaLogin({ onLogin }) {
             fontSize: 14,
             cursor: 'pointer',
             fontFamily: C.font,
-            boxShadow: '0 6px 20px rgba(102,126,234,0.40)',
+            boxShadow: C.shadowMd,
           }}
         >
           Entrar
@@ -2199,8 +2430,8 @@ function criarTelaAjusteSaldo({
       }
     }, []);
     useEffect(() => {
-    return iniciarAtualizacaoSincronizada(load);
-  }, [load]);
+      return iniciarAtualizacaoSincronizada(load);
+    }, [load]);
     const dadosPeriodo = useMemo(
       () => filtrarPorPeriodo(dados, campoData, pf, dp),
       [dados, pf, dp]
@@ -2953,7 +3184,6 @@ function TelaProducao({ modo }) {
   );
 }
 
-
 function TelaAnaliseTransformacoes() {
   const [dados, setDados] = useState([]);
   const [kpis, setKpis] = useState({
@@ -2983,15 +3213,12 @@ function TelaAnaliseTransformacoes() {
       const json = await resposta.json();
 
       if (!json.ok) {
-        throw new Error(json.erro || 'Erro ao carregar análise de transformações');
+        throw new Error(
+          json.erro || 'Erro ao carregar análise de transformações'
+        );
       }
 
-      const registros = (json.dados || []).map((item) => ({
-        ...item,
-        statusTransformacao: normalizar(item.transformarQuantidades).includes('faltam')
-          ? 'TRANSFORMAR'
-          : 'OK',
-      }));
+      const registros = json.dados || [];
 
       setDados(registros);
       setKpis(
@@ -3023,7 +3250,6 @@ function TelaAnaliseTransformacoes() {
         'semanasEstoque',
         'produzirSemanas',
         'transformarQuantidades',
-        'statusTransformacao',
         'opcao1',
         'saldo1',
         'opcao2',
@@ -3066,7 +3292,9 @@ function TelaAnaliseTransformacoes() {
       }
 
       setMensagem(
-        `${json.valorAplicado} aplicado em ${json.totalAtualizados || 0} modelo(s).`
+        `${json.valorAplicado} aplicado em ${
+          json.totalAtualizados || 0
+        } modelo(s).`
       );
 
       await load();
@@ -3078,7 +3306,8 @@ function TelaAnaliseTransformacoes() {
   }, [semanasGlobal, load]);
 
   const tipoTransformacao = (item) => {
-    if (item.precisaTransformar && item.temOpcaoTransformacao) return 'vermelho';
+    if (item.precisaTransformar && item.temOpcaoTransformacao)
+      return 'vermelho';
     if (item.precisaTransformar) return 'laranja';
     if (normalizar(item.transformarQuantidades).includes('suficiente'))
       return 'verde';
@@ -3088,7 +3317,12 @@ function TelaAnaliseTransformacoes() {
   const colunas = [
     { campo: 'produto', titulo: 'Produto', bold: true, width: 125 },
     { campo: 'saldoEquipatech', titulo: 'Saldo Total', width: 90 },
-    { campo: 'semanasEstoque', titulo: 'Semanas em Estoque', width: 145, wrap: true },
+    {
+      campo: 'semanasEstoque',
+      titulo: 'Semanas em Estoque',
+      width: 145,
+      wrap: true,
+    },
     { campo: 'produzirSemanas', titulo: 'Produzir X Semanas', width: 125 },
     {
       campo: 'transformarQuantidades',
@@ -3099,17 +3333,6 @@ function TelaAnaliseTransformacoes() {
         <Badge
           texto={item.transformarQuantidades || '—'}
           tipo={tipoTransformacao(item)}
-        />
-      ),
-    },
-    {
-      campo: 'statusTransformacao',
-      titulo: 'Transformar / OK',
-      width: 115,
-      render: (item) => (
-        <Badge
-          texto={item.statusTransformacao}
-          tipo={item.statusTransformacao === 'TRANSFORMAR' ? 'vermelho' : 'verde'}
         />
       ),
     },
@@ -3148,7 +3371,7 @@ function TelaAnaliseTransformacoes() {
             borderRadius: C.radius.md,
             marginBottom: 16,
             fontWeight: 700,
-            border: `1.5px solid ${C.greenBd}`,
+            border: `1px solid ${C.greenBd}`,
             fontSize: 12,
             fontFamily: C.font,
           }}
@@ -3177,7 +3400,7 @@ function TelaAnaliseTransformacoes() {
       <section
         style={{
           background: C.bgCard,
-          border: `1.5px solid ${C.bdLight}`,
+          border: `1px solid ${C.bdLight}`,
           borderRadius: C.radius.lg,
           padding: 16,
           marginBottom: 16,
@@ -3191,7 +3414,7 @@ function TelaAnaliseTransformacoes() {
         <div style={{ marginRight: 8 }}>
           <div
             style={{
-              fontWeight: 900,
+              fontWeight: 800,
               color: C.txtPri,
               fontSize: 13,
               fontFamily: C.font,
@@ -3240,7 +3463,7 @@ function TelaAnaliseTransformacoes() {
             fontFamily: C.font,
             boxShadow: salvandoSemanas
               ? 'none'
-              : '0 4px 14px rgba(102,126,234,0.35)',
+              : '0 4px 14px rgba(var(--accent-rgb),0.35)',
           }}
         >
           {salvandoSemanas ? 'Aplicando…' : 'Aplicar para todos'}
@@ -3267,6 +3490,357 @@ function TelaAnaliseTransformacoes() {
         carregando={loading}
         mensagemVazia="Nenhum modelo encontrado."
       />
+    </>
+  );
+}
+
+function TelaConsultaTransformacao() {
+  const localInicial = useMemo(() => lerBaseTransformacoesLocal(), []);
+
+  const [base, setBase] = useState(localInicial.dados);
+  const [atualizadoEm, setAtualizadoEm] = useState(localInicial.atualizadoEm);
+  const [busca, setBusca] = useState('');
+  const [carregando, setCarregando] = useState(localInicial.dados.length === 0);
+  const [resultado, setResultado] = useState(null);
+
+  const indice = useMemo(() => criarIndiceBaseTransformacoes(base), [base]);
+
+  const carregarBase = useCallback(async (forcar = false) => {
+    const local = lerBaseTransformacoesLocal();
+
+    if (!forcar && local.dados.length > 0) {
+      setBase(local.dados);
+      setAtualizadoEm(local.atualizadoEm || '');
+      setCarregando(false);
+      return;
+    }
+
+    setCarregando(true);
+
+    try {
+      const resposta = await fetch(
+        `${API_BASE}?action=dados&fonte=baseTransformacoes&_=${Date.now()}`,
+        { cache: 'no-store' }
+      );
+
+      const json = await resposta.json();
+
+      if (!json.ok) {
+        throw new Error(json.erro || 'Erro ao carregar base técnica.');
+      }
+
+      const registros = Array.isArray(json.dados) ? json.dados : [];
+      const atualizado =
+        json.atualizadoEm || new Date().toLocaleString('pt-BR');
+
+      setBase(registros);
+      setAtualizadoEm(atualizado);
+      salvarBaseTransformacoesLocal(registros, atualizado);
+    } catch (e) {
+      console.error('Falha ao carregar base de transformações:', e);
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    carregarBase(false);
+  }, [carregarBase]);
+
+  const pesquisar = useCallback(() => {
+    const chave = normalizarCodigoTransformacao(busca);
+
+    if (!chave) {
+      setResultado(null);
+      return;
+    }
+
+    const encontrado = indice.get(chave) || null;
+    setResultado(encontrado);
+  }, [busca, indice]);
+
+  const temTransformacao =
+    resultado && regraTransformacaoValida(resultado.regraTransformacao);
+
+  return (
+    <>
+      <section
+        style={{
+          background: C.bgCard,
+          border: `1px solid ${C.bdLight}`,
+          borderRadius: C.radius.lg,
+          padding: 18,
+          marginBottom: 16,
+          boxShadow: C.shadowCard,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 22,
+            fontWeight: 800,
+            color: C.txtPri,
+            fontFamily: C.font,
+          }}
+        >
+          Consulta de Transformação
+        </div>
+
+        <button
+          onClick={() => carregarBase(true)}
+          disabled={carregando}
+          style={btnAtualizar(carregando)}
+        >
+          {carregando ? 'Atualizando base…' : 'Atualizar base'}
+        </button>
+      </section>
+
+      <section
+        style={{
+          background: C.bgCard,
+          border: `1px solid ${C.bdLight}`,
+          borderRadius: C.radius.lg,
+          padding: 16,
+          marginBottom: 16,
+          boxShadow: C.shadowCard,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 800,
+            color: C.txtMuted,
+            textTransform: 'uppercase',
+            marginBottom: 8,
+          }}
+        >
+          Pesquisar modelo
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') pesquisar();
+            }}
+            placeholder="Ex.: B156XW04-V.8"
+            style={{
+              ...inputEl,
+              flex: 1,
+              minWidth: 0,
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={pesquisar}
+            style={{
+              height: 36,
+              border: 'none',
+              borderRadius: C.radius.md,
+              padding: '0 18px',
+              background: C.primaryGrad,
+              color: '#fff',
+              fontWeight: 800,
+              fontSize: 12,
+              cursor: 'pointer',
+              fontFamily: C.font,
+              boxShadow: '0 4px 14px rgba(var(--accent-rgb),0.35)',
+            }}
+          >
+            Buscar
+          </button>
+        </div>
+
+        <div
+          style={{
+            marginTop: 8,
+            fontSize: 10,
+            color: C.txtMuted,
+          }}
+        >
+          Base carregada: {base.length} modelo(s)
+        </div>
+      </section>
+
+      {resultado === null && busca.trim() !== '' && (
+        <div
+          style={{
+            background: C.bgCard,
+            border: `1.5px dashed ${C.bdMid}`,
+            borderRadius: C.radius.lg,
+            padding: 18,
+            color: C.txtMuted,
+            fontSize: 12,
+            textAlign: 'center',
+          }}
+        >
+          Pesquise o modelo e pressione Buscar.
+        </div>
+      )}
+
+      {resultado && (
+        <section
+          style={{
+            background: C.bgCard,
+            border: `1px solid ${C.bdLight}`,
+            borderRadius: C.radius.lg,
+            padding: 16,
+            boxShadow: C.shadowCard,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: 12,
+              marginBottom: 14,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 20,
+                fontWeight: 800,
+                color: C.txtPri,
+              }}
+            >
+              {resultado.produto}
+            </div>
+
+            <Badge
+              texto={
+                temTransformacao
+                  ? 'TRANSFORMAÇÃO DISPONÍVEL'
+                  : 'SEM TRANSFORMAÇÃO'
+              }
+              tipo={temTransformacao ? 'verde' : 'cinza'}
+            />
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(6,minmax(0,1fr))',
+              gap: 8,
+              marginBottom: 14,
+            }}
+          >
+            {[
+              ['Resolução', resultado.resolucao],
+              ['Polegada', resultado.polegada],
+              ['Pinos', resultado.pinos],
+              ['Brackets', resultado.brackets],
+              ['Tipo', resultado.tipoTela],
+              ['IPS', resultado.ips],
+            ].map(([rotulo, valor]) => (
+              <div
+                key={rotulo}
+                style={{
+                  background: C.bgStripe,
+                  border: `1px solid ${C.bdLight}`,
+                  borderRadius: 10,
+                  padding: 10,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 9,
+                    color: C.txtMuted,
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    marginBottom: 4,
+                  }}
+                >
+                  {rotulo}
+                </div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: C.txtPri,
+                    fontWeight: 800,
+                  }}
+                >
+                  {valor || '—'}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              background: temTransformacao ? C.greenBg : C.bgStripe,
+              border: `1px solid ${temTransformacao ? C.greenBd : C.bdLight}`,
+              borderRadius: 10,
+              padding: 13,
+              marginBottom: 12,
+            }}
+          >
+            <div
+              style={{
+                whiteSpace: 'pre-wrap',
+                fontSize: 12,
+                lineHeight: 1.5,
+                color: C.txtPri,
+                fontWeight: 700,
+              }}
+            >
+              {resultado.regraTransformacao ||
+                'Nenhuma transformação cadastrada.'}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                color: C.txtMuted,
+                textTransform: 'uppercase',
+                alignSelf: 'center',
+              }}
+            >
+              Peças de reposição:
+            </span>
+
+            {[resultado.reposicao1, resultado.reposicao2, resultado.reposicao3]
+              .filter((valor) => String(valor || '').trim())
+              .map((valor) => (
+                <Badge key={valor} texto={valor} tipo="azul" />
+              ))}
+
+            {![
+              resultado.reposicao1,
+              resultado.reposicao2,
+              resultado.reposicao3,
+            ].some((valor) => String(valor || '').trim()) && (
+              <span style={{ fontSize: 11, color: C.txtMuted }}>
+                Nenhuma peça cadastrada.
+              </span>
+            )}
+          </div>
+        </section>
+      )}
+
+      {!resultado && !busca.trim() && (
+        <div
+          style={{
+            background: C.bgCard,
+            border: `1.5px dashed ${C.bdMid}`,
+            borderRadius: C.radius.lg,
+            padding: 24,
+            color: C.txtMuted,
+            fontSize: 12,
+            textAlign: 'center',
+          }}
+        >
+          Digite um modelo para consultar as possibilidades de transformação.
+        </div>
+      )}
     </>
   );
 }
@@ -3521,12 +4095,12 @@ function useIndicador(fonte, filtrosIniciais) {
 
 function corPct(valor) {
   const n = typeof valor === 'number' ? valor : numeroPercentual(valor);
-  if (n === null) return { bg: '#f8f9ff', color: '#8898aa', bd: '#e8ecf4' };
-  if (n >= 95) return { bg: '#e6faf7', color: '#11998e', bd: '#a7e9e3' };
-  if (n >= 90) return { bg: '#d1fae5', color: '#059669', bd: '#6ee7b7' };
-  if (n >= 70) return { bg: '#fffbeb', color: '#d97706', bd: '#fde68a' };
-  if (n >= 50) return { bg: '#fff7ed', color: '#c2410c', bd: '#fed7aa' };
-  return { bg: '#fff5f5', color: '#e53e3e', bd: '#fed7d7' };
+  if (n === null) return { bg: C.bgStripe, color: C.txtMuted, bd: C.bdLight };
+  if (n >= 95) return { bg: C.greenBg, color: C.green, bd: C.greenBd };
+  if (n >= 90) return { bg: C.greenBg, color: C.green, bd: C.greenBd };
+  if (n >= 70) return { bg: C.amberBg, color: C.amber, bd: C.amberBd };
+  if (n >= 50) return { bg: C.orangeBg, color: C.orange, bd: C.orangeBd };
+  return { bg: C.redBg, color: C.red, bd: C.redBd };
 }
 function fmtPct(v) {
   const n = typeof v === 'number' ? v : numeroPercentual(v);
@@ -3542,7 +4116,7 @@ function ICard({ titulo, valor, grad, detalhe }) {
         borderRadius: C.radius.lg,
         padding: '14px 16px',
         boxShadow: C.shadowCard,
-        border: `1.5px solid ${C.bdLight}`,
+        border: `1px solid ${C.bdLight}`,
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -3555,18 +4129,6 @@ function ICard({ titulo, valor, grad, detalhe }) {
           right: 0,
           height: 3,
           background: grad,
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          bottom: -16,
-          right: -10,
-          width: 60,
-          height: 60,
-          borderRadius: '50%',
-          background: grad,
-          opacity: 0.07,
         }}
       />
       <div
@@ -3585,12 +4147,10 @@ function ICard({ titulo, valor, grad, detalhe }) {
       <div
         style={{
           fontSize: 22,
-          fontWeight: 900,
+          fontWeight: 800,
           fontFamily: C.fontMono,
           letterSpacing: '-0.03em',
-          background: grad,
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
+          color: C.txtPri,
         }}
       >
         {valor}
@@ -3863,7 +4423,7 @@ function TelaIndicadorDiario() {
   const gradArr = [C.grad1, C.grad4, C.grad2, C.grad5, C.grad6, C.grad3];
   const panelSt = {
     background: C.bgCard,
-    border: `1.5px solid ${C.bdLight}`,
+    border: `1px solid ${C.bdLight}`,
     borderRadius: C.radius.lg,
     padding: 14,
     boxShadow: C.shadowCard,
@@ -3896,7 +4456,7 @@ function TelaIndicadorDiario() {
       <section
         style={{
           background: C.bgCard,
-          border: `1.5px solid ${C.bdLight}`,
+          border: `1px solid ${C.bdLight}`,
           borderRadius: C.radius.lg,
           padding: 14,
           marginBottom: 16,
@@ -4017,7 +4577,7 @@ function TelaIndicadorDiario() {
       <section
         style={{
           background: C.bgCard,
-          border: `1.5px solid ${C.bdLight}`,
+          border: `1px solid ${C.bdLight}`,
           borderRadius: C.radius.xl,
           overflow: 'hidden',
           boxShadow: C.shadowCard,
@@ -4026,11 +4586,11 @@ function TelaIndicadorDiario() {
         <div
           style={{
             padding: '13px 18px',
-            borderBottom: `1.5px solid ${C.bdLight}`,
+            borderBottom: `1px solid ${C.bdLight}`,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            background: 'linear-gradient(135deg,#fafbff,#f5f7ff)',
+            background: C.bgStripe,
           }}
         >
           <span
@@ -4126,7 +4686,7 @@ function TelaIndicadorDiario() {
               </tr>
               <tr
                 style={{
-                  background: 'linear-gradient(135deg,#f0f3ff,#e8ecff)',
+                  background: C.bgMuted,
                 }}
               >
                 {['Mês', 'Data', 'Dia'].map((t) => (
@@ -4135,12 +4695,12 @@ function TelaIndicadorDiario() {
                     style={{
                       padding: '6px 8px',
                       fontSize: 9,
-                      fontWeight: 900,
+                      fontWeight: 800,
                       color: C.txtSec,
                       textAlign: 'center',
                       textTransform: 'uppercase',
                       letterSpacing: '0.06em',
-                      borderBottom: `1.5px solid ${C.bdLight}`,
+                      borderBottom: `1px solid ${C.bdLight}`,
                     }}
                   >
                     {t}
@@ -4152,12 +4712,12 @@ function TelaIndicadorDiario() {
                     style={{
                       padding: '6px 8px',
                       fontSize: 9,
-                      fontWeight: 900,
+                      fontWeight: 800,
                       color: C.txtSec,
                       textAlign: 'center',
                       textTransform: 'uppercase',
                       letterSpacing: '0.06em',
-                      borderBottom: `1.5px solid ${C.bdLight}`,
+                      borderBottom: `1px solid ${C.bdLight}`,
                       borderLeft: i === 0 ? '4px solid #f0f3ff' : undefined,
                     }}
                   >
@@ -4170,12 +4730,12 @@ function TelaIndicadorDiario() {
                     style={{
                       padding: '6px 8px',
                       fontSize: 9,
-                      fontWeight: 900,
+                      fontWeight: 800,
                       color: C.txtSec,
                       textAlign: 'center',
                       textTransform: 'uppercase',
                       letterSpacing: '0.06em',
-                      borderBottom: `1.5px solid ${C.bdLight}`,
+                      borderBottom: `1px solid ${C.bdLight}`,
                       borderLeft: i === 0 ? '4px solid #f0f3ff' : undefined,
                     }}
                   >
@@ -4188,12 +4748,12 @@ function TelaIndicadorDiario() {
                     style={{
                       padding: '6px 8px',
                       fontSize: 9,
-                      fontWeight: 900,
+                      fontWeight: 800,
                       color: C.txtSec,
                       textAlign: 'center',
                       textTransform: 'uppercase',
                       letterSpacing: '0.06em',
-                      borderBottom: `1.5px solid ${C.bdLight}`,
+                      borderBottom: `1px solid ${C.bdLight}`,
                       borderLeft: i === 0 ? '4px solid #f0f3ff' : undefined,
                     }}
                   >
@@ -4244,7 +4804,7 @@ function TelaIndicadorDiario() {
                         fontSize: 10,
                         fontWeight: 800,
                         fontFamily: C.fontMono,
-                        background: item[campo] ? cor.bg : '#fff',
+                        background: item[campo] ? cor.bg : C.bgCard,
                         color: item[campo] ? cor.color : C.txtMuted,
                         borderLeft: sep
                           ? '4px solid #f0f3ff'
@@ -4259,7 +4819,9 @@ function TelaIndicadorDiario() {
                 return (
                   <tr
                     key={idx}
-                    style={{ background: idx % 2 === 0 ? '#fff' : C.bgStripe }}
+                    style={{
+                      background: idx % 2 === 0 ? C.bgCard : C.bgStripe,
+                    }}
                   >
                     <td
                       style={{
@@ -4344,7 +4906,7 @@ function TelaIndicadorDiario() {
                   key={campo}
                   style={{
                     background: C.bgStripe,
-                    border: `1.5px solid ${C.bdLight}`,
+                    border: `1px solid ${C.bdLight}`,
                     borderRadius: C.radius.md,
                     padding: 10,
                     position: 'relative',
@@ -4377,7 +4939,7 @@ function TelaIndicadorDiario() {
                   <div
                     style={{
                       fontSize: 17,
-                      fontWeight: 900,
+                      fontWeight: 800,
                       fontFamily: C.fontMono,
                       marginBottom: 7,
                       background: grad,
@@ -4429,7 +4991,7 @@ function TelaIndicadorDiario() {
                 <div
                   key={i}
                   style={{
-                    borderBottom: `1.5px solid ${C.bdLight}`,
+                    borderBottom: `1px solid ${C.bdLight}`,
                     paddingBottom: 10,
                   }}
                 >
@@ -4581,7 +5143,7 @@ function TelaIndicadorExpedicaoDiario() {
           fontSize: 10,
           fontWeight: 800,
           fontFamily: C.fontMono,
-          background: item[campo] ? cor.bg : '#fff',
+          background: item[campo] ? cor.bg : C.bgCard,
           color: item[campo] ? cor.color : C.txtMuted,
           borderLeft: sep ? '4px solid #f0f3ff' : `1px dotted ${C.bdLight}`,
           borderBottom: `1px solid ${C.bdLight}`,
@@ -4603,7 +5165,7 @@ function TelaIndicadorExpedicaoDiario() {
           fontFamily: C.fontMono,
           fontWeight: 600,
           color: dest && n > 0 ? C.red : C.txtPri,
-          background: dest && n > 0 ? C.redBg : '#fff',
+          background: dest && n > 0 ? C.redBg : C.bgCard,
           borderLeft: sep ? '4px solid #f0f3ff' : `1px dotted ${C.bdLight}`,
           borderBottom: `1px solid ${C.bdLight}`,
         }}
@@ -4614,7 +5176,7 @@ function TelaIndicadorExpedicaoDiario() {
   };
   const panelSt = {
     background: C.bgCard,
-    border: `1.5px solid ${C.bdLight}`,
+    border: `1px solid ${C.bdLight}`,
     borderRadius: C.radius.lg,
     padding: 14,
     boxShadow: C.shadowCard,
@@ -4648,7 +5210,7 @@ function TelaIndicadorExpedicaoDiario() {
       <section
         style={{
           background: C.bgCard,
-          border: `1.5px solid ${C.bdLight}`,
+          border: `1px solid ${C.bdLight}`,
           borderRadius: C.radius.lg,
           padding: 14,
           marginBottom: 16,
@@ -4757,7 +5319,7 @@ function TelaIndicadorExpedicaoDiario() {
       <section
         style={{
           background: C.bgCard,
-          border: `1.5px solid ${C.bdLight}`,
+          border: `1px solid ${C.bdLight}`,
           borderRadius: C.radius.xl,
           overflow: 'hidden',
           boxShadow: C.shadowCard,
@@ -4766,11 +5328,11 @@ function TelaIndicadorExpedicaoDiario() {
         <div
           style={{
             padding: '13px 18px',
-            borderBottom: `1.5px solid ${C.bdLight}`,
+            borderBottom: `1px solid ${C.bdLight}`,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            background: 'linear-gradient(135deg,#fafbff,#f5f7ff)',
+            background: C.bgStripe,
           }}
         >
           <span
@@ -4790,7 +5352,7 @@ function TelaIndicadorExpedicaoDiario() {
               onClick={() => setDet((v) => !v)}
               style={{
                 height: 30,
-                border: `1.5px solid ${det ? C.primary : C.bdMid}`,
+                border: `1px solid ${det ? C.primary : C.bdMid}`,
                 borderRadius: C.radius.md,
                 padding: '0 12px',
                 fontSize: 11,
@@ -4916,7 +5478,7 @@ function TelaIndicadorExpedicaoDiario() {
               </tr>
               <tr
                 style={{
-                  background: 'linear-gradient(135deg,#f0f3ff,#e8ecff)',
+                  background: C.bgMuted,
                 }}
               >
                 {['Data', 'Dia'].map((t) => (
@@ -4925,12 +5487,12 @@ function TelaIndicadorExpedicaoDiario() {
                     style={{
                       padding: '6px 8px',
                       fontSize: 9,
-                      fontWeight: 900,
+                      fontWeight: 800,
                       color: C.txtSec,
                       textAlign: 'center',
                       textTransform: 'uppercase',
                       letterSpacing: '0.06em',
-                      borderBottom: `1.5px solid ${C.bdLight}`,
+                      borderBottom: `1px solid ${C.bdLight}`,
                     }}
                   >
                     {t}
@@ -4942,12 +5504,12 @@ function TelaIndicadorExpedicaoDiario() {
                     style={{
                       padding: '6px 8px',
                       fontSize: 9,
-                      fontWeight: 900,
+                      fontWeight: 800,
                       color: C.txtSec,
                       textAlign: 'center',
                       textTransform: 'uppercase',
                       letterSpacing: '0.06em',
-                      borderBottom: `1.5px solid ${C.bdLight}`,
+                      borderBottom: `1px solid ${C.bdLight}`,
                       borderLeft: i === 0 ? '4px solid #f0f3ff' : undefined,
                     }}
                   >
@@ -4960,12 +5522,12 @@ function TelaIndicadorExpedicaoDiario() {
                     style={{
                       padding: '6px 8px',
                       fontSize: 9,
-                      fontWeight: 900,
+                      fontWeight: 800,
                       color: C.txtSec,
                       textAlign: 'center',
                       textTransform: 'uppercase',
                       letterSpacing: '0.06em',
-                      borderBottom: `1.5px solid ${C.bdLight}`,
+                      borderBottom: `1px solid ${C.bdLight}`,
                       borderLeft: i === 0 ? '4px solid #f0f3ff' : undefined,
                     }}
                   >
@@ -4987,12 +5549,12 @@ function TelaIndicadorExpedicaoDiario() {
                         style={{
                           padding: '5px 6px',
                           fontSize: 9,
-                          fontWeight: 900,
+                          fontWeight: 800,
                           color: C.txtSec,
                           textAlign: 'center',
                           textTransform: 'uppercase',
                           letterSpacing: '0.04em',
-                          borderBottom: `1.5px solid ${C.bdLight}`,
+                          borderBottom: `1px solid ${C.bdLight}`,
                           borderLeft: i === 0 ? '4px solid #f0f3ff' : undefined,
                           whiteSpace: 'nowrap',
                         }}
@@ -5013,12 +5575,12 @@ function TelaIndicadorExpedicaoDiario() {
                         style={{
                           padding: '5px 6px',
                           fontSize: 9,
-                          fontWeight: 900,
+                          fontWeight: 800,
                           color: C.txtSec,
                           textAlign: 'center',
                           textTransform: 'uppercase',
                           letterSpacing: '0.04em',
-                          borderBottom: `1.5px solid ${C.bdLight}`,
+                          borderBottom: `1px solid ${C.bdLight}`,
                           borderLeft: i === 0 ? '4px solid #f0f3ff' : undefined,
                           whiteSpace: 'nowrap',
                         }}
@@ -5032,12 +5594,12 @@ function TelaIndicadorExpedicaoDiario() {
                         style={{
                           padding: '5px 6px',
                           fontSize: 9,
-                          fontWeight: 900,
+                          fontWeight: 800,
                           color: C.txtSec,
                           textAlign: 'center',
                           textTransform: 'uppercase',
                           letterSpacing: '0.04em',
-                          borderBottom: `1.5px solid ${C.bdLight}`,
+                          borderBottom: `1px solid ${C.bdLight}`,
                           borderLeft: i === 0 ? '4px solid #f0f3ff' : undefined,
                           whiteSpace: 'nowrap',
                         }}
@@ -5083,7 +5645,7 @@ function TelaIndicadorExpedicaoDiario() {
               {dadosFiltrados.map((item, idx) => (
                 <tr
                   key={idx}
-                  style={{ background: idx % 2 === 0 ? '#fff' : C.bgStripe }}
+                  style={{ background: idx % 2 === 0 ? C.bgCard : C.bgStripe }}
                 >
                   <td
                     style={{
@@ -5161,7 +5723,7 @@ function TelaIndicadorExpedicaoDiario() {
               <div
                 key={i}
                 style={{
-                  borderBottom: `1.5px solid ${C.bdLight}`,
+                  borderBottom: `1px solid ${C.bdLight}`,
                   paddingBottom: 10,
                 }}
               >
@@ -5885,7 +6447,7 @@ function TelaIndicadorMensal({ tipo }) {
 
   const panelSt = {
     background: C.bgCard,
-    border: `1.5px solid ${C.bdLight}`,
+    border: `1px solid ${C.bdLight}`,
     borderRadius: C.radius.lg,
     padding: 14,
     boxShadow: C.shadowCard,
@@ -5916,12 +6478,12 @@ function TelaIndicadorMensal({ tipo }) {
   const subHeader = (left = false) => ({
     padding: '6px 8px',
     fontSize: 9,
-    fontWeight: 900,
+    fontWeight: 800,
     color: C.txtSec,
     textAlign: 'center',
     textTransform: 'uppercase',
     letterSpacing: '0.06em',
-    borderBottom: `1.5px solid ${C.bdLight}`,
+    borderBottom: `1px solid ${C.bdLight}`,
     borderLeft: left ? '4px solid #f0f3ff' : undefined,
     whiteSpace: 'nowrap',
   });
@@ -5947,7 +6509,7 @@ function TelaIndicadorMensal({ tipo }) {
           fontSize: 10,
           fontWeight: 800,
           fontFamily: C.fontMono,
-          background: item[campo] ? cor.bg : '#fff',
+          background: item[campo] ? cor.bg : C.bgCard,
           color: item[campo] ? cor.color : C.txtMuted,
           borderLeft: sep ? '4px solid #f0f3ff' : `1px dotted ${C.bdLight}`,
           borderBottom: `1px solid ${C.bdLight}`,
@@ -5982,7 +6544,7 @@ function TelaIndicadorMensal({ tipo }) {
       <section
         style={{
           background: C.bgCard,
-          border: `1.5px solid ${C.bdLight}`,
+          border: `1px solid ${C.bdLight}`,
           borderRadius: C.radius.lg,
           padding: 14,
           marginBottom: 16,
@@ -6026,7 +6588,7 @@ function TelaIndicadorMensal({ tipo }) {
       <section
         style={{
           background: C.bgCard,
-          border: `1.5px solid ${C.bdLight}`,
+          border: `1px solid ${C.bdLight}`,
           borderRadius: C.radius.xl,
           overflow: 'hidden',
           boxShadow: C.shadowCard,
@@ -6035,11 +6597,11 @@ function TelaIndicadorMensal({ tipo }) {
         <div
           style={{
             padding: '13px 18px',
-            borderBottom: `1.5px solid ${C.bdLight}`,
+            borderBottom: `1px solid ${C.bdLight}`,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            background: 'linear-gradient(135deg,#fafbff,#f5f7ff)',
+            background: C.bgStripe,
           }}
         >
           <span
@@ -6114,7 +6676,7 @@ function TelaIndicadorMensal({ tipo }) {
               </tr>
               <tr
                 style={{
-                  background: 'linear-gradient(135deg,#f0f3ff,#e8ecff)',
+                  background: C.bgMuted,
                 }}
               >
                 <th style={subHeader()}>Mês</th>
@@ -6188,7 +6750,7 @@ function TelaIndicadorMensal({ tipo }) {
               {dadosFiltrados.map((item, idx) => (
                 <tr
                   key={idx}
-                  style={{ background: idx % 2 === 0 ? '#fff' : C.bgStripe }}
+                  style={{ background: idx % 2 === 0 ? C.bgCard : C.bgStripe }}
                 >
                   <td style={tdInfo}>{item.mes || '—'}</td>
                   {expedicao ? (
@@ -6285,6 +6847,55 @@ function TelaDashboard({ setTela }) {
   );
   const [carregando, setCarregando] = useState(false);
   const [errosFontes, setErrosFontes] = useState([]);
+  const [viaDash, setViaDash] = useState({ dados: null, erro: '', hora: '' });
+  const [cancDash, setCancDash] = useState({ dados: null, erro: '', hora: '' });
+
+  // Cards de Expedição (Via Leitor): leitura própria, a cada 5 minutos e no botão de atualizar
+  const carregarViaDash = useCallback(async () => {
+    try {
+      const dados = await viaResumoDashboard();
+      setViaDash({
+        dados,
+        erro: '',
+        hora: new Date().toLocaleTimeString('pt-BR', {
+          timeZone: 'America/Sao_Paulo',
+        }),
+      });
+    } catch (e) {
+      setViaDash((cur) => ({ ...cur, erro: e.message || 'falha ao carregar' }));
+    }
+  }, []);
+
+  useEffect(() => {
+    carregarViaDash();
+    const t = setInterval(carregarViaDash, 300000);
+    return () => clearInterval(t);
+  }, [carregarViaDash]);
+
+  // Cards de Cancelamentos (NFs pendentes): leitura própria, a cada 2 minutos e no botão de atualizar
+  const carregarCancDash = useCallback(async () => {
+    try {
+      const dados = await cancResumoDashboard();
+      setCancDash({
+        dados,
+        erro: '',
+        hora: new Date().toLocaleTimeString('pt-BR', {
+          timeZone: 'America/Sao_Paulo',
+        }),
+      });
+    } catch (e) {
+      setCancDash((cur) => ({
+        ...cur,
+        erro: e.message || 'falha ao carregar',
+      }));
+    }
+  }, []);
+
+  useEffect(() => {
+    carregarCancDash();
+    const t = setInterval(carregarCancDash, 120000);
+    return () => clearInterval(t);
+  }, [carregarCancDash]);
 
   const carregarDashboard = useCallback(async () => {
     setCarregando(true);
@@ -6427,8 +7038,7 @@ function TelaDashboard({ setTela }) {
 
     const modelosParaTransformar = analiseTransformacoes.filter(
       (item) =>
-        item.precisaTransformar === true &&
-        item.temOpcaoTransformacao === true
+        item.precisaTransformar === true && item.temOpcaoTransformacao === true
     ).length;
 
     const estoquePendente = estoque.filter((item) => {
@@ -6688,7 +7298,84 @@ function TelaDashboard({ setTela }) {
       tela: 'pedidoVenda',
       horario: horaFonte('pedidoVenda1020'),
     },
+    ...(() => {
+      const v = viaDash.dados;
+      const ok = !!v;
+      const detalhe = (g) =>
+        viaDash.erro && !ok
+          ? 'Via Leitor indisponível'
+          : !ok
+          ? 'Carregando...'
+          : `${g.atrasados} atrasado(s) · ${g.total - g.atrasados} no prazo`;
+      const bb = ok ? v.bb : null;
+      const eq = ok ? v.eq : null;
+      const total = ok
+        ? { total: bb.total + eq.total, atrasados: bb.atrasados + eq.atrasados }
+        : null;
+      return [
+        {
+          titulo: 'Total a Expedir (Via Leitor)',
+          valor: ok ? total.total : '—',
+          detalhe: detalhe(total),
+          cor: '#475569',
+          icon: 'expedicao',
+          tela: 'viaLeitor',
+          horario: viaDash.hora,
+        },
+        {
+          titulo: 'Expedição BBBaterias',
+          valor: ok ? bb.total : '—',
+          detalhe: detalhe(bb),
+          cor: '#4F46E5',
+          icon: 'bb',
+          tela: 'viaLeitor',
+          horario: viaDash.hora,
+        },
+        {
+          titulo: 'Expedição Equipatech',
+          valor: ok ? eq.total : '—',
+          detalhe: detalhe(eq),
+          cor: '#0D9488',
+          icon: 'eq',
+          tela: 'viaLeitor',
+          horario: viaDash.hora,
+        },
+      ];
+    })(),
   ];
+
+  const cardsCancelamento = (() => {
+    const v = cancDash.dados;
+    const ok = !!v;
+    const txt = (fn) =>
+      cancDash.erro && !ok
+        ? 'Cancelamentos indisponível'
+        : !ok
+        ? 'Carregando...'
+        : fn(v);
+    const val = (n) => (ok ? n : '—');
+    const detalhe = (n, atr) => `${n} NF(s) pendente(s) · ${atr} atrasada(s)`;
+    return [
+      {
+        titulo: 'Aguard. Cancelamento',
+        valor: val(v && v.ag),
+        detalhe: txt((x) => detalhe(x.ag, x.agAtr)),
+        cor: '#EA580C',
+        icon: 'cancelamento',
+        tela: 'cancelamentos',
+        horario: cancDash.hora,
+      },
+      {
+        titulo: 'Aguardando CNT',
+        valor: val(v && v.cnt),
+        detalhe: txt((x) => detalhe(x.cnt, x.cntAtr)),
+        cor: '#2563EB',
+        icon: 'cancelamento',
+        tela: 'cancelamentos',
+        horario: cancDash.hora,
+      },
+    ];
+  })();
 
   const cardsIndicadores = [
     {
@@ -6870,6 +7557,17 @@ function TelaDashboard({ setTela }) {
       );
     }
 
+    if (tipo === 'cancelamento') {
+      return (
+        <svg {...svgBase}>
+          <path d="M6 3h9l4 4v14H6z" />
+          <path d="M14 3v5h5" />
+          <path d="M9.5 12.5l5 5" />
+          <path d="M14.5 12.5l-5 5" />
+        </svg>
+      );
+    }
+
     if (tipo === 'abastecimento') {
       return (
         <svg {...svgBase}>
@@ -7024,45 +7722,69 @@ function TelaDashboard({ setTela }) {
     <>
       <section
         style={{
-          borderRadius: 6,
+          borderRadius: C.radius.xl,
           overflow: 'hidden',
-          background: '#FFFFFF',
-          border: `1.5px solid ${C.bdLight}`,
+          background: C.bgCard,
+          border: `1px solid ${C.bdLight}`,
           boxShadow: C.shadowCard,
         }}
       >
         <div
           style={{
-            background: '#6B747B',
-            color: '#FFFFFF',
-            height: 40,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            gap: 14,
-            fontSize: 23,
-            fontWeight: 750,
-            letterSpacing: '-0.03em',
+            justifyContent: 'space-between',
+            gap: 12,
+            padding: '16px 20px',
+            borderBottom: `1px solid ${C.bdLight}`,
             fontFamily: C.font,
           }}
         >
-          <span>DASHBOARD OPERACIONAL</span>
+          <div>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: C.txtPri,
+                letterSpacing: '-0.02em',
+              }}
+            >
+              Dashboard operacional
+            </div>
+            <div style={{ fontSize: 12, color: C.txtMuted, marginTop: 2 }}>
+              Faturamento, expedição, estoque, produção e indicadores em um só
+              lugar
+            </div>
+          </div>
           <button
             type="button"
-            onClick={carregarDashboard}
+            onClick={() => {
+              carregarDashboard();
+              carregarViaDash();
+              carregarCancDash();
+            }}
             disabled={carregando}
             title="Atualizar dashboard"
             style={{
-              border: 'none',
-              background: 'transparent',
-              color: '#FFFFFF',
+              height: 36,
+              padding: '0 14px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              borderRadius: C.radius.md,
+              border: `1px solid ${C.bdMid}`,
+              background: C.bgCard,
+              color: C.txtSec,
+              fontFamily: C.font,
+              fontSize: 12,
+              fontWeight: 600,
               cursor: carregando ? 'not-allowed' : 'pointer',
-              fontSize: 25,
-              lineHeight: 1,
-              fontWeight: 900,
+              opacity: carregando ? 0.6 : 1,
+              boxShadow: C.shadowSm,
             }}
           >
-            ↻
+            <span style={{ fontSize: 15, lineHeight: 1 }}>↻</span>
+            {carregando ? 'Atualizando…' : 'Atualizar'}
           </button>
         </div>
 
@@ -7105,6 +7827,49 @@ function TelaDashboard({ setTela }) {
             }}
           >
             {cardsOperacao.map((card) => (
+              <DashCard key={card.titulo} item={card} />
+            ))}
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginTop: 24,
+              marginBottom: 10,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: C.txtSec,
+                textTransform: 'uppercase',
+                letterSpacing: '0.08em',
+                fontFamily: C.font,
+              }}
+            >
+              Núcleo de Cancelamentos
+            </div>
+            <div
+              style={{
+                height: 1,
+                flex: 1,
+                marginLeft: 14,
+                background: C.bdLight,
+              }}
+            />
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+              gap: 16,
+            }}
+          >
+            {cardsCancelamento.map((card) => (
               <DashCard key={card.titulo} item={card} />
             ))}
           </div>
@@ -7177,9 +7942,9 @@ function TelaDashboard({ setTela }) {
         <div
           style={{
             marginTop: 12,
-            border: '1px solid #FED7AA',
-            background: '#FFF7ED',
-            color: '#9A3412',
+            border: `1px solid ${C.orangeBd}`,
+            background: C.orangeBg,
+            color: 'var(--orange-tx)',
             borderRadius: 12,
             padding: 12,
             fontSize: 12,
@@ -7193,7 +7958,3487 @@ function TelaDashboard({ setTela }) {
   );
 }
 
+// ─── Postagens (Expedição) — réplica da tela "Postagens — Histórico geral" da Central ─────────
+// Lê as funções/views criadas por fase_c_14_view_postagens_painel.sql (somente leitura):
+//   v_postagens_painel · v_coletas_painel · v_romaneio_itens_painel · v_transportadoras_painel
+
+const POSTAGENS_TAM_PAGINA = 200;
+const POSTAGENS_COLUNAS =
+  'linha_id,nf,filial,pedido,cliente_codigo,cliente_nome,chave_nfe,rastreios,transportadora,transportadora_canon,data_faturamento,data_limite,postado_em,bipador,embalador,volume,romaneio,romaneio_status,coleta_em,retirada_em,situacao,status_texto';
+const POSTAGENS_FILTROS_VAZIOS = {
+  status: '',
+  filial: '',
+  transp: '',
+  rom: '',
+  busca: '',
+};
+
+function headersSupabasePostagem() {
+  return {
+    apikey: SUPABASE_ANON_KEY,
+    Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+  };
+}
+
+async function lerSupabasePostagem(caminho) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${caminho}`, {
+    headers: headersSupabasePostagem(),
+    cache: 'no-store',
+  });
+  if (!r.ok) {
+    let det = '';
+    try {
+      const j = await r.json();
+      det = [j.code, j.message, j.hint, j.details].filter(Boolean).join(' — ');
+    } catch (e) {
+      // sem detalhe
+    }
+    const nome = String(caminho).split('?')[0];
+    let dica = '';
+    if (r.status === 404 && /^v_via_/.test(nome))
+      dica =
+        ' Dica: rode o SQL bloco_11_via_leitor.sql no Supabase (ele já faz o reload do schema).';
+    else if (r.status === 404)
+      dica =
+        " Dica: rode no Supabase  notify pgrst, 'reload schema';  e confira o SQL fase_c_14 (blocos 1 a 5).";
+    if (r.status === 401 || r.status === 403)
+      dica = ' Dica: faltam permissões (rode o bloco 5 do SQL fase_c_14).';
+    throw new Error(
+      `Falha ao consultar "${nome}" — HTTP ${r.status}: ${
+        det || 'sem detalhe'
+      }.${dica}`
+    );
+  }
+  return r.json();
+}
+
+// Divide "AAAA-MM-DD[ T]HH:MM:SS[.ms][fuso]" e devolve data/hora no horário de São Paulo.
+// Texto com fuso (ex.: "+00:00", "-03", "Z") é convertido; sem fuso é tratado como horário local.
+function partesPostagem(valor) {
+  const t = String(valor === null || valor === undefined ? '' : valor).trim();
+  if (!t) return null;
+  const m = t.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?)?\s*(Z|[+-]\d{2}(?::?\d{2})?)?$/
+  );
+  if (!m) return null;
+  const [, a, mo, d, h, mi, s, fuso] = m;
+  if (h === undefined) return { data: `${d}/${mo}/${a}`, hora: '' };
+  const seg = s || '00';
+  if (!fuso) return { data: `${d}/${mo}/${a}`, hora: `${h}:${mi}:${seg}` };
+  let off = 'Z';
+  if (fuso !== 'Z') {
+    const dig = fuso.replace(':', '');
+    off = `${dig.slice(0, 3)}:${dig.length > 3 ? dig.slice(3, 5) : '00'}`;
+  }
+  const dt = new Date(`${a}-${mo}-${d}T${h}:${mi}:${seg}${off}`);
+  if (Number.isNaN(dt.getTime()))
+    return { data: `${d}/${mo}/${a}`, hora: `${h}:${mi}:${seg}` };
+  const o = {};
+  new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  })
+    .formatToParts(dt)
+    .forEach((p) => {
+      o[p.type] = p.value;
+    });
+  return {
+    data: `${o.day}/${o.month}/${o.year}`,
+    hora: `${o.hour}:${o.minute}:${o.second}`,
+  };
+}
+function dataPostagem(v) {
+  const p = partesPostagem(v);
+  return p ? p.data : '—';
+}
+function horaPostagem(v) {
+  const p = partesPostagem(v);
+  return p && p.hora ? p.hora : '—';
+}
+function dataHoraPostagem(v) {
+  const p = partesPostagem(v);
+  if (!p) return '—';
+  return p.hora ? `${p.data} ${p.hora}` : p.data;
+}
+
+function escHtmlPostagem(v) {
+  return String(v === null || v === undefined ? '' : v).replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[
+        c
+      ])
+  );
+}
+
+function nf9Postagem(v) {
+  const n = String(v || '').replace(/\D/g, '');
+  return n ? n.padStart(9, '0') : '—';
+}
+
+// ── Relatório de coletas (.xlsx gerado no navegador, sem bibliotecas) ─────────────────────────
+const REL_TABELA_CRC = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n += 1) {
+    let c = n;
+    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function relCrc32(bytes) {
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i += 1)
+    c = REL_TABELA_CRC[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function relZip(arquivos) {
+  const enc = new TextEncoder();
+  const partes = [];
+  const central = [];
+  let off = 0;
+  const agora = new Date();
+  const dosT =
+    agora.getHours() * 2048 +
+    agora.getMinutes() * 32 +
+    Math.floor(agora.getSeconds() / 2);
+  const dosD =
+    (agora.getFullYear() - 1980) * 512 +
+    (agora.getMonth() + 1) * 32 +
+    agora.getDate();
+  arquivos.forEach(([nome, conteudo]) => {
+    const nb = enc.encode(nome);
+    const db = enc.encode(conteudo);
+    const crc = relCrc32(db);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true);
+    lh.setUint16(4, 20, true);
+    lh.setUint16(6, 0x0800, true);
+    lh.setUint16(8, 0, true);
+    lh.setUint16(10, dosT, true);
+    lh.setUint16(12, dosD, true);
+    lh.setUint32(14, crc, true);
+    lh.setUint32(18, db.length, true);
+    lh.setUint32(22, db.length, true);
+    lh.setUint16(26, nb.length, true);
+    lh.setUint16(28, 0, true);
+    partes.push(new Uint8Array(lh.buffer), nb, db);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true);
+    ch.setUint16(4, 20, true);
+    ch.setUint16(6, 20, true);
+    ch.setUint16(8, 0x0800, true);
+    ch.setUint16(10, 0, true);
+    ch.setUint16(12, dosT, true);
+    ch.setUint16(14, dosD, true);
+    ch.setUint32(16, crc, true);
+    ch.setUint32(20, db.length, true);
+    ch.setUint32(24, db.length, true);
+    ch.setUint16(28, nb.length, true);
+    ch.setUint16(30, 0, true);
+    ch.setUint16(32, 0, true);
+    ch.setUint16(34, 0, true);
+    ch.setUint16(36, 0, true);
+    ch.setUint32(38, 0, true);
+    ch.setUint32(42, off, true);
+    central.push(new Uint8Array(ch.buffer), nb);
+    off += 30 + nb.length + db.length;
+  });
+  const tamCentral = central.reduce((a, b) => a + b.length, 0);
+  const eo = new DataView(new ArrayBuffer(22));
+  eo.setUint32(0, 0x06054b50, true);
+  eo.setUint16(4, 0, true);
+  eo.setUint16(6, 0, true);
+  eo.setUint16(8, arquivos.length, true);
+  eo.setUint16(10, arquivos.length, true);
+  eo.setUint32(12, tamCentral, true);
+  eo.setUint32(16, off, true);
+  eo.setUint16(20, 0, true);
+  return new Blob([...partes, ...central, new Uint8Array(eo.buffer)], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+}
+
+function relXmlEsc(s) {
+  // remove caracteres de controle que tornam o XML do Excel inválido
+  // eslint-disable-next-line no-control-regex
+  const controle = /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g;
+  return String(s === null || s === undefined ? '' : s)
+    .replace(controle, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function relColLetra(indice) {
+  let s = '';
+  let i = indice + 1;
+  while (i > 0) {
+    const r = (i - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    i = Math.floor((i - 1) / 26);
+  }
+  return s;
+}
+
+function relXlsx(cab, linhas, colNumericas, larguras) {
+  const cel = (v, c, r, estilo) => {
+    const ref = relColLetra(c) + r;
+    if (colNumericas.has(c) && typeof v === 'number' && Number.isFinite(v))
+      return `<c r="${ref}"><v>${v}</v></c>`;
+    return `<c r="${ref}" t="inlineStr"${
+      estilo ? ` s="${estilo}"` : ''
+    }><is><t xml:space="preserve">${relXmlEsc(v)}</t></is></c>`;
+  };
+  let rows = `<row r="1">${cab.map((h, c) => cel(h, c, 1, 1)).join('')}</row>`;
+  linhas.forEach((l, i) => {
+    rows += `<row r="${i + 2}">${l
+      .map((v, c) => cel(v, c, i + 2, 0))
+      .join('')}</row>`;
+  });
+  const ult = relColLetra(cab.length - 1) + (linhas.length + 1);
+  const sheet =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' +
+    '<sheetFormatPr defaultRowHeight="15"/><cols>' +
+    larguras
+      .map(
+        (w, i) =>
+          `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`
+      )
+      .join('') +
+    '</cols>' +
+    `<sheetData>${rows}</sheetData><autoFilter ref="A1:${ult}"/></worksheet>`;
+  const cab0 = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  const arquivos = [
+    [
+      '[Content_Types].xml',
+      `${cab0}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
+    ],
+    [
+      '_rels/.rels',
+      `${cab0}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+    ],
+    [
+      'xl/workbook.xml',
+      `${cab0}<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Coletas" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+    ],
+    [
+      'xl/_rels/workbook.xml.rels',
+      `${cab0}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`,
+    ],
+    [
+      'xl/styles.xml',
+      `${cab0}<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF146C43"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`,
+    ],
+    ['xl/worksheets/sheet1.xml', sheet],
+  ];
+  return relZip(arquivos);
+}
+
+function relBaixar(blob, nome) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nome;
+  a.rel = 'noopener';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    try {
+      a.remove();
+    } catch (e) {
+      // já removido
+    }
+    try {
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      // já liberado
+    }
+  }, 60000);
+}
+
+function relSemZero(v) {
+  return String(v === null || v === undefined ? '' : v)
+    .replace(/\D/g, '')
+    .replace(/^0+/, '');
+}
+
+function relMsEm(v) {
+  const t = new Date(v).getTime();
+  return Number.isFinite(t) ? t : NaN;
+}
+
+// Gera o mesmo relatório da Central: uma linha por NF coletada na data escolhida (horário de São Paulo).
+async function gerarRelatorioColetasPostagem(dataSelecionada) {
+  const [Y, M, D] = dataSelecionada.split('-').map(Number);
+  const lo = new Date(Date.UTC(Y, M - 1, D - 1, 0, 0, 0)).toISOString();
+  const hi = new Date(Date.UTC(Y, M - 1, D + 2, 0, 0, 0)).toISOString();
+  const brutas = [];
+  for (let off = 0; off < 100000; off += 1000) {
+    const lote = await lerSupabasePostagem(
+      `v_coletas_painel?select=*&coleta_em=gte.${encodeURIComponent(
+        lo
+      )}&coleta_em=lt.${encodeURIComponent(hi)}` +
+        `&order=coleta_em.asc,postagem_id.asc&limit=1000&offset=${off}`
+    );
+    if (!Array.isArray(lote))
+      throw new Error(
+        'Resposta inesperada do Supabase ao consultar as coletas.'
+      );
+    brutas.push(...lote);
+    if (lote.length < 1000) break;
+  }
+  const dataBr = `${String(D).padStart(2, '0')}/${String(M).padStart(
+    2,
+    '0'
+  )}/${Y}`;
+  const posts = brutas.filter((p) => {
+    const pt = partesPostagem(p.coleta_em);
+    return pt && pt.data === dataBr;
+  });
+  if (!posts.length) return { vazio: true, dataBr, total: 0 };
+
+  // Horário de Finalização = último "Salvar lote" (bipada_em) do romaneio naquela coleta
+  const grupoDe = (p) => `${p.grupo_romaneio}|${relMsEm(p.coleta_em)}`;
+  const fimPorGrupo = new Map();
+  posts.forEach((p) => {
+    const t = relMsEm(p.bipada_em || p.criado_em);
+    if (Number.isNaN(t)) return;
+    const g = grupoDe(p);
+    if (!fimPorGrupo.has(g) || t > fimPorGrupo.get(g)) fimPorGrupo.set(g, t);
+  });
+
+  const porNF = new Map();
+  [...posts]
+    .sort(
+      (a, b) =>
+        relMsEm(a.coleta_em) - relMsEm(b.coleta_em) ||
+        String(a.nf).localeCompare(String(b.nf))
+    )
+    .forEach((p) => {
+      const filialOk = /^\d{4}$/.test(String(p.filial_xml || '').trim());
+      const postOk = /^\d{4}$/.test(String(p.filial_postagem || '').trim());
+      const filial = filialOk
+        ? String(p.filial_xml).trim()
+        : postOk
+        ? String(p.filial_postagem).trim()
+        : '';
+      const chave = String(p.chave_nfe || '').replace(/\D/g, '');
+      const nf = relSemZero(p.nf);
+      const k = chave.length >= 40 ? chave : `${filial || '?'}|${nf}`;
+      if (!porNF.has(k))
+        porNF.set(k, {
+          p,
+          filial,
+          nf,
+          coleta: p.coleta_em,
+          fim: fimPorGrupo.get(grupoDe(p)),
+          embs: new Set(),
+          vols: 0,
+        });
+      const r = porNF.get(k);
+      r.vols += Math.max(1, parseInt(p.volume, 10) || 1);
+      const e = String(p.embalador || '').trim();
+      if (e) r.embs.add(e);
+    });
+
+  const empresaDe = (cod, p) => {
+    if (cod === '1020') return 'BBBATERIAS';
+    if (cod === '0101' || cod === '0102') return 'EQUIPATECH';
+    return String(p.empresa || '')
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/\s+/g, '')
+      .toUpperCase();
+  };
+  const cab = [
+    'Data',
+    'Nota Fiscal',
+    'Horário de Finalização',
+    'Horário da Coleta',
+    'Embalador',
+    'Transporte',
+    'Filial',
+    'Código da Filial',
+    'Volume',
+  ];
+  const linhas = [...porNF.values()].map((r) => {
+    const nfNum = Number(r.nf);
+    const fim = Number.isFinite(r.fim)
+      ? horaPostagem(new Date(r.fim).toISOString())
+      : '';
+    return [
+      dataPostagem(r.coleta),
+      Number.isFinite(nfNum) && nfNum > 0 ? nfNum : '',
+      fim === '—' ? '' : fim,
+      horaPostagem(r.coleta) === '—' ? '' : horaPostagem(r.coleta),
+      [...r.embs].join(' / '),
+      String(r.p.transporte || '').trim(),
+      empresaDe(r.filial, r.p),
+      r.filial,
+      r.vols,
+    ];
+  });
+  const blob = relXlsx(
+    cab,
+    linhas,
+    new Set([1, 8]),
+    [13, 14, 22, 19, 20, 22, 14, 16, 9]
+  );
+  relBaixar(
+    blob,
+    `Relatorio_Coletas_${String(D).padStart(2, '0')}-${String(M).padStart(
+      2,
+      '0'
+    )}-${Y}.xlsx`
+  );
+  return { vazio: false, dataBr, total: linhas.length };
+}
+
+// ── Visualização (somente leitura) de um romaneio — mesmo layout do romaneio da Central ───────
+const CSS_ROMANEIO_POSTAGENS = `
+.rm-fundo{position:fixed;inset:0;z-index:100;background:rgba(15,18,26,.6);display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;overflow:auto}
+.rm{width:100%;max-width:1180px;background:#fff;border:1px solid #d6dad2;border-radius:8px;overflow:hidden;font-family:Inter,'Nunito',Arial,sans-serif;color:#1a2430}
+.rm-head{background:#121a24;color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;position:relative}
+.rm-lbl{font-size:10.5px;color:#9fb0be;text-transform:uppercase;letter-spacing:1px;margin-bottom:3px}
+.rm-rid{font-family:'JetBrains Mono',Consolas,monospace;font-size:20px;font-weight:700;letter-spacing:1px}
+.rm-barcode{display:flex;gap:2px;height:26px;align-items:stretch;margin-top:8px}
+.rm-barcode span{background:#e1631c}
+.rm-transp{align-self:center;font-weight:800;font-size:15px;letter-spacing:.5px;text-transform:uppercase;text-align:center}
+.rm-emp{font-size:10.5px;font-weight:700;color:#9fb0be;letter-spacing:1px;margin-bottom:3px}
+.rm-cnpj{font-size:10.5px;font-weight:500;color:#9fb0be;letter-spacing:.5px;margin-top:3px;text-transform:none}
+.rm-btns{display:flex;gap:8px}
+.rm-btn{border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;border-radius:6px;padding:8px 14px;font:700 12px Inter,Arial,sans-serif;cursor:pointer}
+.rm-btn:disabled{opacity:.5;cursor:default}
+.rm-stamp{position:absolute;right:20px;bottom:-14px;border:3px solid #2e7d4f;color:#2e7d4f;font-family:'JetBrains Mono',Consolas,monospace;font-weight:800;font-size:15px;padding:5px 12px;border-radius:6px;transform:rotate(-7deg);background:rgba(255,255,255,.95);letter-spacing:1px}
+.rm-meta{display:flex;justify-content:space-between;padding:14px 20px;border-bottom:1px dashed #d6dad2;font-size:13px;flex-wrap:wrap;gap:10px}
+.rm-meta b{display:block;font-size:11px;color:#5b6670;text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin-bottom:2px}
+.rm-body{padding:14px 20px 18px}
+.rm-wrap{overflow:auto;max-height:55vh;border:1px solid #d6dad2}
+.rm table{width:100%;border-collapse:collapse;font-size:11px}
+.rm th{position:sticky;top:0;background:#e9ecef;border-bottom:1px solid #d6dad2;padding:7px 8px;text-align:left;font-size:9.5px;letter-spacing:.4px;color:#314654;text-transform:uppercase}
+.rm td{padding:7px 8px;border-bottom:1px solid #eceee9}
+.rm tbody tr:nth-child(even){background:#f6f7f5}
+.rm .mono{font-family:'JetBrains Mono',Consolas,monospace}
+.rm-sig{margin-top:14px;border-top:1px dashed #d6dad2;padding-top:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.rm-sig img{height:70px;border:1px solid #d6dad2;border-radius:6px;background:#fff}
+.rm-sigmeta{font-size:12.5px;color:#5b6670}
+.rm-sigmeta b{color:#1a2430}
+.rm-vazio{padding:28px;text-align:center;color:#71828d}
+.rm-erro{margin:16px;background:#fdecea;color:#b3261e;border:1px solid #f5c2c0;border-radius:6px;padding:10px 12px;font-size:12px;font-weight:700}
+`;
+
+function moedaPostagem(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && v !== null && v !== ''
+    ? n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    : '—';
+}
+
+function ModalRomaneioPostagens({ codigo, onClose }) {
+  const [itens, setItens] = useState([]);
+  const [assinatura, setAssinatura] = useState('');
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
+
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      setCarregando(true);
+      setErro('');
+      setAssinatura('');
+      try {
+        const j = await lerSupabasePostagem(
+          `v_romaneio_itens_painel?select=id,romaneio,romaneio_status,romaneio_criado_em,romaneio_assinado_em,romaneio_transportadora,transportadora_exibicao,transportadora_cnpj,romaneio_filial,empresa_nome,motorista_nome,motorista_cpf,nf,chave_nfe,pedido,cliente_nome,valor_nf,rastreio,volume,postado_em` +
+            `&romaneio=eq.${encodeURIComponent(
+              codigo
+            )}&order=postado_em.asc,id.asc&limit=2000`
+        );
+        const lista = Array.isArray(j) ? j : [];
+        if (vivo) setItens(lista);
+        if (
+          lista[0] &&
+          String(lista[0].romaneio_status).toLowerCase() === 'assinado'
+        ) {
+          try {
+            const a = await lerSupabasePostagem(
+              `v_romaneio_assinatura_painel?select=assinatura&romaneio=eq.${encodeURIComponent(
+                codigo
+              )}&limit=1`
+            );
+            if (vivo && Array.isArray(a) && a[0] && a[0].assinatura)
+              setAssinatura(a[0].assinatura);
+          } catch (e) {
+            // a assinatura é opcional: a tela continua sem a imagem
+          }
+        }
+      } catch (e) {
+        if (vivo) setErro(e.message || 'Erro ao carregar o romaneio.');
+      } finally {
+        if (vivo) setCarregando(false);
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [codigo]);
+
+  useEffect(() => {
+    const esc = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', esc);
+    return () => window.removeEventListener('keydown', esc);
+  }, [onClose]);
+
+  const cab = itens[0] || {};
+  const assinado =
+    String(cab.romaneio_status || '').toLowerCase() === 'assinado';
+  const transp =
+    String(
+      cab.transportadora_exibicao || cab.romaneio_transportadora || ''
+    ).trim() || '—';
+  let cnpjTransp = String(cab.transportadora_cnpj || '').trim();
+  if (!cnpjTransp && /LOGGI/i.test(transp)) cnpjTransp = '24.217.653/0053-16';
+  const filiaisRom = String(cab.romaneio_filial || '')
+    .split(',')
+    .map((f) => f.trim())
+    .filter(Boolean)
+    .join(', ');
+  const empresaTxt = cab.empresa_nome
+    ? `${cab.empresa_nome}${filiaisRom ? ` (${filiaisRom})` : ''}`
+    : '';
+  const totalVolumes = itens.reduce(
+    (t, i) => t + (parseInt(i.volume, 10) || 1),
+    0
+  );
+  const totalNFs = new Set(itens.map((i) => nf9Postagem(i.nf))).size;
+  const horaCriacao = cab.romaneio_criado_em
+    ? horaPostagem(cab.romaneio_criado_em)
+    : '—';
+  const retiradaEm = cab.romaneio_assinado_em
+    ? dataHoraPostagem(cab.romaneio_assinado_em)
+    : '—';
+  const barras = String(codigo)
+    .padEnd(26, '7')
+    .slice(0, 26)
+    .split('')
+    .map((ch, n) => 1 + ((ch.charCodeAt(0) + n) % 4));
+
+  // PDF/impressão no modelo do romaneio de coleta: uma linha por NF, e o bloco de assinatura em TODAS as páginas.
+  function imprimir() {
+    const porNF = new Map();
+    itens.forEach((i) => {
+      const k = nf9Postagem(i.nf);
+      if (!porNF.has(k))
+        porNF.set(k, { nf: k, chave: i.chave_nfe || '', vol: 0 });
+      porNF.get(k).vol += parseInt(i.volume, 10) || 1;
+    });
+    const lista = [...porNF.values()];
+    const porPagina = 28;
+    const totalPag = Math.max(1, Math.ceil(lista.length / porPagina));
+    const dataRom = cab.romaneio_criado_em
+      ? dataPostagem(cab.romaneio_criado_em)
+      : '—';
+    const gerado = new Date().toLocaleString('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+    });
+    const bloco = `<div class="ass">
+      <div class="ass-dados">
+        <div><b>Responsável pela coleta:</b> ${escHtmlPostagem(
+          assinado ? cab.motorista_nome || '—' : ''
+        )}</div>
+        <div><b>Documento:</b> ${escHtmlPostagem(
+          assinado ? cab.motorista_cpf || '—' : ''
+        )}</div>
+        <div><b>Data/Hora da assinatura:</b> ${escHtmlPostagem(
+          assinado ? retiradaEm : ''
+        )}</div>
+      </div>
+      <div class="ass-caixa">${
+        assinado && assinatura
+          ? `<img src="${escHtmlPostagem(assinatura)}" alt="assinatura">`
+          : ''
+      }</div>
+      <div class="ass-leg">Assinatura digital do responsável pela coleta</div>
+    </div>`;
+    const paginas = [];
+    for (let p = 0; p < totalPag; p += 1) {
+      const fatia = lista.slice(p * porPagina, (p + 1) * porPagina);
+      const linhas = fatia
+        .map(
+          (r) =>
+            `<tr><td>${escHtmlPostagem(r.nf)}</td><td>${escHtmlPostagem(
+              r.chave || '—'
+            )}</td><td class="c">${r.vol}</td></tr>`
+        )
+        .join('');
+      paginas.push(`<section class="pg">
+        <div class="cab">
+          <div class="cab-e">${escHtmlPostagem(
+            cab.empresa_nome || 'BBDI DISTRIBUIDORA'
+          )}${
+        filiaisRom
+          ? `<br><span class="fil">Filial(is): ${escHtmlPostagem(
+              filiaisRom
+            )}</span>`
+          : ''
+      }</div>
+          <div class="cab-c"><b>Romaneio Nº ${escHtmlPostagem(
+            codigo
+          )}</b><br>${escHtmlPostagem(transp)}${
+        cnpjTransp ? `<br>CNPJ: ${escHtmlPostagem(cnpjTransp)}` : ''
+      }</div>
+          <div class="cab-d">Data: ${escHtmlPostagem(dataRom)}<br>NFs: ${
+        lista.length
+      }<br>Volumes: ${totalVolumes}<br>Página: ${p + 1}/${totalPag}</div>
+        </div>
+        <table><thead><tr><th>Nota Fiscal</th><th>Chave de Acesso</th><th class="c">Volumes</th></tr></thead><tbody>${linhas}</tbody></table>
+        <div class="rodape">${bloco}<div class="gerado">Romaneio ${escHtmlPostagem(
+        codigo
+      )} | Gerado em: ${escHtmlPostagem(gerado)}</div></div>
+      </section>`);
+    }
+    const w = window.open('', '_blank');
+    if (!w) {
+      alert(
+        'O navegador bloqueou a janela de impressão. Permita pop-ups para este site.'
+      );
+      return;
+    }
+    w.document
+      .write(`<!doctype html><html><head><meta charset="utf-8"><title>Romaneio ${escHtmlPostagem(
+      codigo
+    )}</title>
+<style>
+@page{size:A4;margin:10mm}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#111;font-size:9px}
+.pg{position:relative;height:276mm;page-break-after:always;padding-bottom:62mm}
+.pg:last-child{page-break-after:auto}
+.cab{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #999;padding-bottom:6px;margin-bottom:8px}
+.cab-e{font-weight:700;font-size:12px;width:30%}
+.fil{font-weight:400;font-size:9px}
+.cab-c{text-align:center;font-size:10px;width:40%;line-height:1.4}
+.cab-d{text-align:right;font-size:9px;width:30%;line-height:1.35}
+table{width:100%;border-collapse:collapse}
+th{border-bottom:1px solid #444;padding:4px 6px;font-size:9px;text-align:center}
+td{padding:3px 6px;font-size:8.5px;text-align:center}
+td.c,th.c{text-align:center}
+.rodape{position:absolute;left:0;right:0;bottom:0}
+.ass{border-top:1px solid #999;padding-top:6px}
+.ass-dados{font-size:8.5px;line-height:1.5;margin-bottom:6px}
+.ass-caixa{height:22mm;border:1px solid #444;display:flex;align-items:center;justify-content:center}
+.ass-caixa img{max-height:20mm;max-width:100%}
+.ass-leg{text-align:center;font-size:7.5px;color:#333;margin-top:2px}
+.gerado{text-align:center;font-size:8px;color:#333;border-top:1px solid #999;margin-top:6px;padding-top:4px}
+</style></head><body>${paginas.join('')}
+<script>window.onload=function(){window.print()}</script></body></html>`);
+    w.document.close();
+  }
+
+  return (
+    <div className="rm-fundo" onClick={onClose}>
+      <style>{CSS_ROMANEIO_POSTAGENS}</style>
+      <div className="rm" onClick={(e) => e.stopPropagation()}>
+        <div className="rm-head">
+          <div>
+            <div className="rm-lbl">Romaneio de expedição</div>
+            <div className="rm-rid">{codigo}</div>
+            <div className="rm-barcode">
+              {barras.map((w, n) => (
+                <span key={n} style={{ width: w }} />
+              ))}
+            </div>
+          </div>
+          <div className="rm-transp">
+            {empresaTxt && <div className="rm-emp">{empresaTxt}</div>}
+            <div>{transp}</div>
+            {cnpjTransp && <div className="rm-cnpj">CNPJ: {cnpjTransp}</div>}
+          </div>
+          <div className="rm-btns">
+            <button
+              type="button"
+              className="rm-btn"
+              onClick={imprimir}
+              disabled={carregando || !itens.length}
+            >
+              Imprimir
+            </button>
+            <button type="button" className="rm-btn" onClick={onClose}>
+              Fechar
+            </button>
+          </div>
+          {assinado && <div className="rm-stamp">CONFIRMADO</div>}
+        </div>
+        <div className="rm-meta">
+          <div>
+            <b>Gerado por</b>—
+          </div>
+          <div>
+            <b>Hora</b>
+            {horaCriacao}
+          </div>
+          <div>
+            <b>Notas fiscais</b>
+            {totalNFs}
+          </div>
+          <div>
+            <b>Volumes</b>
+            {totalVolumes}
+          </div>
+        </div>
+        <div className="rm-body">
+          {erro && <div className="rm-erro">{erro}</div>}
+          {carregando && <div className="rm-vazio">Carregando romaneio…</div>}
+          {!carregando && !erro && !itens.length && (
+            <div className="rm-vazio">
+              Nenhuma NF encontrada neste romaneio.
+            </div>
+          )}
+          {!carregando && itens.length > 0 && (
+            <div className="rm-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>NF</th>
+                    <th>Pedido</th>
+                    <th>Cliente</th>
+                    <th>Valor NF</th>
+                    <th>Chave</th>
+                    <th>Rastreio</th>
+                    <th>Volume</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {itens.map((i, n) => (
+                    <tr key={i.id || n}>
+                      <td className="mono" style={{ fontWeight: 700 }}>
+                        {nf9Postagem(i.nf)}
+                      </td>
+                      <td className="mono">{i.pedido || '—'}</td>
+                      <td>{i.cliente_nome || '—'}</td>
+                      <td
+                        className="mono"
+                        style={{ fontWeight: 700, whiteSpace: 'nowrap' }}
+                      >
+                        {moedaPostagem(i.valor_nf)}
+                      </td>
+                      <td className="mono" style={{ fontSize: 10.5 }}>
+                        {i.chave_nfe || '—'}
+                      </td>
+                      <td className="mono">{i.rastreio || '—'}</td>
+                      <td className="mono">{parseInt(i.volume, 10) || 1}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {assinado && !carregando && (
+            <div className="rm-sig">
+              {assinatura ? <img src={assinatura} alt="assinatura" /> : null}
+              <div className="rm-sigmeta">
+                Retirada confirmada por <b>{cab.motorista_nome || '—'}</b>
+                {cab.motorista_cpf ? (
+                  <>
+                    <br />
+                    CPF: <b>{cab.motorista_cpf}</b>
+                  </>
+                ) : null}
+                <br />
+                em {retiradaEm}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Estilo da tela (mesmo visual da Central). Classes com prefixo "pgh-" para não interferir no resto do painel.
+const CSS_POSTAGENS = `
+.pgh{font-family:Inter,'Nunito',Arial,sans-serif;color:var(--txt)}
+.pgh *{box-sizing:border-box}
+.pgh-title{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px;gap:12px;flex-wrap:wrap}
+.pgh-title h2{margin:0;font-size:20px;color:var(--txt)}
+.pgh-title p{margin:3px 0 0;font-size:11px;color:var(--txt-muted)}
+.pgh-total{text-align:right;font-size:13px}
+.pgh-total small{display:block;font-size:9px;color:var(--txt-muted);margin-top:3px}
+.pgh-filtros{display:grid;grid-template-columns:155px 120px 170px 165px minmax(220px,1fr) 90px minmax(260px,285px);gap:8px;background:var(--surf);border:1px solid var(--bd);border-radius:7px;padding:10px;margin-bottom:9px;align-items:end}
+.pgh-campo label{display:block;font-size:9px;font-weight:800;color:var(--txt-2);margin-bottom:4px}
+.pgh-campo input,.pgh-campo select{width:100%;height:31px;border:1px solid var(--bd-strong);border-radius:3px;padding:0 8px;font-size:10px;background:var(--surf);color:var(--txt)}
+.pgh-atualizar{height:31px;border:0;border-radius:3px;background:var(--accent);color:#fff;font-size:10px;font-weight:800;cursor:pointer}
+.pgh-atualizar:disabled,.pgh-relatorio:disabled{opacity:.6;cursor:default}
+.pgh-rel{display:flex;align-items:flex-end;gap:6px;flex-wrap:wrap}
+.pgh-rel input{height:31px;width:132px;min-width:132px;border:1px solid var(--bd-strong);border-radius:5px;padding:0 7px;background:var(--surf);color:var(--txt);font:600 11px Inter,Arial,sans-serif}
+.pgh-relatorio{height:31px;min-width:120px;border:0;border-radius:3px;background:#146c43;color:#fff;font-size:10px;font-weight:800;cursor:pointer;padding:0 14px;white-space:nowrap}
+.pgh-box{max-height:calc(100vh - 250px);min-height:200px;overflow:auto;background:var(--surf);border:1px solid var(--bd-strong)}
+.pgh-table{width:100%;min-width:2350px;border-collapse:collapse;white-space:nowrap;font-size:9px}
+.pgh-table th{position:sticky;top:0;z-index:2;background:var(--surf-head);border:1px solid var(--bd-strong);padding:6px 7px;text-align:left;color:var(--txt-2);font-size:8px}
+.pgh-table td{border-bottom:1px solid var(--bd);padding:5px 7px;color:var(--txt);white-space:nowrap}
+.pgh-table tbody tr:nth-child(even){background:var(--surf-alt)}
+.pgh-table td.pgh-cli{max-width:230px;overflow:hidden;text-overflow:ellipsis}
+.pgh-table td.pgh-mono{font-family:'JetBrains Mono',Consolas,monospace}
+.pgh-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.pgh-verde{background:#28b779}.pgh-amarelo{background:#e9b62f}.pgh-vermelho{background:#e94b4b}.pgh-cancelado{background:#6b7280}.pgh-canc_cnt{background:#2563eb}.pgh-canc_bft{background:#7c3aed}.pgh-canc_ag{background:#ea580c}
+.pgh-status{font-weight:800}
+.pgh-legenda{display:flex;gap:18px;padding:7px 2px;font-size:9px;color:var(--txt-muted);flex-wrap:wrap}
+.pgh-vazio{text-align:center!important;padding:45px!important;color:var(--txt-muted)}
+.pgh-pager{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:7px 8px;background:var(--surf);border:1px solid var(--bd);border-top:0;font-size:10px;color:var(--txt-2)}
+.pgh-pager button{height:27px;padding:0 10px;border:1px solid var(--bd-strong);background:var(--surf);border-radius:3px;font-size:10px;font-weight:800;cursor:pointer;color:var(--txt)}
+.pgh-pager button:disabled{opacity:.4;cursor:default}
+.pgh-romlink{border:0;background:none;padding:0;color:var(--accent-tx);font:inherit;font-weight:800;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.pgh-romlink:hover{color:var(--accent-tx)}
+.pgh-ret{display:inline-block;border:1px solid var(--green-bd);color:var(--green-tx);background:var(--green-bg);border-radius:5px;padding:3px 7px;font-size:9px;font-weight:800}
+.pgh-mais{border:1px solid var(--bd-strong);background:var(--surf);color:var(--accent-tx);border-radius:4px;padding:1px 5px;font-size:9px;font-weight:800;cursor:default;margin-left:4px}
+.pgh-erro{background:var(--red-bg);color:var(--red-tx);border:1px solid var(--red-bd);border-radius:6px;padding:10px 12px;font-size:12px;font-weight:700;margin-bottom:9px}
+@media(max-width:1100px){.pgh-filtros{grid-template-columns:repeat(3,minmax(130px,1fr))}}
+`;
+
+const COLUNAS_TABELA_POSTAGENS = [
+  'STATUS',
+  'FILIAL',
+  'NF',
+  'PEDIDO',
+  'CÓD. CLIENTE',
+  'CLIENTE',
+  'CHAVE NF-e',
+  'RASTREIO 1',
+  'RASTREIO 2',
+  'RASTREIO 3',
+  'TRANSPORTADORA',
+  'DATA FAT.',
+  'HORA FAT.',
+  'DATA LIMITE',
+  'DATA POSTAGEM',
+  'HORA',
+  'BIPADOR',
+  'EMBALADOR',
+  'VOLUME',
+  'ROMANEIO / RETIRADA',
+  'COLETA',
+];
+
+function hojeISOPostagem() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+  }).format(new Date());
+}
+
+function montarConsultaPostagens(filtros, pagina) {
+  const q = [`select=${POSTAGENS_COLUNAS}`];
+  if (filtros.status)
+    q.push(`situacao=eq.${encodeURIComponent(filtros.status)}`);
+  if (filtros.filial) q.push(`filial=eq.${encodeURIComponent(filtros.filial)}`);
+  if (filtros.transp)
+    q.push(`transportadora_canon=eq.${encodeURIComponent(filtros.transp)}`);
+  const rom = filtros.rom.trim().replace(/[,*()%]/g, '');
+  if (rom) q.push(`romaneio=ilike.${encodeURIComponent(`*${rom}*`)}`);
+  const busca = filtros.busca
+    .trim()
+    .toLowerCase()
+    .replace(/[,*()%]/g, '');
+  if (busca) q.push(`busca=ilike.${encodeURIComponent(`*${busca}*`)}`);
+  q.push('order=ordem.desc,nf.desc,linha_id.asc');
+  q.push(`limit=${POSTAGENS_TAM_PAGINA + 1}`);
+  q.push(`offset=${pagina * POSTAGENS_TAM_PAGINA}`);
+  return `v_postagens_painel?${q.join('&')}`;
+}
+
+function TelaPostagens({ ativo }) {
+  const [linhas, setLinhas] = useState([]);
+  const [pagina, setPagina] = useState(0);
+  const [temProxima, setTemProxima] = useState(false);
+  const [filtros, setFiltros] = useState(POSTAGENS_FILTROS_VAZIOS); // valores digitados
+  const [aplicados, setAplicados] = useState(POSTAGENS_FILTROS_VAZIOS); // valores que já foram enviados ao banco
+  const [transpOpcoes, setTranspOpcoes] = useState([]);
+  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState('');
+  const [atualizadoEm, setAtualizadoEm] = useState('');
+  const [romAberto, setRomAberto] = useState('');
+  const [dataRel, setDataRel] = useState(hojeISOPostagem);
+  const [gerando, setGerando] = useState(false);
+  const ultimaCarga = useRef({ t: 0, chave: '' });
+  const seq = useRef(0);
+
+  // aplica rapidamente selects; texto (romaneio/pesquisa) espera 600 ms e exige 3+ letras na pesquisa
+  useEffect(() => {
+    const busca = filtros.busca.trim();
+    const buscaValida =
+      busca.length === 0 || busca.length >= 3 ? filtros.busca : aplicados.busca;
+    const alvo = { ...filtros, busca: buscaValida };
+    if (JSON.stringify(alvo) === JSON.stringify(aplicados)) return undefined;
+    const textoMudou =
+      alvo.rom !== aplicados.rom || alvo.busca !== aplicados.busca;
+    const t = setTimeout(
+      () => {
+        setPagina(0);
+        setAplicados(alvo);
+      },
+      textoMudou ? 600 : 0
+    );
+    return () => clearTimeout(t);
+  }, [filtros, aplicados]);
+
+  const carregar = useCallback(async () => {
+    const minha = seq.current + 1;
+    seq.current = minha;
+    setCarregando(true);
+    setErro('');
+    try {
+      const lote = await lerSupabasePostagem(
+        montarConsultaPostagens(aplicados, pagina)
+      );
+      if (minha !== seq.current) return;
+      const lista = Array.isArray(lote) ? lote : [];
+      setTemProxima(lista.length > POSTAGENS_TAM_PAGINA);
+      setLinhas(lista.slice(0, POSTAGENS_TAM_PAGINA));
+      setAtualizadoEm(
+        new Date().toLocaleTimeString('pt-BR', {
+          timeZone: 'America/Sao_Paulo',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      );
+      ultimaCarga.current = {
+        t: Date.now(),
+        chave: `${JSON.stringify(aplicados)}|${pagina}`,
+      };
+    } catch (e) {
+      if (minha === seq.current)
+        setErro(e.message || 'Erro ao carregar as postagens.');
+    } finally {
+      if (minha === seq.current) setCarregando(false);
+    }
+  }, [aplicados, pagina]);
+
+  // Só consulta o banco com a tela aberta. Reabrir a aba em menos de 1 min com o mesmo filtro não consulta de novo.
+  useEffect(() => {
+    if (!ativo) return;
+    const chave = `${JSON.stringify(aplicados)}|${pagina}`;
+    if (
+      ultimaCarga.current.chave === chave &&
+      Date.now() - ultimaCarga.current.t < 60000
+    )
+      return;
+    carregar();
+  }, [ativo, aplicados, pagina, carregar]);
+
+  // opções do filtro de transportadora (uma vez, ao abrir a tela)
+  useEffect(() => {
+    if (!ativo || transpOpcoes.length) return;
+    lerSupabasePostagem(
+      'v_transportadoras_painel?select=transportadora&order=transportadora.asc&limit=500'
+    )
+      .then((j) =>
+        setTranspOpcoes(
+          (Array.isArray(j) ? j : [])
+            .map((x) => x.transportadora)
+            .filter(Boolean)
+        )
+      )
+      .catch(() => {});
+  }, [ativo, transpOpcoes.length]);
+
+  async function baixarRelatorio() {
+    if (gerando) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dataRel)) {
+      alert('Selecione a data da coleta.');
+      return;
+    }
+    setGerando(true);
+    try {
+      const res = await gerarRelatorioColetasPostagem(dataRel);
+      if (res.vazio) alert(`Nenhuma coleta encontrada para ${res.dataBr}.`);
+      else alert(`Relatório gerado com sucesso — ${res.total} registros.`);
+    } catch (e) {
+      alert(`Erro ao gerar relatório: ${e.message || e}`);
+    } finally {
+      setGerando(false);
+    }
+  }
+
+  const set = (campo) => (e) =>
+    setFiltros((cur) => ({ ...cur, [campo]: e.target.value }));
+
+  return (
+    <div className="pgh">
+      <style>{CSS_POSTAGENS}</style>
+      <div className="pgh-title">
+        <div>
+          <h2>Postagens — Histórico geral</h2>
+          <p>Histórico completo do Supabase · sem limite de data</p>
+        </div>
+        <div className="pgh-total">
+          <b>{linhas.length} registro(s)</b>
+          <small>
+            {carregando
+              ? 'Atualizando…'
+              : atualizadoEm
+              ? `Atualizado ${atualizadoEm}`
+              : ' '}
+          </small>
+        </div>
+      </div>
+
+      <div className="pgh-filtros">
+        <div className="pgh-campo">
+          <label>STATUS</label>
+          <select value={filtros.status} onChange={set('status')}>
+            <option value="">Todos</option>
+            <option value="verde">Aguardando postagem</option>
+            <option value="amarelo">Postado — aguardando coleta</option>
+            <option value="vermelho">Expedido / coletado</option>
+            <option value="canc_cnt">Aguardando CNT</option>
+            <option value="canc_ag">Aguardando Cancelamento</option>
+            <option value="canc_bft">Aguardando Pagto BFT</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </div>
+        <div className="pgh-campo">
+          <label>FILIAL</label>
+          <select value={filtros.filial} onChange={set('filial')}>
+            <option value="">Todas</option>
+            <option>0101</option>
+            <option>0102</option>
+            <option>1020</option>
+          </select>
+        </div>
+        <div className="pgh-campo">
+          <label>TRANSPORTADORA</label>
+          <select value={filtros.transp} onChange={set('transp')}>
+            <option value="">Todas</option>
+            {transpOpcoes.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="pgh-campo">
+          <label>ROMANEIO</label>
+          <input
+            value={filtros.rom}
+            onChange={set('rom')}
+            placeholder="RM-000..."
+          />
+        </div>
+        <div className="pgh-campo">
+          <label>PESQUISAR</label>
+          <input
+            value={filtros.busca}
+            onChange={set('busca')}
+            placeholder="NF, pedido, cliente, chave..."
+          />
+        </div>
+        <button
+          type="button"
+          className="pgh-atualizar"
+          disabled={carregando}
+          onClick={() => (pagina === 0 ? carregar() : setPagina(0))}
+        >
+          Atualizar
+        </button>
+        <div className="pgh-rel">
+          <input
+            type="date"
+            value={dataRel}
+            onChange={(e) => setDataRel(e.target.value)}
+            title="Data da coleta"
+          />
+          <button
+            type="button"
+            className="pgh-relatorio"
+            disabled={gerando}
+            onClick={baixarRelatorio}
+          >
+            {gerando ? 'Gerando...' : 'Gerar relatório'}
+          </button>
+        </div>
+      </div>
+
+      {erro && <div className="pgh-erro">{erro}</div>}
+
+      <div className="pgh-box">
+        <table className="pgh-table">
+          <thead>
+            <tr>
+              {COLUNAS_TABELA_POSTAGENS.map((h) => (
+                <th key={h}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {linhas.length === 0 && (
+              <tr>
+                <td
+                  colSpan={COLUNAS_TABELA_POSTAGENS.length}
+                  className="pgh-vazio"
+                >
+                  {carregando ? 'Carregando…' : 'Nenhum registro encontrado.'}
+                </td>
+              </tr>
+            )}
+            {linhas.map((r) => {
+              const rs = Array.isArray(r.rastreios) ? r.rastreios : [];
+              const ehRetira = /RETIRA/i.test(String(r.transportadora || ''));
+              const extras = rs.length > 3 ? rs.slice(3) : [];
+              let celulaRom = '—';
+              if (ehRetira) {
+                if (r.retirada_em)
+                  celulaRom = (
+                    <span className="pgh-ret">
+                      Retirada registrada · {dataPostagem(r.retirada_em)}
+                    </span>
+                  );
+              } else if (r.romaneio) {
+                celulaRom = (
+                  <button
+                    type="button"
+                    className="pgh-romlink"
+                    title="Visualizar romaneio"
+                    onClick={() => setRomAberto(r.romaneio)}
+                  >
+                    {r.romaneio}
+                  </button>
+                );
+              }
+              return (
+                <tr key={r.linha_id}>
+                  <td>
+                    <span className={`pgh-dot pgh-${r.situacao}`} />
+                    <span className="pgh-status">{r.status_texto}</span>
+                  </td>
+                  <td>{r.filial || '—'}</td>
+                  <td>
+                    <b>{nf9Postagem(r.nf)}</b>
+                  </td>
+                  <td>{r.pedido || '—'}</td>
+                  <td>{r.cliente_codigo || '—'}</td>
+                  <td className="pgh-cli" title={r.cliente_nome || ''}>
+                    {r.cliente_nome || '—'}
+                  </td>
+                  <td>{r.chave_nfe || '—'}</td>
+                  <td className="pgh-mono">{rs[0] || '—'}</td>
+                  <td className="pgh-mono">{rs[1] || '—'}</td>
+                  <td className="pgh-mono">
+                    {rs[2] || '—'}
+                    {extras.length > 0 && (
+                      <span className="pgh-mais" title={extras.join(' | ')}>
+                        +{extras.length}
+                      </span>
+                    )}
+                  </td>
+                  <td>{r.transportadora || '—'}</td>
+                  <td>{dataPostagem(r.data_faturamento)}</td>
+                  <td>{horaPostagem(r.data_faturamento)}</td>
+                  <td>{dataPostagem(r.data_limite)}</td>
+                  <td>{dataPostagem(r.postado_em)}</td>
+                  <td>{horaPostagem(r.postado_em)}</td>
+                  <td>{r.bipador || '—'}</td>
+                  <td>{r.embalador || '—'}</td>
+                  <td>
+                    {r.volume === null ||
+                    r.volume === undefined ||
+                    r.volume === ''
+                      ? 1
+                      : r.volume}
+                  </td>
+                  <td>{celulaRom}</td>
+                  <td>{dataHoraPostagem(r.coleta_em)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="pgh-pager">
+        <button
+          type="button"
+          disabled={pagina === 0 || carregando}
+          onClick={() => setPagina((p) => Math.max(0, p - 1))}
+        >
+          ‹ Anterior
+        </button>
+        <span>
+          Página {pagina + 1} · até {POSTAGENS_TAM_PAGINA} registros · histórico
+          completo do Supabase
+        </span>
+        <button
+          type="button"
+          disabled={!temProxima || carregando}
+          onClick={() => setPagina((p) => p + 1)}
+        >
+          Próxima ›
+        </button>
+      </div>
+      <div className="pgh-legenda">
+        <span>
+          <i className="pgh-dot pgh-verde" />
+          Aguardando postagem
+        </span>
+        <span>
+          <i className="pgh-dot pgh-amarelo" />
+          Postado — aguardando coleta
+        </span>
+        <span>
+          <i className="pgh-dot pgh-vermelho" />
+          Expedido / coletado
+        </span>
+        <span>
+          <i className="pgh-dot pgh-canc_cnt" />
+          Cancelamento — Aguardando CNT
+        </span>
+        <span>
+          <i className="pgh-dot pgh-canc_ag" />
+          Cancelamento — Aguardando Cancelamento
+        </span>
+        <span>
+          <i className="pgh-dot pgh-canc_bft" />
+          Cancelamento — Aguardando Pagto BFT
+        </span>
+        <span>
+          <i className="pgh-dot pgh-cancelado" />
+          Cancelado
+        </span>
+      </div>
+      {romAberto && (
+        <ModalRomaneioPostagens
+          codigo={romAberto}
+          onClose={() => setRomAberto('')}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ================================================================
+   VIA LEITOR — Expedição (somente leitura) — espelho da Central
+   Fontes: public.via_leitor + v_via_config_painel + v_via_obs_painel
+   ================================================================ */
+const VIA_DATA_MINIMA = '2026-10-13'; // início da operação (igual à Central). Para desligar, use ''.
+const VIA_DIAS_ATRAS = 30;
+const VIA_TAM_PAGINA = 2000;
+const VIA_SELECT =
+  'filial,nf,pedido,cliente_codigo,transportadora,data_saida_entrada,hora_autorizacao,data_limite,volume,total_unidades';
+
+const VIA_COLUNAS_FILTRO = [
+  ['filial', 'Filial'],
+  ['nf', 'NF'],
+  ['pedido', 'Pedido'],
+  ['cliente_codigo', 'Cliente'],
+  ['transportadora', 'Transporte'],
+  ['total_unidades', 'Qtd.'],
+  ['volume', 'Volume'],
+  ['data_saida_entrada', 'Data fat.'],
+  ['data_limite', 'Data limite'],
+];
+
+const CSS_VIA_LEITOR = `
+.vlg{font-family:Inter,'Nunito',Arial,sans-serif;color:var(--txt)}
+.vlg *{box-sizing:border-box}
+.vlg-toolbar{min-height:44px;background:var(--surf-alt);border:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;padding:5px 9px;margin-bottom:3px;gap:10px;flex-wrap:wrap}
+.vlg-title{display:flex;flex-direction:column}.vlg-title strong{font-size:13px;color:var(--txt)}.vlg-title span{font-size:9px;color:var(--txt-muted);margin-top:1px}
+.vlg-actions{display:flex;align-items:center;gap:6px}.vlg-actions label{font-size:8px;font-weight:900;color:var(--txt-2)}
+.vlg-actions select{height:27px;border:1px solid var(--bd-strong);background:var(--surf);border-radius:3px;padding:0 25px 0 7px;font-size:10px;font-weight:700;color:var(--txt)}
+.vlg-btn{height:27px;padding:0 11px;border:1px solid var(--bd-strong);background:var(--surf);border-radius:3px;font-size:10px;font-weight:800;cursor:pointer;color:var(--txt)}
+.vlg-btn:disabled{opacity:.5;cursor:default}
+.vlg-filtros{display:flex;flex-wrap:wrap;gap:6px;align-items:flex-end;background:var(--surf);border:1px solid var(--bd);border-bottom:0;padding:5px 7px}
+.vlg-campo label{display:block;font-size:8px;font-weight:800;color:var(--txt-2);margin-bottom:3px}
+.vlg-campo select,.vlg-campo input{height:26px;border:1px solid var(--bd-strong);border-radius:3px;padding:0 7px;font-size:10px;background:var(--surf);color:var(--txt)}
+.vlg-f-filial select{width:150px}.vlg-f-transp select{width:200px}.vlg-f-busca{flex:1 1 220px}.vlg-f-busca input{width:100%}
+.vlg-f-col select{min-width:130px}.vlg-f-col input{min-width:150px}
+.vlg-hint{font-size:9px;color:var(--txt-muted);align-self:center}
+.vlg-total{height:26px;min-width:90px;display:flex;align-items:center;justify-content:center;gap:5px;background:var(--accent-soft);border:1px solid var(--bd);border-radius:3px;padding:0 8px}
+.vlg-total span{font-size:8px;font-weight:900;color:var(--txt-2)}.vlg-total strong{font-size:13px;color:var(--accent-tx)}
+.vlg-grid{background:var(--surf);border:1px solid var(--bd);max-height:calc(100vh - 250px);min-height:200px;overflow:auto}
+.vlg-table{width:100%;border-collapse:collapse;font-size:10px}
+.vlg-table thead{position:sticky;top:0;z-index:2;background:var(--surf-head)}
+.vlg-table th{height:23px;padding:3px 6px;text-align:left;border-bottom:1px solid var(--bd-strong);color:var(--txt-2);font-size:9px;font-weight:800;white-space:nowrap}
+.vlg-table th.vlg-ord{cursor:pointer;user-select:none}
+.vlg-table th.vlg-asc::after{content:" ▲";font-size:8px}.vlg-table th.vlg-desc::after{content:" ▼";font-size:8px}
+.vlg-table td{height:22px;padding:2px 6px;border-bottom:1px solid var(--bd);white-space:nowrap;font-size:10px}
+.vlg-table tbody tr:nth-child(even){background:var(--surf-alt)}.vlg-table tbody tr:hover{background:var(--accent-soft)}
+.vlg-table .vlg-mono{font-size:9.5px;font-family:'JetBrains Mono',Consolas,monospace}
+.vlg-st{width:20px;text-align:center}
+.vlg-dot{width:8px;height:8px;border-radius:50%;display:inline-block}.vlg-dot.ok{background:#18ad62}.vlg-dot.late{background:#ef3e36}
+.vlg-obs{min-width:250px}.vlg-obs span{display:inline-block;max-width:300px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;color:var(--txt-2)}
+.vlg-vazio{padding:28px;text-align:center;color:var(--txt-muted);font-size:11px}
+.vlg-pager{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:7px 8px;background:var(--surf);border:1px solid var(--bd);border-top:0;font-size:10px;color:var(--txt-2)}
+.vlg-pager button{height:27px;padding:0 10px;border:1px solid var(--bd-strong);background:var(--surf);border-radius:3px;font-size:10px;font-weight:800;cursor:pointer;color:var(--txt)}
+.vlg-pager button:disabled{opacity:.4;cursor:default}
+.vlg-legenda{display:flex;gap:15px;align-items:center;padding:5px 8px;font-size:9px;color:var(--txt-muted);border:1px solid var(--bd);border-top:0;background:var(--surf-alt)}
+.vlg-legenda i{margin-right:5px}
+.vlg-erro{background:var(--red-bg);color:var(--red-tx);border:1px solid var(--red-bd);border-radius:6px;padding:10px 12px;font-size:12px;font-weight:700;margin-bottom:6px}
+.vlg-aviso{background:var(--amber-bg);color:var(--amber-tx);border:1px solid var(--amber-bd);border-radius:6px;padding:8px 12px;font-size:11px;font-weight:700;margin-bottom:6px}
+`;
+
+function viaNormLista(v) {
+  const n = String(v || '')
+    .trim()
+    .toUpperCase();
+  if (['PAC', 'SEDEX', 'CORREIOS'].includes(n)) return 'CORREIOS';
+  if (n === 'LOGGI') return 'LOGGI - POA RS';
+  if (n.startsWith('TROCA')) return 'TROCA';
+  return n;
+}
+
+function viaNormCfg(v) {
+  const n = String(v || '')
+    .trim()
+    .toUpperCase();
+  if (['PAC', 'SEDEX', 'CORREIOS'].includes(n)) return 'CORREIOS';
+  if (n === 'LOGGI - POA RS') return 'LOGGI';
+  if (n.startsWith('TROCA')) return 'TROCA';
+  return n;
+}
+
+function viaSemAcento(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function viaBr(s) {
+  const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : s || '—';
+}
+
+function viaMontarCfg(linhas) {
+  const cfg = { transportadoras: [], cortes: [], feriados: [], ignorados: [] };
+  (Array.isArray(linhas) ? linhas : []).forEach((l) => {
+    if (l.tipo === 'transportadora')
+      cfg.transportadoras.push({
+        id: String(l.id),
+        nome: l.nome,
+        ativo: l.ativo,
+      });
+    else if (l.tipo === 'corte') {
+      cfg.cortes.push({
+        transportadora_id: String(l.transportadora_id),
+        filial: l.filial || null,
+        hora_corte: l.hora_corte,
+        tipo_regra: l.tipo_regra,
+        dias_uteis: l.dias_uteis,
+        ativo: l.ativo,
+      });
+    } else if (l.tipo === 'feriado')
+      cfg.feriados.push({ data: l.data, ativo: l.ativo });
+    else if (l.tipo === 'ignorado')
+      cfg.ignorados.push({ codigo: l.codigo_cliente, ativo: l.ativo });
+  });
+  return cfg;
+}
+
+function viaCodigoCliente(v) {
+  return (
+    String(v === null || v === undefined ? '' : v)
+      .trim()
+      .replace(/\D/g, '')
+      .replace(/^0+/, '') || '0'
+  );
+}
+
+function viaCorteObj(cfg, nome, filial) {
+  const n = viaSemAcento(viaNormCfg(nome));
+  if (!n) return null;
+  const candidatos = cfg.transportadoras
+    .filter((x) => x.ativo)
+    .map((x) => ({ item: x, cfg: viaSemAcento(viaNormCfg(x.nome)) }))
+    .filter((x) => x.cfg && (n.includes(x.cfg) || x.cfg.includes(n)))
+    .sort((a, b) => b.cfg.length - a.cfg.length);
+  const t = candidatos[0] && candidatos[0].item;
+  if (!t) return null;
+  return (
+    cfg.cortes.find(
+      (c) => c.transportadora_id === t.id && c.ativo && c.filial === filial
+    ) ||
+    cfg.cortes.find(
+      (c) => c.transportadora_id === t.id && c.ativo && !c.filial
+    ) ||
+    null
+  );
+}
+
+function viaCorteTexto(cfg, nome, filial) {
+  const c = viaCorteObj(cfg, nome, filial);
+  if (!c) return '—';
+  if (c.tipo_regra === 'HORARIO')
+    return String(c.hora_corte || '').slice(0, 5) || '—';
+  if (c.tipo_regra === 'DIAS_UTEIS') {
+    const um = Number(c.dias_uteis) === 1;
+    return `${c.dias_uteis} dia${um ? '' : 's'} ${um ? 'útil' : 'úteis'}`;
+  }
+  return '—';
+}
+
+function viaParseData(s) {
+  const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], 0, 0, 0) : null;
+}
+
+function viaYmd(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+    2,
+    '0'
+  )}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function viaDiaUtil(cfg, d) {
+  if (!d || d.getDay() === 0 || d.getDay() === 6) return false;
+  const y = viaYmd(d);
+  return !cfg.feriados.some(
+    (f) => f.ativo !== false && String(f.data || '').slice(0, 10) === y
+  );
+}
+
+function viaProximoUtil(cfg, d) {
+  const x = new Date(d);
+  do {
+    x.setDate(x.getDate() + 1);
+  } while (!viaDiaUtil(cfg, x));
+  return x;
+}
+
+function viaSomaUteis(cfg, d, n) {
+  let x = new Date(d);
+  for (let i = 0; i < n; i += 1) x = viaProximoUtil(cfg, x);
+  return x;
+}
+
+function viaDataLimiteCalc(cfg, x) {
+  const c = viaCorteObj(cfg, x.transporte, x.filial);
+  let d = viaParseData(x.data);
+  if (!c || !d) return '';
+  if (c.tipo_regra === 'DIAS_UTEIS')
+    return viaYmd(viaSomaUteis(cfg, d, Math.max(0, Number(c.dias_uteis || 0))));
+  if (!viaDiaUtil(cfg, d)) {
+    while (!viaDiaUtil(cfg, d)) d.setDate(d.getDate() + 1);
+    return viaYmd(d);
+  }
+  const corte = String(c.hora_corte || '00:00').slice(0, 5);
+  const hora = String(x.hora || '00:00').slice(0, 5);
+  if (hora && corte && hora > corte) d = viaProximoUtil(cfg, d);
+  return viaYmd(d);
+}
+
+function viaTempoRestante(cfg, x, agora) {
+  const c = viaCorteObj(cfg, x.transporte, x.filial);
+  if (!c) return '—';
+  const lim = viaParseData(x.data_limite || viaDataLimiteCalc(cfg, x));
+  if (!lim) return '—';
+  let hm = '18:18';
+  if (c.tipo_regra === 'HORARIO')
+    hm = String(c.hora_corte || '00:00').slice(0, 5);
+  const [h, m] = hm.split(':').map(Number);
+  lim.setHours(h, m, 0, 0);
+  const ms = lim - agora;
+  if (ms <= 0) return 'ATRASADO';
+  const min = Math.floor(ms / 60000);
+  const dias = Math.floor(min / 1440);
+  const horas = Math.floor((min % 1440) / 60);
+  return dias > 0 ? `${dias}d ${horas}h` : `${horas}h ${min % 60}min`;
+}
+
+// Data limite exibida: em regra de dias úteis recalcula; senão usa a do banco.
+function viaDataLimiteLinha(cfg, x) {
+  const obj = {
+    transporte: x.transportadora,
+    filial: x.filial,
+    data: x.data_saida_entrada,
+    hora: x.hora_saida,
+    data_limite: x.data_limite,
+  };
+  const ct = viaCorteTexto(cfg, x.transportadora, x.filial).toLowerCase();
+  const uteis =
+    ct.includes('útil') || ct.includes('uteis') || ct.includes('úteis');
+  const calc = viaDataLimiteCalc(cfg, obj);
+  return {
+    obj,
+    dl: uteis ? calc || x.data_limite || '' : x.data_limite || calc || '',
+  };
+}
+
+function viaValorCampo(cfg, x, campo) {
+  if (campo === 'data_limite') return viaDataLimiteLinha(cfg, x).dl;
+  return x && x[campo] !== null && x[campo] !== undefined ? x[campo] : '';
+}
+
+function viaComparavel(v, campo) {
+  if (campo === 'data_saida_entrada' || campo === 'data_limite') {
+    const t = new Date(v).getTime();
+    return Number.isFinite(t) ? t : 0;
+  }
+  if (campo === 'volume' || campo === 'total_unidades') {
+    const n = Number(
+      String(v === null || v === undefined ? '' : v).replace(',', '.')
+    );
+    return Number.isFinite(n) ? n : 0;
+  }
+  return String(v === null || v === undefined ? '' : v)
+    .trim()
+    .toLocaleLowerCase('pt-BR');
+}
+
+// lê em fatias de até 1000 linhas (limite padrão do Supabase), até `total` linhas
+async function viaLerLote(caminho, total, inicio) {
+  let out = [];
+  while (out.length < total) {
+    const n = Math.min(1000, total - out.length);
+    const lote = await lerSupabasePostagem(
+      `${caminho}&limit=${n}&offset=${(inicio || 0) + out.length}`
+    );
+    const arr = Array.isArray(lote) ? lote : [];
+    out = out.concat(arr);
+    if (arr.length < n) break;
+  }
+  return out;
+}
+
+function viaNormalizarLinha(x) {
+  return {
+    ...x,
+    transportadora: viaNormLista(x.transportadora),
+    hora_saida: String(x.hora_autorizacao || '').slice(0, 5),
+  };
+}
+
+function viaCaminhoLista() {
+  const corte = VIA_DATA_MINIMA
+    ? `&data_saida_entrada=gte.${encodeURIComponent(
+        `${VIA_DATA_MINIMA}T00:00:00-03:00`
+      )}`
+    : '';
+  return `via_leitor?select=${VIA_SELECT}&filial=in.(0101,0102,1020)${corte}&order=data_saida_entrada.asc,nf.asc,pedido.asc`;
+}
+
+// Regra única do Via Leitor: sem cliente ignorado e com data limite de hoje ou anterior (até VIA_DIAS_ATRAS dias).
+// É usada pela tela e pelos cards do dashboard, para os números serem sempre os mesmos.
+function viaFiltrarPendentes(base, cfg) {
+  const ignorados = new Set(
+    cfg.ignorados.filter((i) => i.ativo).map((i) => viaCodigoCliente(i.codigo))
+  );
+  const a = base.filter(
+    (x) => !ignorados.size || !ignorados.has(viaCodigoCliente(x.cliente_codigo))
+  );
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const hoje = fmt.format(new Date());
+  const ini = fmt.format(new Date(Date.now() - VIA_DIAS_ATRAS * 86400000));
+  return a.filter((x) => {
+    const dl = String(viaDataLimiteLinha(cfg, x).dl || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dl)) return true; // sem data limite reconhecível: não esconde
+    return dl <= hoje && dl >= ini;
+  });
+}
+
+// Totais para os cards do dashboard: pedidos a expedir por empresa (BB = 1020; Equipatech = 0101/0102).
+async function viaResumoDashboard() {
+  const [linhas, cfgLinhas] = await Promise.all([
+    viaLerLote(viaCaminhoLista(), 10000, 0),
+    lerSupabasePostagem('v_via_config_painel?select=*&limit=5000'),
+  ]);
+  const cfg = viaMontarCfg(cfgLinhas);
+  if (!cfg.transportadoras.length)
+    throw new Error('regras de corte indisponíveis (rode o bloco 11 do SQL)');
+  const pend = viaFiltrarPendentes(linhas.map(viaNormalizarLinha), cfg);
+  const agora = Date.now();
+  const r = { bb: { total: 0, atrasados: 0 }, eq: { total: 0, atrasados: 0 } };
+  pend.forEach((x) => {
+    const g = String(x.filial) === '1020' ? r.bb : r.eq;
+    const { obj, dl } = viaDataLimiteLinha(cfg, x);
+    g.total += 1;
+    if (
+      viaTempoRestante(cfg, { ...obj, data_limite: dl }, agora) === 'ATRASADO'
+    )
+      g.atrasados += 1;
+  });
+  return r;
+}
+
+const VIA_FILTROS_VAZIOS = { filial: '', transp: '', busca: '' };
+
+function TelaViaLeitor({ ativo }) {
+  const [base, setBase] = useState([]);
+  const [cfg, setCfg] = useState({
+    transportadoras: [],
+    cortes: [],
+    feriados: [],
+    ignorados: [],
+  });
+  const [obs, setObs] = useState({});
+  const [pagina, setPagina] = useState(0);
+  const [temProxima, setTemProxima] = useState(false);
+  const [filtros, setFiltros] = useState(VIA_FILTROS_VAZIOS);
+  const [coluna, setColuna] = useState('');
+  const [valorColuna, setValorColuna] = useState('');
+  const [ordem, setOrdem] = useState({ campo: 'data_saida_entrada', dir: 1 });
+  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState('');
+  const [avisoCfg, setAvisoCfg] = useState('');
+  const [atualizadoEm, setAtualizadoEm] = useState('');
+  const [tick, setTick] = useState(0);
+  const ultimaCarga = useRef({ t: 0, pagina: -1 });
+  const seq = useRef(0);
+
+  const carregar = useCallback(async () => {
+    const minha = seq.current + 1;
+    seq.current = minha;
+    setCarregando(true);
+    setErro('');
+    try {
+      const caminho = viaCaminhoLista();
+      const [linhas, cfgLinhas, obsLinhas] = await Promise.all([
+        viaLerLote(caminho, VIA_TAM_PAGINA + 1, pagina * VIA_TAM_PAGINA),
+        lerSupabasePostagem('v_via_config_painel?select=*&limit=5000').then(
+          (j) => ({ ok: true, j }),
+          (e) => ({ ok: false, e })
+        ),
+        viaLerLote(
+          'v_via_obs_painel?select=filial,nf,pedido,observacao&order=filial.asc,nf.asc',
+          20000,
+          0
+        ).catch(() => []),
+      ]);
+      if (minha !== seq.current) return;
+      setTemProxima(linhas.length > VIA_TAM_PAGINA);
+      setBase(linhas.slice(0, VIA_TAM_PAGINA).map(viaNormalizarLinha));
+      if (cfgLinhas.ok) {
+        setCfg(viaMontarCfg(cfgLinhas.j));
+        setAvisoCfg('');
+      } else {
+        setAvisoCfg(
+          `Não foi possível carregar as regras de corte (rode o bloco 11 do SQL no Supabase). ${
+            cfgLinhas.e.message || ''
+          }`
+        );
+      }
+      const mapa = {};
+      obsLinhas.forEach((o) => {
+        mapa[`${o.filial}|${o.nf}|${o.pedido || ''}`] = o.observacao || '';
+        mapa[`${o.filial}|${o.nf}`] = o.observacao || '';
+      });
+      setObs(mapa);
+      setAtualizadoEm(
+        new Date().toLocaleTimeString('pt-BR', {
+          timeZone: 'America/Sao_Paulo',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      );
+      ultimaCarga.current = { t: Date.now(), pagina };
+    } catch (e) {
+      if (minha === seq.current) {
+        setBase([]);
+        setErro(
+          `Não foi possível carregar os dados da VIEW Via Leitor. ${
+            e.message || ''
+          }`
+        );
+      }
+    } finally {
+      if (minha === seq.current) setCarregando(false);
+    }
+  }, [pagina]);
+
+  // só consulta com a tela aberta; reabrir em menos de 1 min na mesma página não consulta de novo
+  useEffect(() => {
+    if (!ativo) return;
+    if (
+      ultimaCarga.current.pagina === pagina &&
+      Date.now() - ultimaCarga.current.t < 60000
+    )
+      return;
+    carregar();
+  }, [ativo, pagina, carregar]);
+
+  // atualiza o "tempo restante" a cada minuto, sem consultar o banco
+  useEffect(() => {
+    if (!ativo) return undefined;
+    const t = setInterval(() => setTick((n) => n + 1), 60000);
+    return () => clearInterval(t);
+  }, [ativo]);
+
+  const nomesTransp = useMemo(
+    () =>
+      [...new Set(base.map((x) => x.transportadora).filter(Boolean))].sort(),
+    [base]
+  );
+
+  const linhas = useMemo(() => {
+    void tick; // o recálculo a cada minuto atualiza a janela de datas
+    let a = viaFiltrarPendentes(base, cfg);
+    if (filtros.filial)
+      a = a.filter((x) => filtros.filial.split(',').includes(String(x.filial)));
+    if (filtros.transp)
+      a = a.filter(
+        (x) => viaNormLista(x.transportadora) === viaNormLista(filtros.transp)
+      );
+    const q = filtros.busca.trim().toLowerCase();
+    if (q)
+      a = a.filter((x) =>
+        `${x.nf} ${x.pedido} ${x.cliente_codigo} ${x.transportadora}`
+          .toLowerCase()
+          .includes(q)
+      );
+
+    if (coluna && valorColuna) {
+      const busca = valorColuna.trim().toLocaleLowerCase('pt-BR');
+      a = a.filter((x) =>
+        String(viaValorCampo(cfg, x, coluna))
+          .toLocaleLowerCase('pt-BR')
+          .includes(busca)
+      );
+    }
+    if (ordem.campo) {
+      a = [...a].sort((x, y) => {
+        const A = viaComparavel(
+          viaValorCampo(cfg, x, ordem.campo),
+          ordem.campo
+        );
+        const B = viaComparavel(
+          viaValorCampo(cfg, y, ordem.campo),
+          ordem.campo
+        );
+        return (A < B ? -1 : A > B ? 1 : 0) * ordem.dir;
+      });
+    }
+    return a;
+  }, [base, cfg, filtros, coluna, valorColuna, ordem, tick]);
+
+  const agora = Date.now();
+  const setF = (campo) => (e) =>
+    setFiltros((cur) => ({ ...cur, [campo]: e.target.value }));
+  const ordenar = (campo) =>
+    setOrdem((o) =>
+      o.campo === campo ? { campo, dir: -o.dir } : { campo, dir: 1 }
+    );
+  const limpar = () => {
+    setColuna('');
+    setValorColuna('');
+    setOrdem({ campo: 'data_saida_entrada', dir: 1 });
+  };
+  const cabecalhos = [
+    ['', ''],
+    ['filial', 'FILIAL'],
+    ['nf', 'NF'],
+    ['pedido', 'PEDIDO'],
+    ['cliente_codigo', 'CLIENTE'],
+    ['transportadora', 'TRANSPORTE'],
+    ['total_unidades', 'QTD.'],
+    ['volume', 'VOLUME'],
+    ['data_saida_entrada', 'DATA FAT.'],
+    ['', 'HORÁRIO AUT.'],
+    ['', 'CORTE'],
+    ['data_limite', 'DATA LIMITE'],
+    ['', 'TEMPO RESTANTE'],
+    ['', 'OBSERVAÇÃO'],
+  ];
+
+  return (
+    <div className="vlg">
+      <style>{CSS_VIA_LEITOR}</style>
+      <div className="vlg-toolbar">
+        <div className="vlg-title">
+          <strong>Via Leitor — Expedição</strong>
+          <span>
+            Somente pendentes com data limite hoje ou anterior · VIEW Supabase ·
+            somente leitura
+            {atualizadoEm ? ` · atualizado ${atualizadoEm}` : ''}
+          </span>
+        </div>
+        <div className="vlg-actions">
+          <label>VISUALIZAR</label>
+          <select value="pendentes" onChange={() => {}}>
+            <option value="pendentes">
+              Pendentes de envio — últimos 10 dias
+            </option>
+          </select>
+          <button
+            type="button"
+            className="vlg-btn"
+            disabled={carregando}
+            onClick={() => (pagina === 0 ? carregar() : setPagina(0))}
+          >
+            ↻ Atualizar
+          </button>
+        </div>
+      </div>
+
+      <div className="vlg-filtros">
+        <div className="vlg-campo vlg-f-filial">
+          <label>FILIAL</label>
+          <select value={filtros.filial} onChange={setF('filial')}>
+            <option value="">Todas</option>
+            <option value="1020">BB Baterias · 1020</option>
+            <option value="0101,0102">Equipatech · 0101/0102</option>
+            <option value="0101">0101</option>
+            <option value="0102">0102</option>
+          </select>
+        </div>
+        <div className="vlg-campo vlg-f-transp">
+          <label>TRANSPORTADORA</label>
+          <select value={filtros.transp} onChange={setF('transp')}>
+            <option value="">Todas</option>
+            {nomesTransp.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="vlg-campo vlg-f-busca">
+          <label>PESQUISAR</label>
+          <input
+            value={filtros.busca}
+            onChange={setF('busca')}
+            placeholder="NF, pedido, cliente ou transportadora"
+          />
+        </div>
+        <div className="vlg-campo vlg-f-col">
+          <label>FILTRAR COLUNA</label>
+          <select value={coluna} onChange={(e) => setColuna(e.target.value)}>
+            <option value="">Selecione...</option>
+            {VIA_COLUNAS_FILTRO.map(([v, t]) => (
+              <option key={v} value={v}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="vlg-campo vlg-f-col">
+          <label>CONTÉM</label>
+          <input
+            value={valorColuna}
+            onChange={(e) => setValorColuna(e.target.value)}
+            placeholder="Digite para filtrar"
+            autoComplete="off"
+          />
+        </div>
+        <button type="button" className="vlg-btn" onClick={limpar}>
+          Limpar
+        </button>
+        <span className="vlg-hint">
+          Clique no cabeçalho para ordenar · padrão: mais antigos primeiro
+        </span>
+        <div className="vlg-total">
+          <span>PENDENTES</span>
+          <strong>{linhas.length}</strong>
+        </div>
+      </div>
+
+      {erro && <div className="vlg-erro">{erro}</div>}
+      {avisoCfg && <div className="vlg-aviso">{avisoCfg}</div>}
+
+      <div className="vlg-grid">
+        {linhas.length === 0 ? (
+          <div className="vlg-vazio">
+            {carregando
+              ? 'Carregando pendentes do Via Leitor...'
+              : 'Nenhum pedido pendente de envio encontrado neste filtro.'}
+          </div>
+        ) : (
+          <table className="vlg-table">
+            <thead>
+              <tr>
+                {cabecalhos.map(([campo, titulo], i) => (
+                  <th
+                    key={`${campo}-${titulo}-${i}`}
+                    className={
+                      campo
+                        ? `vlg-ord${
+                            ordem.campo === campo
+                              ? ordem.dir === 1
+                                ? ' vlg-asc'
+                                : ' vlg-desc'
+                              : ''
+                          }`
+                        : ''
+                    }
+                    onClick={campo ? () => ordenar(campo) : undefined}
+                  >
+                    {titulo}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {linhas.map((x) => {
+                const { obj, dl } = viaDataLimiteLinha(cfg, x);
+                const tempo = viaTempoRestante(
+                  cfg,
+                  { ...obj, data_limite: dl },
+                  agora
+                );
+                const atrasado = String(tempo).toUpperCase() === 'ATRASADO';
+                const o =
+                  obs[`${x.filial}|${x.nf}|${x.pedido || ''}`] ||
+                  obs[`${x.filial}|${x.nf}`] ||
+                  '';
+                return (
+                  <tr key={`${x.filial}|${x.nf}|${x.pedido}`}>
+                    <td className="vlg-st">
+                      <span
+                        className={`vlg-dot ${atrasado ? 'late' : 'ok'}`}
+                        title={atrasado ? 'Fora do prazo' : 'Dentro do prazo'}
+                      />
+                    </td>
+                    <td>{x.filial}</td>
+                    <td className="vlg-mono">{x.nf}</td>
+                    <td className="vlg-mono">{x.pedido}</td>
+                    <td className="vlg-mono">{x.cliente_codigo || '—'}</td>
+                    <td>{x.transportadora || '—'}</td>
+                    <td className="vlg-mono">
+                      {x.total_unidades === null ||
+                      x.total_unidades === undefined
+                        ? '—'
+                        : x.total_unidades}
+                    </td>
+                    <td className="vlg-mono">
+                      {x.volume === null || x.volume === undefined
+                        ? '—'
+                        : x.volume}
+                    </td>
+                    <td>{viaBr(x.data_saida_entrada)}</td>
+                    <td className="vlg-mono">{x.hora_saida || '—'}</td>
+                    <td className="vlg-mono">
+                      {viaCorteTexto(cfg, x.transportadora, x.filial)}
+                    </td>
+                    <td className="vlg-mono">{dl ? viaBr(dl) : '—'}</td>
+                    <td className="vlg-mono">{tempo}</td>
+                    <td className="vlg-obs">
+                      <span title={o}>{o || '—'}</span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+      <div className="vlg-pager">
+        <button
+          type="button"
+          disabled={pagina === 0 || carregando}
+          onClick={() => setPagina((p) => Math.max(0, p - 1))}
+        >
+          ‹ Anterior
+        </button>
+        <span>Página {pagina + 1} · XMLS</span>
+        <button
+          type="button"
+          disabled={!temProxima || carregando}
+          onClick={() => setPagina((p) => p + 1)}
+        >
+          Próxima ›
+        </button>
+      </div>
+      <div className="vlg-legenda">
+        <span>
+          <i className="vlg-dot ok" />
+          Dentro do prazo
+        </span>
+        <span>
+          <i className="vlg-dot late" />
+          Fora do prazo
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
+   CANCELAMENTOS — registro de NFs a cancelar (banco no Supabase)
+   Leitura: view v_cancelamentos_painel · Gravação: funções cancelamento_* (bloco 12 do SQL)
+   NF com status "Cancelado" some do Via Leitor e vira "Cancelado" nas Postagens (blocos 13 e 14).
+   ================================================================ */
+const CANC_FILIAIS = ['0101', '0102', '0104', '0105', '1020', '1030', '1040'];
+const CANC_MOTIVOS = [
+  'Bloqueado na UF',
+  'Cancelado no ML',
+  'ICMS',
+  'Desistência',
+  'Produto com Defeito',
+  'Endereço Insuficiente',
+  'Pedido Duplicado',
+  'Cancelado no Magalu',
+  'CST',
+  'Alterar o Transporte',
+  'Erro de Cadastro',
+  'Extravio',
+  'Erro no CEP',
+  'Teste',
+  'Faturar com outro serial',
+  'Outro',
+];
+const CANC_ST_CNT = 'Aguardando CNT';
+// Filiais com processo de CNT antes do cancelamento: o status CNT é marcado por quem vai cancelar (botão "CNT")
+const CANC_FILIAIS_CNT = ['0104', '0105', '1030', '1040'];
+const CANC_ST_AG = 'Aguardando Cancelamento';
+const CANC_ST_BFT = 'Aguardando Pagto BFT';
+const CANC_ST_OK = 'Cancelado';
+
+const CancIco = ({ d }) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    {d.map((x) => (
+      <path key={x} d={x} />
+    ))}
+  </svg>
+);
+const CANC_ICO_CHECK = ['M20 6 9 17l-5-5'];
+const CANC_ICO_EDIT = [
+  'M12 20h9',
+  'M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z',
+];
+const CANC_ICO_TRASH = [
+  'M3 6h18',
+  'M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6',
+  'M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2',
+];
+
+const CSS_CANCELAMENTOS = `
+.cnl{font-family:Inter,'Nunito',Arial,sans-serif;color:var(--txt)}
+.cnl *{box-sizing:border-box}
+.cnl-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.cnl-head h2{margin:0;font-size:22px;font-weight:800;letter-spacing:-.01em;color:var(--txt)}.cnl-head p{margin:3px 0 0;font-size:11px;color:var(--txt-muted)}
+.cnl-head h2{margin:0;font-size:20px;color:var(--txt)}.cnl-head p{margin:3px 0 0;font-size:11px;color:var(--txt-muted)}
+.cnl-tabs{display:flex;gap:4px;border-bottom:1px solid var(--bd);margin-bottom:16px;flex-wrap:wrap}
+.cnl-tab{display:inline-flex;align-items:center;gap:8px;border:0;background:none;padding:11px 16px;font-size:13px;font-weight:700;color:var(--txt-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
+.cnl-tab:hover{color:var(--txt)}
+.cnl-tab.on{color:var(--accent-tx);border-bottom-color:var(--accent)}
+.cnl-badge{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 7px;margin:0;border-radius:999px;background:var(--amber-bg);color:var(--amber-tx);border:1px solid var(--amber-bd);font-size:11px;font-weight:800;line-height:1}
+.cnl-badge.ok{background:var(--green-bg);color:var(--green-tx);border-color:var(--green-bd)}
+.cnl-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
+.cnl-stat{--k:var(--accent);position:relative;display:flex;flex-direction:column-reverse;gap:4px;background:var(--surf);border:1px solid var(--bd);border-radius:12px;padding:14px 16px 14px 20px;text-align:left;box-shadow:0 1px 2px rgba(15,23,42,.04);overflow:hidden}
+.cnl-stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--k)}
+.cnl-stat b{display:block;font-size:28px;line-height:1.1;font-weight:800;color:var(--k);font-variant-numeric:tabular-nums}.cnl-stat span{font-size:11px;font-weight:600;color:var(--txt-muted)}
+.cnl-card{background:var(--surf);border:1px solid var(--bd);border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+.cnl-card h3{margin:0 0 14px;font-size:15px;font-weight:800;color:var(--txt);display:flex;align-items:center;gap:8px}
+.cnl-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.cnl-campo label{display:block;font-size:10px;font-weight:700;letter-spacing:.04em;color:var(--txt-2);margin-bottom:5px;text-transform:uppercase}
+.cnl-campo input,.cnl-campo select{width:100%;height:36px;border:1px solid var(--bd-strong);border-radius:8px;padding:0 10px;font-size:13px;background:var(--surf);color:var(--txt);transition:border-color .15s,box-shadow .15s}
+.cnl-campo input:focus,.cnl-campo select:focus,.cnl-sel:focus,.cnl-busca:focus{outline:0;border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.15)}
+.cnl-acoes{grid-column:1/-1;display:flex;gap:8px}
+.cnl-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 16px;border:1px solid var(--bd-strong);background:var(--surf);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;color:var(--txt);transition:background .15s,border-color .15s,filter .15s}
+.cnl-btn:hover:not(:disabled){filter:brightness(.96);border-color:var(--txt-muted)}
+.cnl-btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;flex:1}
+.cnl-btn.pri:hover:not(:disabled){filter:brightness(1.08);border-color:var(--accent)}
+.cnl-btn.ok{background:var(--green-bg);border-color:var(--green-bd);color:var(--green-tx)}.cnl-btn.amb{background:var(--amber-bg);border-color:var(--amber-bd);color:var(--amber-tx)}
+.cnl-btn.red{background:var(--red-bg);border-color:var(--red-bd);color:var(--red-tx)}.cnl-btn.sm{height:28px;padding:0 11px;font-size:11px;border-radius:7px}
+.cnl-btn.go{background:#198754;border-color:#198754;color:#fff}.cnl-btn.go:hover:not(:disabled){filter:brightness(1.1);border-color:#198754}
+.cnl-btn.ico{width:28px;padding:0;background:transparent;border-color:transparent;color:var(--txt-muted)}
+.cnl-btn.ico:hover:not(:disabled){background:var(--surf-alt);border-color:var(--bd);color:var(--txt);filter:none}
+.cnl-btn.ico.red{background:transparent;border-color:transparent;color:var(--txt-muted)}.cnl-btn.ico.red:hover:not(:disabled){background:var(--red-bg);border-color:var(--red-bd);color:var(--red-tx)}
+.cnl-btn svg{width:14px;height:14px;flex:none}
+.cnl-sep{width:1px;height:18px;background:var(--bd);margin:0 4px}
+.cnl-acao{display:inline-flex;align-items:center;gap:6px;justify-content:flex-end}
+.cnl-btn:disabled{opacity:.5;cursor:default}
+.cnl-filtros{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.cnl-filtros small{font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--txt-muted);text-transform:uppercase;margin-right:2px}
+.cnl-grp{display:inline-flex;align-items:center;gap:6px}.cnl-grp{margin-left:6px}
+.cnl-sel{border:1px solid var(--bd-strong);background:var(--surf);color:var(--txt);border-radius:8px;padding:7px 10px;font-size:12px;font-weight:600;height:34px}
+.cnl-chip{border:1px solid var(--bd-strong);background:var(--surf);border-radius:999px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;color:var(--txt-2);transition:background .15s,border-color .15s}
+.cnl-chip:hover{border-color:var(--txt-muted)}
+.cnl-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.cnl-busca{width:100%;height:36px;border:1px solid var(--bd-strong);border-radius:8px;padding:0 12px;font-size:13px;margin-bottom:12px;background:var(--surf);color:var(--txt)}
+.cnl-box{overflow:auto;max-height:calc(100vh - 380px);min-height:80px;border:1px solid var(--bd);border-radius:10px}
+.cnl-table{width:100%;border-collapse:separate;border-spacing:0;font-size:12px;white-space:nowrap}
+.cnl-table th{position:sticky;top:0;z-index:1;background:var(--surf-head);text-align:left;padding:10px 14px;font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--txt-muted);text-transform:uppercase;border-bottom:1px solid var(--bd)}
+.cnl-table td{padding:12px 14px;border-bottom:1px solid var(--bd);vertical-align:middle;color:var(--txt)}
+.cnl-table tbody tr{transition:background .12s}.cnl-table tbody tr:hover{background:var(--surf-alt)}.cnl-table tbody tr:last-child td{border-bottom:0}
+.cnl-fil{display:inline-block;padding:2px 8px;border-radius:6px;background:var(--surf-alt);border:1px solid var(--bd);font-size:11px;font-weight:700;font-family:'JetBrains Mono',Consolas,monospace}
+.cnl-mono{font-family:'JetBrains Mono',Consolas,monospace}
+.cnl-st,.cnl-prazo{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
+.cnl-st::before,.cnl-prazo::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.cnl-st.ok{background:var(--red-bg);color:var(--red-tx)}.cnl-st.cnt{background:var(--blue-bg);color:var(--blue-tx)}.cnl-st.bft{background:var(--purple-bg);color:var(--purple-tx)}.cnl-st.ag{background:var(--orange-bg);color:var(--orange-tx)}.cnl-dica{grid-column:1/-1;font-size:11px;color:var(--txt-muted);margin-top:-2px}
+.cnl-aviso{grid-column:1/-1;background:var(--amber-bg);border:1px solid var(--amber-bd);color:var(--amber-tx);border-radius:6px;padding:7px 10px;font-size:11px;font-weight:700}
+.cnl-okbox{grid-column:1/-1;background:var(--green-bg);border:1px solid var(--green-bd);color:var(--green-tx);border-radius:6px;padding:7px 10px;font-size:11px;font-weight:700}
+.cnl-info{grid-column:1/-1;font-size:11px;color:var(--txt-muted)}
+.cnl-atencao{color:var(--amber-tx);font-weight:900;font-size:15px;line-height:1;margin-left:6px;cursor:help}
+.cnl-atmot{font-size:10px;color:var(--amber-tx);white-space:normal;max-width:340px;margin-top:2px;font-family:Inter,Arial,sans-serif}
+.cnl-link{background:none;border:0;color:var(--accent-tx);font-size:10px;font-weight:800;cursor:pointer;padding:0;margin-top:3px}
+.cnl-lista{max-height:320px;overflow:auto;border:1px solid var(--bd);border-radius:6px;margin-bottom:10px}
+.cnl-lista label{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--bd);font-size:12px;cursor:pointer}
+.cnl-lista label small{color:var(--txt-muted);font-size:10px;margin-left:auto}
+.cnl-prazo.ok{background:var(--green-bg);color:var(--green-tx)}.cnl-prazo.aviso{background:var(--amber-bg);color:var(--amber-tx)}.cnl-prazo.atraso{background:var(--red-bg);color:var(--red-tx)}
+.cnl-vazio{padding:30px;text-align:center;color:var(--txt-muted);font-size:12px}
+.cnl-erro{background:var(--red-bg);color:var(--red-tx);border:1px solid var(--red-bd);border-radius:6px;padding:10px 12px;font-size:12px;font-weight:700;margin-bottom:9px}
+.cnl-toast{position:fixed;bottom:22px;right:22px;z-index:9999;padding:11px 18px;border-radius:8px;color:#fff;font-size:12px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.cnl-toast.ok{background:#198754}.cnl-toast.err{background:#d92d20}
+.cnl-modal{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px}
+.cnl-modal>div{background:var(--surf);border-radius:10px;padding:20px;width:100%;max-width:520px}
+.cnl-modal h4{margin:0 0 8px;font-size:15px}.cnl-modal p{margin:0 0 14px;font-size:12px;color:var(--txt-2)}
+.cnl-modal textarea{width:100%;height:150px;border:1px solid var(--bd-strong);border-radius:6px;padding:8px;font:11px 'JetBrains Mono',Consolas,monospace;margin-bottom:12px}
+.cnl-modal .cnl-linha{display:flex;gap:8px;justify-content:flex-end}
+.cnl-modal textarea{background:var(--surf);color:var(--txt)}
+.cnl-modal .cnl-bftarea{height:110px;font:600 13px Inter,Arial,sans-serif}
+.cnl-bftcfg{border-top:1px solid var(--bd);padding-top:10px}
+.cnl-bftcfg label{display:block;font-size:10px;font-weight:800;color:var(--txt-2);margin:0 0 4px}
+.cnl-bftcfg small{display:block;font-size:10px;color:var(--txt-muted);line-height:1.4}
+.cnl-btn.cntb{background:var(--blue-bg);color:var(--blue-tx);border-color:transparent}
+.cnl-btn.bftmsg{background:var(--purple-bg,#ede9fe);color:var(--purple-tx,#6d28d9);border-color:transparent}
+@media(max-width:900px){.cnl-form{grid-template-columns:1fr 1fr}.cnl-stats{grid-template-columns:1fr 1fr}}
+`;
+
+function cancHojeBr() {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date());
+}
+
+function cancIsoParaBr(iso) {
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '—';
+}
+
+function cancBrParaIso(br) {
+  const m = String(br || '')
+    .trim()
+    .match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
+}
+
+// Prazo para cancelar: 1 hora a partir da solicitação (a hora vem gravada do banco)
+const CANC_PRAZO_MS = 60 * 60 * 1000;
+
+function cancTs(v) {
+  if (!v) return null;
+  const t = String(v)
+    .trim()
+    .replace(' ', 'T')
+    .replace(/(\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)([+-]\d{2})$/, '$1$2:00');
+  const d = new Date(t);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function cancDataHora(v) {
+  const d = cancTs(v);
+  if (!d) return '—';
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+    .format(d)
+    .replace(',', '');
+}
+
+function cancDuracao(ms) {
+  const m = Math.max(0, Math.round(ms / 60000));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return m % 60 ? `${h}h ${m % 60}min` : `${h}h`;
+  return `${Math.floor(h / 24)}d ${h % 24}h`;
+}
+
+function cancPrazoFim(c) {
+  const sol = cancTs(c.solicitado_em);
+  if (!sol) return null;
+  return cancTs(c.prazo_em) || new Date(sol.getTime() + CANC_PRAZO_MS);
+}
+
+function cancAtrasado(c, agora) {
+  const fim = cancPrazoFim(c);
+  return !!fim && c.status !== CANC_ST_OK && agora > fim.getTime();
+}
+
+function CancPrazo({ c, agora }) {
+  const sol = cancTs(c.solicitado_em);
+  const fim = cancPrazoFim(c);
+  if (!sol || !fim) return <span style={{ color: '#8a97a0' }}>—</span>;
+  if (c.status === CANC_ST_OK) {
+    const feito = cancTs(c.cancelado_em);
+    if (!feito) return <span style={{ color: '#8a97a0' }}>—</span>;
+    const ok = feito.getTime() <= fim.getTime();
+    return (
+      <span className={`cnl-prazo ${ok ? 'ok' : 'atraso'}`}>
+        {ok ? '✔' : '⏰'} {cancDuracao(feito - sol)}{' '}
+        {ok ? '(no prazo)' : '(fora do prazo)'}
+      </span>
+    );
+  }
+  const resta = fim.getTime() - agora;
+  if (resta >= 0)
+    return (
+      <span className={`cnl-prazo ${resta < 15 * 60000 ? 'aviso' : 'ok'}`}>
+        faltam {cancDuracao(resta)}
+      </span>
+    );
+  return (
+    <span className="cnl-prazo atraso">⏰ atrasado {cancDuracao(-resta)}</span>
+  );
+}
+
+/* ---- Texto pronto para cancelamentos BFT (copiar e colar no grupo) ---- */
+const CANC_BFT_CHAVE = 'bbdi_canc_bft_v1';
+const CANC_BFT_PADRAO = {
+  financeiro: 'Jessica Kerber - Grupo BBDI',
+  modelo:
+    'Excluir NF: {nf} Pedido: {pedido} - {motivo}\nesse é BFT {financeiro}',
+};
+
+function cancBftLer() {
+  try {
+    const j = JSON.parse(localStorage.getItem(CANC_BFT_CHAVE) || 'null');
+    if (j && typeof j === 'object') {
+      return {
+        financeiro:
+          typeof j.financeiro === 'string'
+            ? j.financeiro
+            : CANC_BFT_PADRAO.financeiro,
+        modelo:
+          typeof j.modelo === 'string' && j.modelo.trim()
+            ? j.modelo
+            : CANC_BFT_PADRAO.modelo,
+      };
+    }
+  } catch (e) {
+    // sem armazenamento: usa o padrão
+  }
+  return { ...CANC_BFT_PADRAO };
+}
+
+function cancBftGravar(cfg) {
+  try {
+    localStorage.setItem(CANC_BFT_CHAVE, JSON.stringify(cfg));
+  } catch (e) {
+    // sem armazenamento: vale só nesta sessão
+  }
+}
+
+function cancBftMontar(c, cfg) {
+  const nf = String(c.nf || '').trim();
+  const nfFmt = /^\d+$/.test(nf) ? nf.padStart(9, '0') : nf;
+  const fin = String(cfg.financeiro || '')
+    .split(/[\n,;]+/)
+    .map((n) => n.trim())
+    .filter(Boolean)
+    .join(' ');
+  return String(cfg.modelo || CANC_BFT_PADRAO.modelo)
+    .split('{nf}')
+    .join(nfFmt)
+    .split('{pedido}')
+    .join(String(c.pedido || '').trim())
+    .split('{motivo}')
+    .join(String(c.motivo || '').trim())
+    .split('{filial}')
+    .join(String(c.filial || '').trim())
+    .split('{solicitante}')
+    .join(String(c.solicitante || '').trim())
+    .split('{financeiro}')
+    .join(fin);
+}
+
+async function cancCopiar(texto) {
+  try {
+    await navigator.clipboard.writeText(texto);
+    return true;
+  } catch (e) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = texto;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e2) {
+      return false;
+    }
+  }
+}
+
+async function cancResumoDashboard() {
+  const linhas = await viaLerLote(
+    'v_cancelamentos_painel?select=id,status,solicitado_em,prazo_em&status=neq.Cancelado&order=id.desc',
+    20000,
+    0
+  );
+  const agora = Date.now();
+  const r = {
+    total: 0,
+    atrasados: 0,
+    cnt: 0,
+    cntAtr: 0,
+    ag: 0,
+    agAtr: 0,
+    bft: 0,
+  };
+  linhas.forEach((c) => {
+    const atr = cancAtrasado(c, agora);
+    r.total += 1;
+    if (atr) r.atrasados += 1;
+    if (c.status === CANC_ST_CNT) {
+      r.cnt += 1;
+      if (atr) r.cntAtr += 1;
+    } else if (c.status === CANC_ST_BFT) {
+      r.bft += 1;
+    } else {
+      r.ag += 1;
+      if (atr) r.agAtr += 1;
+    }
+  });
+  return r;
+}
+
+async function cancRpc(nome, corpo) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${nome}`, {
+    method: 'POST',
+    headers: {
+      ...headersSupabasePostagem(),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(corpo),
+  });
+  if (!r.ok) {
+    let msg = `HTTP ${r.status}`;
+    try {
+      const j = await r.json();
+      msg = j.message || msg;
+      if (r.status === 404)
+        msg += ' — rode os blocos 12 a 16 do SQL no Supabase.';
+    } catch (e) {
+      // sem detalhe
+    }
+    throw new Error(msg);
+  }
+  const txt = await r.text();
+  return txt ? JSON.parse(txt) : null;
+}
+
+function CancStatus({ status }) {
+  const cls =
+    status === CANC_ST_OK
+      ? 'ok'
+      : status === CANC_ST_BFT
+      ? 'bft'
+      : status === CANC_ST_AG
+      ? 'ag'
+      : 'cnt';
+  return <span className={`cnl-st ${cls}`}>{status || '—'}</span>;
+}
+
+const CANC_FORM_VAZIO = {
+  data: '',
+  filial: '',
+  pedido: '',
+  nf: '',
+  solicitante: '',
+  motivo: '',
+};
+
+function TelaCancelamentos({ ativo }) {
+  const [itens, setItens] = useState([]);
+  const [aba, setAba] = useState('lancar');
+  const [form, setForm] = useState({ ...CANC_FORM_VAZIO, data: cancHojeBr() });
+  const [editId, setEditId] = useState(null);
+  const [fStatus, setFStatus] = useState('todos');
+  const [fFilial, setFFilial] = useState('');
+  const [ordNf, setOrdNf] = useState('');
+  const [carregando, setCarregando] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState('');
+  const [toast, setToast] = useState(null);
+  const [confirmar, setConfirmar] = useState(null);
+  const [analise, setAnalise] = useState(null);
+  const [buscandoNf, setBuscandoNf] = useState(false);
+  const [fixos, setFixos] = useState([]);
+  const [outroSol, setOutroSol] = useState(false);
+  const [gerSol, setGerSol] = useState(null);
+  const [bft, setBft] = useState(null);
+  const filialManual = useRef(false);
+  const seqAnalise = useRef(0);
+  const [agora, setAgora] = useState(() => Date.now());
+  const ultimaCarga = useRef(0);
+
+  const avisar = useCallback((texto, tipo) => {
+    setToast({ texto, tipo: tipo || 'ok' });
+    setTimeout(() => setToast(null), 3200);
+  }, []);
+
+  const carregar = useCallback(async () => {
+    setCarregando(true);
+    setErro('');
+    try {
+      const lista = await viaLerLote(
+        'v_cancelamentos_painel?select=*&order=id.desc',
+        20000,
+        0
+      );
+      setItens(lista);
+      ultimaCarga.current = Date.now();
+    } catch (e) {
+      setErro(
+        `Não foi possível carregar os cancelamentos. ${
+          e.message || ''
+        } (rode o bloco 12 do SQL no Supabase)`
+      );
+    } finally {
+      setCarregando(false);
+    }
+    try {
+      const f = await lerSupabasePostagem(
+        'v_cancelamento_solicitantes_fixos?select=nome&order=nome'
+      );
+      setFixos(Array.isArray(f) ? f.map((x) => x.nome) : []);
+    } catch (e) {
+      setFixos([]); // sem o bloco 16 do SQL o campo continua livre para digitar
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!ativo) return undefined;
+    if (Date.now() - ultimaCarga.current >= 30000) carregar();
+    const t = setInterval(carregar, 60000);
+    return () => clearInterval(t);
+  }, [ativo, carregar]);
+
+  // Ao digitar NF e/ou Pedido: busca na expedição (tabela xmls), preenche a filial e avisa quando NF e Pedido não batem
+  useEffect(() => {
+    const nf = form.nf.trim();
+    const ped = form.pedido.trim();
+    if (!ativo || (!nf && !ped)) {
+      setAnalise(null);
+      return undefined;
+    }
+    const seq = ++seqAnalise.current;
+    const t = setTimeout(async () => {
+      setBuscandoNf(true);
+      try {
+        const r = await cancRpc('cancelamento_analisar', {
+          p_nf: nf,
+          p_pedido: ped,
+        });
+        if (seq !== seqAnalise.current) return;
+        setAnalise(r);
+        setForm((cur) => {
+          const novo = { ...cur };
+          if (r.filial && !filialManual.current) novo.filial = r.filial;
+          if (!cur.pedido.trim() && r.pedido) novo.pedido = r.pedido;
+          if (!cur.nf.trim() && r.nf)
+            novo.nf = String(r.nf).replace(/^0+(?=\d)/, '');
+          return novo;
+        });
+      } catch (e) {
+        if (seq === seqAnalise.current)
+          setAnalise({ erro: e.message || 'Erro' });
+      } finally {
+        if (seq === seqAnalise.current) setBuscandoNf(false);
+      }
+    }, 450);
+    return () => clearTimeout(t);
+  }, [ativo, form.nf, form.pedido]);
+
+  useEffect(() => {
+    if (!ativo) return undefined;
+    setAgora(Date.now());
+    const t = setInterval(() => setAgora(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, [ativo]);
+
+  const pendentes = useMemo(
+    () => itens.filter((c) => c.status !== CANC_ST_OK),
+    [itens]
+  );
+  const cancelados = useMemo(
+    () => itens.filter((c) => c.status === CANC_ST_OK),
+    [itens]
+  );
+  const qtd = (st) => itens.filter((c) => c.status === st).length;
+  const qtdAtencao = pendentes.filter((c) => c.atencao).length;
+  const qtdAtrasados = pendentes.filter((c) => cancAtrasado(c, agora)).length;
+  const hoje = cancHojeBr();
+  const paraHoje = pendentes.filter(
+    (c) => cancIsoParaBr(c.data_cancelamento) === hoje
+  ).length;
+
+  const setCampo = (campo) => (e) => {
+    const valor = e.target.value;
+    setForm((cur) => {
+      return { ...cur, [campo]: valor };
+    });
+  };
+
+  function editar(c) {
+    if (c.status === CANC_ST_OK) {
+      avisar('Cancelamento já concluído — não pode mais ser editado.', 'err');
+      return;
+    }
+    filialManual.current = true;
+    setOutroSol(false);
+    setEditId(c.id);
+    setForm({
+      data: cancIsoParaBr(c.data_cancelamento),
+      filial: c.filial || '',
+      pedido: c.pedido || '',
+      nf: c.nf || '',
+      solicitante: c.solicitante || '',
+      motivo: c.motivo || '',
+    });
+    setAba('lancar');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function limparForm() {
+    filialManual.current = false;
+    setOutroSol(false);
+    setAnalise(null);
+    setEditId(null);
+    setForm({ ...CANC_FORM_VAZIO, data: cancHojeBr() });
+  }
+
+  async function salvar(e) {
+    e.preventDefault();
+    if (salvando) return;
+    const iso = cancBrParaIso(form.data);
+    if (!iso || !form.filial || !form.pedido.trim() || !form.nf.trim()) {
+      avisar('Preencha Data (dd/mm/aaaa), Filial, Pedido e NF.', 'err');
+      return;
+    }
+    if (!form.solicitante.trim() || form.solicitante === '__outro') {
+      avisar('Preencha o Solicitante.', 'err');
+      return;
+    }
+    if (!form.motivo) {
+      avisar('Preencha o Motivo.', 'err');
+      return;
+    }
+    setSalvando(true);
+    try {
+      await cancRpc('cancelamento_salvar', {
+        p_id: editId,
+        p_data: iso,
+        p_filial: form.filial,
+        p_pedido: form.pedido,
+        p_nf: form.nf,
+        p_solicitante: form.solicitante,
+        p_responsavel: '',
+        p_motivo: form.motivo,
+      });
+      avisar(editId ? 'Registro atualizado!' : 'Cancelamento salvo!');
+      limparForm();
+      await carregar();
+    } catch (err) {
+      avisar(err.message || 'Erro ao salvar.', 'err');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function abrirGerSol() {
+    setGerSol({ lista: [], busca: '', novo: '', carregando: true });
+    try {
+      const l = await lerSupabasePostagem(
+        'v_cancelamento_solicitantes_sugestao?select=nome,qtd,fixo&order=fixo.desc,qtd.desc'
+      );
+      setGerSol(
+        (g) =>
+          g && { ...g, lista: Array.isArray(l) ? l : [], carregando: false }
+      );
+    } catch (e) {
+      setGerSol(null);
+      avisar(
+        `Não foi possível carregar os nomes: ${
+          e.message || ''
+        } (confira se o bloco 16 do SQL foi rodado no Supabase)`,
+        'err'
+      );
+    }
+  }
+
+  async function alternarFixo(nome, fixo) {
+    setGerSol(
+      (g) =>
+        g && {
+          ...g,
+          lista: g.lista.map((i) => (i.nome === nome ? { ...i, fixo } : i)),
+        }
+    );
+    try {
+      await cancRpc('cancelamento_solicitante_fixar', {
+        p_nome: nome,
+        p_fixo: fixo,
+      });
+      setFixos((cur) =>
+        fixo
+          ? cur.includes(nome)
+            ? cur
+            : [...cur, nome].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+          : cur.filter((n) => n !== nome)
+      );
+    } catch (err) {
+      setGerSol(
+        (g) =>
+          g && {
+            ...g,
+            lista: g.lista.map((i) =>
+              i.nome === nome ? { ...i, fixo: !fixo } : i
+            ),
+          }
+      );
+      avisar(err.message || 'Erro ao salvar o nome.', 'err');
+    }
+  }
+
+  async function adicionarNomeFixo() {
+    const nome = (gerSol.novo || '').trim().replace(/\s+/g, ' ');
+    if (!nome) return;
+    try {
+      await cancRpc('cancelamento_solicitante_fixar', {
+        p_nome: nome,
+        p_fixo: true,
+      });
+      setGerSol(
+        (g) =>
+          g && {
+            ...g,
+            novo: '',
+            lista: [
+              { nome, qtd: 0, fixo: true },
+              ...g.lista.filter(
+                (i) => i.nome.toLowerCase() !== nome.toLowerCase()
+              ),
+            ],
+          }
+      );
+      setFixos((cur) =>
+        cur.some((n) => n.toLowerCase() === nome.toLowerCase())
+          ? cur
+          : [...cur, nome].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+      );
+    } catch (err) {
+      avisar(err.message || 'Erro ao salvar o nome.', 'err');
+    }
+  }
+
+  function abrirBft(c) {
+    const cfg = cancBftLer();
+    setBft({ c, cfg, texto: cancBftMontar(c, cfg), config: false });
+  }
+
+  async function copiarBft() {
+    const ok = await cancCopiar(bft.texto);
+    avisar(
+      ok
+        ? 'Mensagem copiada! Cole no grupo.'
+        : 'Não consegui copiar — selecione o texto e use Ctrl+C.',
+      ok ? 'ok' : 'err'
+    );
+  }
+
+  function mudarStatus(c, status, texto) {
+    setConfirmar({
+      titulo: 'Confirmar',
+      texto: `${texto} — Pedido ${c.pedido} · NF ${c.nf}?`,
+      botao: 'Confirmar',
+      acao: async () => {
+        await cancRpc('cancelamento_status', { p_id: c.id, p_status: status });
+        avisar(
+          status === CANC_ST_OK
+            ? 'Cancelado! A NF sai do Via Leitor.'
+            : `${status}!`
+        );
+        await carregar();
+        if (status === CANC_ST_BFT) abrirBft(c);
+      },
+    });
+  }
+
+  function excluir(c) {
+    setConfirmar({
+      titulo: 'Confirmar exclusão',
+      texto: `Tem certeza que deseja excluir o registro do pedido ${c.pedido}? Se estava Cancelado, a NF volta ao Via Leitor.`,
+      botao: 'Excluir',
+      perigo: true,
+      acao: async () => {
+        await cancRpc('cancelamento_excluir', { p_id: c.id });
+        avisar('Excluído!');
+        await carregar();
+      },
+    });
+  }
+
+  async function executarConfirmacao() {
+    const c = confirmar;
+    setConfirmar(null);
+    try {
+      await c.acao();
+    } catch (err) {
+      avisar(err.message || 'Erro.', 'err');
+    }
+  }
+
+  const tabela = (lista, tipo) => {
+    if (!lista.length) {
+      return (
+        <div className="cnl-vazio">
+          {carregando
+            ? 'Carregando…'
+            : tipo === 'pend'
+            ? 'Nenhum cancelamento pendente neste filtro.'
+            : 'Nenhum registro.'}
+        </div>
+      );
+    }
+    return (
+      <div className="cnl-box">
+        <table className="cnl-table">
+          <thead>
+            <tr>
+              <th>Solicitado em</th>
+              <th>Filial</th>
+              <th>Pedido</th>
+              <th>NF</th>
+              <th>Solicitante</th>
+              <th>Motivo</th>
+              <th>{tipo === 'canc' ? 'Cancelado em' : 'Status'}</th>
+              <th>{tipo === 'canc' ? 'Tempo' : 'Prazo (1h)'}</th>
+              <th style={{ textAlign: 'right' }}>Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lista.map((c) => (
+              <tr
+                key={c.id}
+                style={tipo === 'canc' ? { opacity: 0.75 } : undefined}
+              >
+                <td>
+                  {c.solicitado_em
+                    ? cancDataHora(c.solicitado_em)
+                    : cancIsoParaBr(c.data_cancelamento)}
+                </td>
+                <td>
+                  <span className="cnl-fil">{c.filial}</span>
+                </td>
+                <td className="cnl-mono">
+                  {c.pedido}
+                  {c.atencao && tipo !== 'canc' && (
+                    <span
+                      className="cnl-atencao"
+                      title={c.atencao_motivo || 'NF e pedido não batem'}
+                    >
+                      ⚠
+                    </span>
+                  )}
+                  {c.atencao && tipo === 'pend' && c.atencao_motivo && (
+                    <div className="cnl-atmot">{c.atencao_motivo}</div>
+                  )}
+                </td>
+                <td className="cnl-mono">{c.nf}</td>
+                <td>{c.solicitante || '—'}</td>
+                <td>{c.motivo || '—'}</td>
+                <td>
+                  {tipo === 'canc' ? (
+                    cancDataHora(c.cancelado_em)
+                  ) : (
+                    <CancStatus status={c.status} />
+                  )}
+                </td>
+                <td>
+                  <CancPrazo c={c} agora={agora} />
+                </td>
+                <td style={{ textAlign: 'right' }}>
+                  <span className="cnl-acao">
+                    {tipo === 'pend' && (
+                      <>
+                        <button
+                          type="button"
+                          className="cnl-btn sm go"
+                          onClick={() =>
+                            mudarStatus(c, CANC_ST_OK, 'Marcar como Cancelado')
+                          }
+                        >
+                          <CancIco d={CANC_ICO_CHECK} />
+                          Cancelar
+                        </button>
+                        {c.status === CANC_ST_AG &&
+                          CANC_FILIAIS_CNT.includes(String(c.filial)) && (
+                            <button
+                              type="button"
+                              className="cnl-btn sm cntb"
+                              onClick={() =>
+                                mudarStatus(
+                                  c,
+                                  CANC_ST_CNT,
+                                  'Marcar como Aguardando CNT'
+                                )
+                              }
+                              title="A NF entrou no processo do CNT"
+                            >
+                              CNT
+                            </button>
+                          )}
+                        <button
+                          type="button"
+                          className="cnl-btn sm amb"
+                          onClick={() =>
+                            mudarStatus(
+                              c,
+                              CANC_ST_BFT,
+                              'Marcar como Aguardando Pagto BFT'
+                            )
+                          }
+                          title="Aguardando pagamento BFT"
+                        >
+                          BFT
+                        </button>
+                      </>
+                    )}
+                    {tipo === 'pend' && c.status === CANC_ST_BFT && (
+                      <button
+                        type="button"
+                        className="cnl-btn sm bftmsg"
+                        onClick={() => abrirBft(c)}
+                        title="Texto pronto para avisar o financeiro no grupo"
+                      >
+                        💬 Msg BFT
+                      </button>
+                    )}
+                    <span className="cnl-sep" />
+                    {tipo !== 'canc' && (
+                      <button
+                        type="button"
+                        className="cnl-btn sm ico"
+                        onClick={() => editar(c)}
+                        title="Editar"
+                        aria-label="Editar"
+                      >
+                        <CancIco d={CANC_ICO_EDIT} />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="cnl-btn sm ico red"
+                      onClick={() => excluir(c)}
+                      title="Excluir"
+                      aria-label="Excluir"
+                    >
+                      <CancIco d={CANC_ICO_TRASH} />
+                    </button>
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  let pendFiltrados = pendentes;
+  if (fStatus === 'atencao')
+    pendFiltrados = pendFiltrados.filter((c) => c.atencao);
+  else if (fStatus === 'atrasados')
+    pendFiltrados = pendFiltrados.filter((c) => cancAtrasado(c, agora));
+  else if (fStatus !== 'todos')
+    pendFiltrados = pendFiltrados.filter((c) => c.status === fStatus);
+  const cancOrdem = (c) => {
+    const d = cancTs(c.solicitado_em);
+    return d ? d.getTime() : Infinity;
+  };
+  if (fFilial)
+    pendFiltrados = pendFiltrados.filter((c) => String(c.filial) === fFilial);
+  const cancNfNum = (c) =>
+    Number(String(c.nf_norm || c.nf || '').replace(/\D/g, '')) || 0;
+  pendFiltrados = [...pendFiltrados].sort((x, y) => {
+    if (ordNf)
+      return ordNf === 'desc'
+        ? cancNfNum(y) - cancNfNum(x)
+        : cancNfNum(x) - cancNfNum(y);
+    return cancOrdem(x) === cancOrdem(y)
+      ? 0
+      : cancOrdem(x) < cancOrdem(y)
+      ? -1
+      : 1;
+  });
+
+  return (
+    <div className="cnl">
+      <style>{CSS_CANCELAMENTOS}</style>
+      <div className="cnl-head">
+        <h2>Cancelamentos</h2>
+      </div>
+
+      {erro && <div className="cnl-erro">{erro}</div>}
+
+      <div className="cnl-tabs">
+        <button
+          type="button"
+          className={`cnl-tab${aba === 'lancar' ? ' on' : ''}`}
+          onClick={() => setAba('lancar')}
+        >
+          Lançar Cancelamento
+        </button>
+        <button
+          type="button"
+          className={`cnl-tab${aba === 'pendentes' ? ' on' : ''}`}
+          onClick={() => setAba('pendentes')}
+        >
+          Cancelamentos Pendentes
+          {pendentes.length > 0 && (
+            <span className="cnl-badge">{pendentes.length}</span>
+          )}
+        </button>
+        <button
+          type="button"
+          className={`cnl-tab${aba === 'cancelados' ? ' on' : ''}`}
+          onClick={() => setAba('cancelados')}
+        >
+          Já Cancelados
+          {cancelados.length > 0 && (
+            <span className="cnl-badge ok">{cancelados.length}</span>
+          )}
+        </button>
+      </div>
+
+      {aba === 'lancar' && (
+        <>
+          <div className="cnl-stats">
+            <div className="cnl-stat">
+              <b>{itens.length}</b>
+              <span>Total</span>
+            </div>
+            <div className="cnl-stat" style={{ '--k': 'var(--red)' }}>
+              <b>{qtd(CANC_ST_OK)}</b>
+              <span>Cancelados</span>
+            </div>
+            <div className="cnl-stat" style={{ '--k': 'var(--blue-tx)' }}>
+              <b>{qtd(CANC_ST_CNT)}</b>
+              <span>Aguardando CNT</span>
+            </div>
+            <div className="cnl-stat" style={{ '--k': 'var(--orange-tx)' }}>
+              <b>{qtd(CANC_ST_AG)}</b>
+              <span>Aguardando Cancelamento</span>
+            </div>
+            <div className="cnl-stat" style={{ '--k': 'var(--purple-tx)' }}>
+              <b>{qtd(CANC_ST_BFT)}</b>
+              <span>Aguardando BFT</span>
+            </div>
+          </div>
+          <div className="cnl-card">
+            <h3>{editId ? 'Editar Cancelamento' : 'Novo Cancelamento'}</h3>
+            <form className="cnl-form" onSubmit={salvar}>
+              <div className="cnl-campo">
+                <label>Data</label>
+                <input
+                  value={form.data}
+                  onChange={setCampo('data')}
+                  placeholder="dd/mm/aaaa"
+                />
+              </div>
+              <div className="cnl-campo">
+                <label>Filial</label>
+                <select
+                  value={form.filial}
+                  onChange={(e) => {
+                    filialManual.current = true;
+                    setCampo('filial')(e);
+                  }}
+                >
+                  <option value="">Selecione...</option>
+                  {CANC_FILIAIS.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="cnl-campo">
+                <label>Nº Pedido</label>
+                <input
+                  value={form.pedido}
+                  onChange={setCampo('pedido')}
+                  placeholder="12345"
+                />
+              </div>
+              <div className="cnl-campo">
+                <label>Nota Fiscal</label>
+                <input
+                  value={form.nf}
+                  onChange={setCampo('nf')}
+                  placeholder="98765"
+                />
+              </div>
+              <div className="cnl-campo">
+                <label>Solicitante *</label>
+                {fixos.length > 0 &&
+                !outroSol &&
+                (!form.solicitante || fixos.includes(form.solicitante)) ? (
+                  <select
+                    value={form.solicitante}
+                    onChange={(e) => {
+                      if (e.target.value === '__outro') {
+                        setOutroSol(true);
+                        setForm((cur) => ({ ...cur, solicitante: '' }));
+                      } else {
+                        setCampo('solicitante')(e);
+                      }
+                    }}
+                  >
+                    <option value="">Selecione...</option>
+                    {fixos.map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                    <option value="__outro">Outro (digitar)…</option>
+                  </select>
+                ) : (
+                  <input
+                    value={form.solicitante}
+                    onChange={setCampo('solicitante')}
+                    placeholder="Nome do solicitante"
+                  />
+                )}
+                <button
+                  type="button"
+                  className="cnl-link"
+                  onClick={abrirGerSol}
+                >
+                  ⚙ Escolher nomes fixos
+                </button>
+                {fixos.length > 0 &&
+                  (outroSol ||
+                    (form.solicitante &&
+                      !fixos.includes(form.solicitante))) && (
+                    <button
+                      type="button"
+                      className="cnl-link"
+                      style={{ marginLeft: 10 }}
+                      onClick={() => {
+                        setOutroSol(false);
+                        setForm((cur) => ({ ...cur, solicitante: '' }));
+                      }}
+                    >
+                      ↩ usar a lista
+                    </button>
+                  )}
+              </div>
+              <div className="cnl-campo">
+                <label>Motivo *</label>
+                <select value={form.motivo} onChange={setCampo('motivo')}>
+                  <option value="">Selecione...</option>
+                  {CANC_MOTIVOS.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {buscandoNf && (
+                <div className="cnl-info">Buscando na expedição…</div>
+              )}
+              {!buscandoNf && analise && analise.erro && (
+                <div className="cnl-info">
+                  Não foi possível consultar a expedição ({analise.erro}). Rode
+                  o bloco 16 do SQL no Supabase e escolha a filial manualmente.
+                </div>
+              )}
+              {!buscandoNf && analise && !analise.erro && analise.atencao && (
+                <div className="cnl-aviso">
+                  ⚠ Atenção: {analise.motivo} Quem for cancelar vai analisar.
+                </div>
+              )}
+              {!buscandoNf &&
+                analise &&
+                !analise.erro &&
+                !analise.atencao &&
+                analise.encontrado &&
+                analise.filial && (
+                  <div className="cnl-okbox">
+                    ✔ Encontrado na expedição: filial {analise.filial}
+                    {analise.cliente ? ` · ${analise.cliente}` : ''}
+                  </div>
+                )}
+              {!buscandoNf &&
+                analise &&
+                !analise.erro &&
+                !analise.atencao &&
+                analise.encontrado &&
+                !analise.filial && (
+                  <div className="cnl-aviso">
+                    Esta NF/pedido existe em mais de uma filial — informe também
+                    o pedido ou escolha a filial.
+                  </div>
+                )}
+              {!buscandoNf &&
+                analise &&
+                !analise.erro &&
+                !analise.atencao &&
+                !analise.encontrado && (
+                  <div className="cnl-info">
+                    Não encontrado na expedição — escolha a filial manualmente.
+                  </div>
+                )}
+              {!buscandoNf &&
+                analise &&
+                !analise.erro &&
+                analise.filial &&
+                form.filial &&
+                analise.filial !== form.filial && (
+                  <div className="cnl-aviso">
+                    ⚠ A filial escolhida ({form.filial}) é diferente da filial
+                    da NF ({analise.filial}).
+                  </div>
+                )}
+              <div className="cnl-dica">
+                A data e a hora da solicitação são gravadas automaticamente.
+                Prazo para cancelar: <b>1 hora</b>. Todo cancelamento começa
+                como <b>Aguardando Cancelamento</b>. Nas filiais 0104, 0105,
+                1030 e 1040, quem for cancelar marca <b>Aguardando CNT</b>{' '}
+                (botão CNT) quando a NF entrar nesse processo.
+              </div>
+              <div className="cnl-acoes">
+                <button
+                  type="submit"
+                  className="cnl-btn pri"
+                  disabled={salvando}
+                >
+                  {salvando
+                    ? 'Salvando…'
+                    : editId
+                    ? 'Salvar Alterações'
+                    : 'Salvar Cancelamento'}
+                </button>
+                {editId && (
+                  <button
+                    type="button"
+                    className="cnl-btn"
+                    onClick={limparForm}
+                  >
+                    Cancelar edição
+                  </button>
+                )}
+              </div>
+            </form>
+          </div>
+        </>
+      )}
+
+      {aba === 'pendentes' && (
+        <>
+          <div className="cnl-stats">
+            <div className="cnl-stat" style={{ '--k': 'var(--amber)' }}>
+              <b>{pendentes.length}</b>
+              <span>Pendentes</span>
+            </div>
+            <div className="cnl-stat" style={{ '--k': 'var(--blue-tx)' }}>
+              <b>{qtd(CANC_ST_CNT)}</b>
+              <span>Aguardando CNT</span>
+            </div>
+            <div className="cnl-stat" style={{ '--k': 'var(--orange-tx)' }}>
+              <b>{qtd(CANC_ST_AG)}</b>
+              <span>Aguardando Cancelamento</span>
+            </div>
+            <div className="cnl-stat" style={{ '--k': 'var(--purple-tx)' }}>
+              <b>{qtd(CANC_ST_BFT)}</b>
+              <span>Aguardando BFT</span>
+            </div>
+            <div className="cnl-stat" style={{ '--k': 'var(--green-tx)' }}>
+              <b>{paraHoje}</b>
+              <span>Para Hoje</span>
+            </div>
+            <div className="cnl-stat" style={{ '--k': 'var(--amber)' }}>
+              <b>{qtdAtencao}</b>
+              <span>⚠ Com atenção</span>
+            </div>
+            <div className="cnl-stat" style={{ '--k': 'var(--red)' }}>
+              <b>{qtdAtrasados}</b>
+              <span>⏰ Atrasados (+1h)</span>
+            </div>
+          </div>
+          <div className="cnl-filtros">
+            <small>Status</small>
+            {[
+              ['todos', 'Todos'],
+              [CANC_ST_CNT, 'Aguardando CNT'],
+              [CANC_ST_AG, 'Aguardando Cancelamento'],
+              [CANC_ST_BFT, 'Aguardando Pagto BFT'],
+              ['atencao', '⚠ Com atenção'],
+              ['atrasados', '⏰ Atrasados'],
+            ].map(([v, t]) => (
+              <button
+                key={v}
+                type="button"
+                className={`cnl-chip${fStatus === v ? ' on' : ''}`}
+                onClick={() => setFStatus(v)}
+              >
+                {t}
+              </button>
+            ))}
+            <span className="cnl-grp">
+              <small>Filial</small>
+              <select
+                className="cnl-sel"
+                value={fFilial}
+                onChange={(e) => setFFilial(e.target.value)}
+              >
+                <option value="">Todas</option>
+                {CANC_FILIAIS.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </span>
+            <span className="cnl-grp">
+              <small>Ordenar NF</small>
+              <select
+                className="cnl-sel"
+                value={ordNf}
+                onChange={(e) => setOrdNf(e.target.value)}
+              >
+                <option value="">Padrão (mais antigos)</option>
+                <option value="desc">Maior → menor</option>
+                <option value="asc">Menor → maior</option>
+              </select>
+            </span>
+          </div>
+          <div className="cnl-card">
+            <h3>Cancelamentos Pendentes ({pendFiltrados.length})</h3>
+            {tabela(pendFiltrados, 'pend')}
+          </div>
+        </>
+      )}
+
+      {aba === 'cancelados' && (
+        <div className="cnl-card">
+          <h3>Pedidos Cancelados ({cancelados.length})</h3>
+          {tabela(cancelados, 'canc')}
+        </div>
+      )}
+
+      {confirmar && (
+        <div
+          className="cnl-modal"
+          onMouseDown={(e) =>
+            e.target === e.currentTarget && setConfirmar(null)
+          }
+        >
+          <div>
+            <h4>{confirmar.titulo}</h4>
+            <p>{confirmar.texto}</p>
+            <div className="cnl-linha">
+              <button
+                type="button"
+                className="cnl-btn"
+                onClick={() => setConfirmar(null)}
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                className={`cnl-btn ${confirmar.perigo ? 'red' : 'pri'}`}
+                style={confirmar.perigo ? undefined : { flex: 'none' }}
+                onClick={executarConfirmacao}
+              >
+                {confirmar.botao}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {bft && (
+        <div
+          className="cnl-modal"
+          onMouseDown={(e) => e.target === e.currentTarget && setBft(null)}
+        >
+          <div style={{ maxWidth: 560 }}>
+            <h4>
+              💬 Mensagem BFT — Pedido {bft.c.pedido} · NF {bft.c.nf}
+            </h4>
+            <p>
+              Copie e cole no grupo, respondendo (citando) a mensagem original.
+              Depois marque o pessoal do financeiro.
+            </p>
+            <textarea
+              className="cnl-bftarea"
+              value={bft.texto}
+              onChange={(e) => setBft({ ...bft, texto: e.target.value })}
+            />
+            <div
+              className="cnl-linha"
+              style={{
+                justifyContent: 'space-between',
+                marginBottom: bft.config ? 10 : 0,
+              }}
+            >
+              <button
+                type="button"
+                className="cnl-btn sm"
+                onClick={() => setBft({ ...bft, config: !bft.config })}
+              >
+                ⚙ {bft.config ? 'Fechar ajustes' : 'Ajustar texto e nomes'}
+              </button>
+              <span style={{ display: 'inline-flex', gap: 8 }}>
+                <button
+                  type="button"
+                  className="cnl-btn sm"
+                  onClick={() => setBft(null)}
+                >
+                  Fechar
+                </button>
+                <button
+                  type="button"
+                  className="cnl-btn sm ok"
+                  onClick={copiarBft}
+                >
+                  📋 Copiar mensagem
+                </button>
+              </span>
+            </div>
+            {bft.config && (
+              <div className="cnl-bftcfg">
+                <label>Quem do financeiro marcar (um nome por linha)</label>
+                <textarea
+                  style={{ height: 64 }}
+                  value={bft.cfg.financeiro}
+                  onChange={(e) => {
+                    const cfg = { ...bft.cfg, financeiro: e.target.value };
+                    cancBftGravar(cfg);
+                    setBft({ ...bft, cfg, texto: cancBftMontar(bft.c, cfg) });
+                  }}
+                />
+                <label>
+                  Modelo do texto (use {'{nf}'} {'{pedido}'} {'{motivo}'}{' '}
+                  {'{filial}'} {'{solicitante}'} {'{financeiro}'})
+                </label>
+                <textarea
+                  style={{ height: 84 }}
+                  value={bft.cfg.modelo}
+                  onChange={(e) => {
+                    const cfg = { ...bft.cfg, modelo: e.target.value };
+                    cancBftGravar(cfg);
+                    setBft({ ...bft, cfg, texto: cancBftMontar(bft.c, cfg) });
+                  }}
+                />
+                <small>
+                  Fica salvo neste navegador. Obs.: o Teams só cria a marcação
+                  de verdade se você digitar @ e escolher o nome — o texto
+                  copiado já vem com o nome para você conferir.
+                </small>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {gerSol && (
+        <div
+          className="cnl-modal"
+          onMouseDown={(e) => e.target === e.currentTarget && setGerSol(null)}
+        >
+          <div>
+            <h4>Nomes fixos do Solicitante</h4>
+            <p>
+              Marque os nomes que devem aparecer no campo Solicitante. A lista
+              vem da equipe da expedição (bipador/embalador das postagens) e dos
+              nomes já usados.
+            </p>
+            <input
+              className="cnl-busca"
+              value={gerSol.busca}
+              onChange={(e) => setGerSol({ ...gerSol, busca: e.target.value })}
+              placeholder="Buscar nome..."
+            />
+            <div className="cnl-lista">
+              {gerSol.carregando && (
+                <div className="cnl-vazio">Carregando…</div>
+              )}
+              {gerSol.lista
+                .filter(
+                  (i) =>
+                    !gerSol.busca.trim() ||
+                    i.nome
+                      .toLowerCase()
+                      .includes(gerSol.busca.trim().toLowerCase())
+                )
+                .map((i) => (
+                  <label key={i.nome}>
+                    <input
+                      type="checkbox"
+                      checked={!!i.fixo}
+                      onChange={(e) => alternarFixo(i.nome, e.target.checked)}
+                    />
+                    {i.nome}
+                    {i.qtd > 0 && <small>{i.qtd} registro(s)</small>}
+                  </label>
+                ))}
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <input
+                className="cnl-busca"
+                style={{ marginBottom: 0 }}
+                value={gerSol.novo}
+                onChange={(e) => setGerSol({ ...gerSol, novo: e.target.value })}
+                onKeyDown={(e) => e.key === 'Enter' && adicionarNomeFixo()}
+                placeholder="Adicionar outro nome..."
+              />
+              <button
+                type="button"
+                className="cnl-btn"
+                onClick={adicionarNomeFixo}
+              >
+                Adicionar
+              </button>
+            </div>
+            <div className="cnl-linha">
+              <button
+                type="button"
+                className="cnl-btn pri"
+                style={{ flex: 'none' }}
+                onClick={() => setGerSol(null)}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && <div className={`cnl-toast ${toast.tipo}`}>{toast.texto}</div>}
+    </div>
+  );
+}
+
 export default function App() {
+  const [tema, alternarTema] = useTema();
   const [logado, setLogado] = useState(
     () => localStorage.getItem(LOGIN_STORAGE_KEY) === 'true'
   );
@@ -7207,14 +11452,21 @@ export default function App() {
   useEffect(() => {
     const link = document.createElement('link');
     link.href =
-      'https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap';
+      'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap';
     link.rel = 'stylesheet';
     document.head.appendChild(link);
     return () => document.head.removeChild(link);
   }, []);
 
   const estoqueAtivo = ['estoque', 'ajusteSaldo'].includes(tela);
-  const producaoAtivo = ['producao', 'producaoResumo', 'analiseTransformacoes'].includes(tela);
+  const expedicaoAtiva = ['viaLeitor', 'postagens'].includes(tela);
+  const faturamentoAtivo = ['faturamento', 'cancelamentos'].includes(tela);
+  const producaoAtivo = [
+    'producao',
+    'producaoResumo',
+    'analiseTransformacoes',
+    'consultaTransformacao',
+  ].includes(tela);
   const indicAtivo = [
     'indicadorDiario',
     'indicadorExpedicaoDiario',
@@ -7330,7 +11582,14 @@ export default function App() {
     setLogado(false);
   }
 
-  if (!logado) return <TelaLogin onLogin={() => setLogado(true)} />;
+  if (!logado)
+    return (
+      <TelaLogin
+        onLogin={() => setLogado(true)}
+        tema={tema}
+        alternarTema={alternarTema}
+      />
+    );
 
   return (
     <div
@@ -7355,7 +11614,6 @@ export default function App() {
           overflowY: 'auto',
           boxSizing: 'border-box',
           borderRight: `1px solid ${C.sidebarBd}`,
-          boxShadow: '4px 0 32px rgba(15,12,41,0.25)',
         }}
       >
         {/* Logo */}
@@ -7374,15 +11632,15 @@ export default function App() {
               width: 38,
               height: 38,
               borderRadius: 11,
-              background: C.primaryGrad,
+              background: '#3f6df0',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontWeight: 900,
+              fontWeight: 800,
               fontSize: 18,
               color: '#fff',
               flexShrink: 0,
-              boxShadow: '0 4px 18px rgba(102,126,234,0.45)',
+              boxShadow: '0 2px 10px rgba(63,109,240,0.45)',
             }}
           >
             B
@@ -7391,7 +11649,7 @@ export default function App() {
             <div
               style={{
                 fontSize: 15,
-                fontWeight: 900,
+                fontWeight: 800,
                 letterSpacing: '-0.03em',
                 color: '#fff',
               }}
@@ -7410,29 +11668,31 @@ export default function App() {
             </div>
           </div>
         </div>
-        <button
-          onClick={sair}
-          style={{
-            width: '100%',
-            border: '1px solid rgba(255,255,255,0.10)',
-            background: 'rgba(255,255,255,0.05)',
-            color: 'rgba(255,255,255,0.50)',
-            borderRadius: C.radius.md,
-            padding: '8px 10px',
-            cursor: 'pointer',
-            fontWeight: 700,
-            fontSize: 11,
-            fontFamily: C.font,
-            marginBottom: 14,
-            letterSpacing: '-0.01em',
-          }}
-        >
-          Sair da conta
-        </button>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button
+            onClick={sair}
+            style={{
+              flex: 1,
+              height: 36,
+              border: '1px solid rgba(255,255,255,0.12)',
+              background: 'rgba(255,255,255,0.05)',
+              color: 'rgba(226,232,240,0.8)',
+              borderRadius: C.radius.md,
+              padding: '0 10px',
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: 12,
+              fontFamily: C.font,
+            }}
+          >
+            Sair da conta
+          </button>
+          <BotaoTema tema={tema} alternar={alternarTema} compacto sobreEscuro />
+        </div>
         <div
           style={{
-            fontSize: 9,
-            color: 'rgba(255,255,255,0.25)',
+            fontSize: 10,
+            color: 'rgba(226,232,240,0.45)',
             fontWeight: 800,
             textTransform: 'uppercase',
             letterSpacing: '0.12em',
@@ -7463,13 +11723,80 @@ export default function App() {
           >
             Operação Logística
           </MenuBtn>
-          <MenuBtn
-            icon="F"
-            ativo={tela === 'faturamento'}
-            onClick={() => setTela('faturamento')}
+          <div
+            style={{
+              borderRadius: C.radius.md,
+              padding: expedicaoAtiva ? 5 : 0,
+              background: expedicaoAtiva
+                ? 'rgba(255,255,255,0.04)'
+                : 'transparent',
+              border: expedicaoAtiva
+                ? '1px solid rgba(255,255,255,0.07)'
+                : '1px solid transparent',
+              marginTop: 2,
+            }}
           >
-            Faturamento
-          </MenuBtn>
+            <MenuGrupBtn
+              icon="EX"
+              ativo={expedicaoAtiva}
+              onClick={() => setTela('viaLeitor')}
+            >
+              Expedição
+            </MenuGrupBtn>
+            {expedicaoAtiva && (
+              <div style={{ marginTop: 4, paddingTop: 2 }}>
+                <SubMenuBtn
+                  ativo={tela === 'viaLeitor'}
+                  onClick={() => setTela('viaLeitor')}
+                >
+                  Via Leitor
+                </SubMenuBtn>
+                <SubMenuBtn
+                  ativo={tela === 'postagens'}
+                  onClick={() => setTela('postagens')}
+                >
+                  Postagens
+                </SubMenuBtn>
+              </div>
+            )}
+          </div>
+          <div
+            style={{
+              borderRadius: C.radius.md,
+              padding: faturamentoAtivo ? 5 : 0,
+              background: faturamentoAtivo
+                ? 'rgba(255,255,255,0.04)'
+                : 'transparent',
+              border: faturamentoAtivo
+                ? '1px solid rgba(255,255,255,0.07)'
+                : '1px solid transparent',
+              marginTop: 2,
+            }}
+          >
+            <MenuGrupBtn
+              icon="F"
+              ativo={faturamentoAtivo}
+              onClick={() => setTela('faturamento')}
+            >
+              Faturamento
+            </MenuGrupBtn>
+            {faturamentoAtivo && (
+              <div style={{ marginTop: 4, paddingTop: 2 }}>
+                <SubMenuBtn
+                  ativo={tela === 'faturamento'}
+                  onClick={() => setTela('faturamento')}
+                >
+                  Painel Faturamento
+                </SubMenuBtn>
+                <SubMenuBtn
+                  ativo={tela === 'cancelamentos'}
+                  onClick={() => setTela('cancelamentos')}
+                >
+                  Cancelamentos
+                </SubMenuBtn>
+              </div>
+            )}
+          </div>
           <div
             style={{
               borderRadius: C.radius.md,
@@ -7553,6 +11880,12 @@ export default function App() {
                   onClick={() => setTela('analiseTransformacoes')}
                 >
                   Análise de Transformação
+                </SubMenuBtn>
+                <SubMenuBtn
+                  ativo={tela === 'consultaTransformacao'}
+                  onClick={() => setTela('consultaTransformacao')}
+                >
+                  Consulta de Transformação
                 </SubMenuBtn>
               </div>
             )}
@@ -7653,13 +11986,13 @@ export default function App() {
             position: 'sticky',
             top: 0,
             zIndex: 30,
-            background: 'rgba(248,250,252,0.92)',
+            background: 'color-mix(in srgb, var(--surf) 92%, transparent)',
             backdropFilter: 'blur(12px)',
-            border: `1.5px solid ${C.bdLight}`,
+            border: `1px solid ${C.bdLight}`,
             borderRadius: C.radius.lg,
             padding: 10,
             marginBottom: 18,
-            boxShadow: '0 12px 32px rgba(15,23,42,0.08)',
+            boxShadow: C.shadowMd,
           }}
         >
           <form
@@ -7672,11 +12005,11 @@ export default function App() {
             <input
               value={pedidoBuscaGlobal}
               onChange={(e) => setPedidoBuscaGlobal(e.target.value)}
-              placeholder="Consulta: Pedido"
+              placeholder="Buscar pedido (nº do pedido)"
               style={{
                 height: 38,
                 width: 260,
-                border: `1.5px solid ${C.bdMid}`,
+                border: `1px solid ${C.bdMid}`,
                 borderRadius: C.radius.md,
                 padding: '0 12px',
                 fontSize: 13,
@@ -7684,7 +12017,7 @@ export default function App() {
                 color: C.txtPri,
                 outline: 'none',
                 fontFamily: C.font,
-                background: '#FFFFFF',
+                background: C.bgCard,
               }}
             />
             <button
@@ -7698,7 +12031,7 @@ export default function App() {
                 background: buscandoGlobal ? C.bgMuted : C.primaryGrad,
                 color: '#FFFFFF',
                 fontSize: 13,
-                fontWeight: 900,
+                fontWeight: 800,
                 cursor: buscandoGlobal ? 'not-allowed' : 'pointer',
                 fontFamily: C.font,
                 minWidth: 92,
@@ -7717,10 +12050,10 @@ export default function App() {
                 }}
                 style={{
                   height: 38,
-                  border: `1.5px solid ${C.bdMid}`,
+                  border: `1px solid ${C.bdMid}`,
                   borderRadius: C.radius.md,
                   padding: '0 12px',
-                  background: '#FFFFFF',
+                  background: C.bgCard,
                   color: C.txtSec,
                   fontSize: 12,
                   fontWeight: 800,
@@ -7748,8 +12081,8 @@ export default function App() {
             <div
               style={{
                 marginTop: 10,
-                background: '#FFFFFF',
-                border: `1.5px solid ${C.bdLight}`,
+                background: C.bgCard,
+                border: `1px solid ${C.bdLight}`,
                 borderRadius: C.radius.md,
                 overflow: 'hidden',
               }}
@@ -7763,13 +12096,13 @@ export default function App() {
                   borderBottom: `1px solid ${C.bdLight}`,
                 }}
               >
-                <div style={{ fontSize: 13, fontWeight: 900, color: C.txtPri }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.txtPri }}>
                   Resultado da busca: {pedidoBuscaGlobal || '—'}
                 </div>
                 <div
                   style={{
                     fontSize: 11,
-                    fontWeight: 900,
+                    fontWeight: 800,
                     color: C.txtSec,
                     background: C.bgMuted,
                     borderRadius: 999,
@@ -7833,7 +12166,7 @@ export default function App() {
                     }}
                   >
                     <thead>
-                      <tr style={{ background: '#F3F6FC' }}>
+                      <tr style={{ background: C.bgMuted }}>
                         {[
                           'Origem',
                           'Pedido',
@@ -7871,7 +12204,7 @@ export default function App() {
                           <td
                             style={{
                               padding: '9px 10px',
-                              fontWeight: 900,
+                              fontWeight: 800,
                               color: C.txtPri,
                               whiteSpace: 'nowrap',
                             }}
@@ -7881,7 +12214,7 @@ export default function App() {
                           <td
                             style={{
                               padding: '9px 10px',
-                              fontWeight: 900,
+                              fontWeight: 800,
                               color: C.primary,
                               whiteSpace: 'nowrap',
                             }}
@@ -7951,8 +12284,8 @@ export default function App() {
                               type="button"
                               onClick={() => setTela(item.telaDestino)}
                               style={{
-                                border: `1.5px solid ${C.bdMid}`,
-                                background: '#FFFFFF',
+                                border: `1px solid ${C.bdMid}`,
+                                background: C.bgCard,
                                 borderRadius: 9,
                                 padding: '6px 10px',
                                 cursor: 'pointer',
@@ -7980,6 +12313,15 @@ export default function App() {
         <div style={{ display: tela === 'faturamento' ? 'block' : 'none' }}>
           <TelaFaturamento />
         </div>
+        <div style={{ display: tela === 'postagens' ? 'block' : 'none' }}>
+          <TelaPostagens ativo={tela === 'postagens'} />
+        </div>
+        <div style={{ display: tela === 'viaLeitor' ? 'block' : 'none' }}>
+          <TelaViaLeitor ativo={tela === 'viaLeitor'} />
+        </div>
+        <div style={{ display: tela === 'cancelamentos' ? 'block' : 'none' }}>
+          <TelaCancelamentos ativo={tela === 'cancelamentos'} />
+        </div>
         <div style={{ display: tela === 'estoque' ? 'block' : 'none' }}>
           <TelaEstoque />
         </div>
@@ -8002,6 +12344,13 @@ export default function App() {
           }}
         >
           <TelaAnaliseTransformacoes />
+        </div>
+        <div
+          style={{
+            display: tela === 'consultaTransformacao' ? 'block' : 'none',
+          }}
+        >
+          <TelaConsultaTransformacao />
         </div>
         <div style={{ display: tela === 'pedidoVenda' ? 'block' : 'none' }}>
           <TelaPedidoVenda />
