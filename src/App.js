@@ -1,4 +1,6 @@
-// VERSAO: CONSULTA_TRANSFORMACAO_VISUAL_CORRIGIDO_2026_09_28 + MODULO_POSTAGENS_2026_10_14 + MODULO_VIA_LEITOR_2026_10_14
+// VERSAO: CONSULTA_TRANSFORMACAO_VISUAL_CORRIGIDO_2026_09_28 + MODULO_POSTAGENS_2026_10_14 + MODULO_VIA_LEITOR_2026_10_14 + EGRESS_2026_10_21
+// CANCELAMENTOS_HISTORICO_2026_10_22: a tela Cancelamentos carrega só os pendentes + cancelados dos últimos 30 dias; os mais antigos vêm por busca ou por "Carregar mais antigos".
+// EGRESS_2026_10_21: cards do Dashboard (Via Leitor/Cancelamentos) e a tela Cancelamentos só baixam a lista quando mudou, nunca com a aba escondida e o Dashboard só atualiza quando está na tela.
 // Cole este arquivo em src/App.js
 // Design "Aurora" — moderno com gradientes suaves, fonte Nunito, visual completamente renovado.
 // Toda lógica, APIs e campos preservados sem alteração.
@@ -30,8 +32,16 @@ const SUPABASE_URL = 'https://njvcostescybgwbnipec.supabase.co';
 const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qdmNvc3Rlc2N5Ymd3Ym5pcGVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNzkxNzMsImV4cCI6MjEwNTc1NTE3M30.ZR9V23Fs-MzYznZCIRrTf2uXwc5oHiltb8hpmgJHADI';
 
-const LOGIN_USUARIO = 'BBDI';
-const LOGIN_SENHA = 'BBDI@2026';
+// Perfis de acesso:
+//   'geral'     = login da empresa toda: tudo para visualizar, EXCETO a tela Via Leitor; em Cancelamentos só o
+//                 histórico ("Já Cancelados"), sem lançar/alterar/excluir
+//   'logistica' = acesso completo (inclui Via Leitor e lançar/alterar/excluir cancelamentos)
+// ATENÇÃO: este login roda no navegador; serve para organizar o que cada pessoa vê, não para proteger dados sigilosos.
+const LOGINS = [
+  { usuario: 'BBDI', senha: 'BBDI@2026', perfil: 'geral' },
+  { usuario: 'LOGISTICA', senha: 'LOG@2026', perfil: 'logistica' },
+];
+const TELAS_BLOQUEADAS_GERAL = ['viaLeitor'];
 const LOGIN_STORAGE_KEY = 'painel_operacional_logado';
 
 const FONTES_FATURAMENTO = [
@@ -1717,15 +1727,15 @@ function TelaLogin({ onLogin, tema, alternarTema }) {
   const [erro, setErro] = useState('');
   function entrar(e) {
     e.preventDefault();
-    if (
-      usuario.trim().toUpperCase() !== LOGIN_USUARIO ||
-      senha !== LOGIN_SENHA
-    ) {
+    const acesso = LOGINS.find(
+      (l) => l.usuario === usuario.trim().toUpperCase() && l.senha === senha
+    );
+    if (!acesso) {
       setErro('Usuário ou senha inválidos.');
       return;
     }
-    localStorage.setItem(LOGIN_STORAGE_KEY, 'true');
-    onLogin();
+    localStorage.setItem(LOGIN_STORAGE_KEY, acesso.perfil);
+    onLogin(acesso.perfil);
   }
   return (
     <div
@@ -6818,7 +6828,11 @@ function salvarSnapshotDashboard(snapshot) {
 
 // ─── App Shell ─────────────────────────────────────────────────────────────────
 
-function TelaDashboard({ setTela }) {
+function TelaDashboard({ setTela, ativo = true }) {
+  // EGRESS: o Dashboard fica sempre montado (escondido) — só atualiza sozinho quando está na tela e a aba está visível.
+  const ativoRef = useRef(ativo);
+  ativoRef.current = ativo;
+  const primeiraAtivo = useRef(true);
   const [snapshotInicialDashboard] = useState(() => lerSnapshotDashboard());
   const [resumoCacheDashboard, setResumoCacheDashboard] = useState(
     () => snapshotInicialDashboard?.resumo || null
@@ -6868,7 +6882,9 @@ function TelaDashboard({ setTela }) {
 
   useEffect(() => {
     carregarViaDash();
-    const t = setInterval(carregarViaDash, 300000);
+    const t = setInterval(() => {
+      if (paginaVisivel() && ativoRef.current) carregarViaDash();
+    }, 300000);
     return () => clearInterval(t);
   }, [carregarViaDash]);
 
@@ -6893,9 +6909,35 @@ function TelaDashboard({ setTela }) {
 
   useEffect(() => {
     carregarCancDash();
-    const t = setInterval(carregarCancDash, 120000);
+    const t = setInterval(() => {
+      if (paginaVisivel() && ativoRef.current) carregarCancDash();
+    }, 120000);
     return () => clearInterval(t);
   }, [carregarCancDash]);
+
+  // EGRESS: ao voltar para o Dashboard (ou para a aba), atualiza uma vez (barato: só baixa se algo mudou).
+  useEffect(() => {
+    if (primeiraAtivo.current) {
+      primeiraAtivo.current = false;
+      return undefined;
+    }
+    if (ativo && paginaVisivel()) {
+      carregarViaDash();
+      carregarCancDash();
+    }
+    return undefined;
+  }, [ativo, carregarViaDash, carregarCancDash]);
+
+  useEffect(() => {
+    const aoVoltar = () => {
+      if (paginaVisivel() && ativoRef.current) {
+        carregarViaDash();
+        carregarCancDash();
+      }
+    };
+    document.addEventListener('visibilitychange', aoVoltar);
+    return () => document.removeEventListener('visibilitychange', aoVoltar);
+  }, [carregarViaDash, carregarCancDash]);
 
   const carregarDashboard = useCallback(async () => {
     setCarregando(true);
@@ -8012,6 +8054,27 @@ async function lerSupabasePostagem(caminho) {
   return r.json();
 }
 
+// EGRESS: não atualiza nada com a aba do navegador escondida.
+function paginaVisivel() {
+  return typeof document === 'undefined' || !document.hidden;
+}
+
+// EGRESS: consulta mínima (1 linha + total no cabeçalho). Devolve uma "assinatura" da lista sem baixá-la.
+// Se a assinatura não mudou, não precisa baixar a lista de novo.
+async function lerSupabaseAssinatura(caminho) {
+  const r = await fetch(
+    `${SUPABASE_URL}/rest/v1/${caminho}${caminho.includes('?') ? '&' : '?'}limit=1`,
+    {
+      headers: { ...headersSupabasePostagem(), Prefer: 'count=exact' },
+      cache: 'no-store',
+    }
+  );
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const total = (r.headers.get('content-range') || '').split('/')[1] || '';
+  const j = await r.json();
+  return `${total}|${Array.isArray(j) && j[0] ? JSON.stringify(j[0]) : ''}`;
+}
+
 // Divide "AAAA-MM-DD[ T]HH:MM:SS[.ms][fuso]" e devolve data/hora no horário de São Paulo.
 // Texto com fuso (ex.: "+00:00", "-03", "Z") é convertido; sem fuso é tratado como horário local.
 function partesPostagem(valor) {
@@ -8858,6 +8921,29 @@ function montarConsultaPostagens(filtros, pagina) {
   return `v_postagens_painel?${q.join('&')}`;
 }
 
+// Listas grandes de Postagens (sem texto digitado: padrão, status/filial/transportadora, páginas) usam a cópia
+// compartilhada (5 min). Buscas por texto (NF, pedido, romaneio...) trazem poucas linhas e vão direto ao Supabase.
+async function lerPostagensListaCompartilhada(caminho) {
+  if (!CACHE_COMPARTILHADO_URL) return null;
+  const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctl ? setTimeout(() => ctl.abort(), 30000) : null;
+  try {
+    const sep = CACHE_COMPARTILHADO_URL.includes('?') ? '&' : '?';
+    const resp = await fetch(
+      `${CACHE_COMPARTILHADO_URL}${sep}action=postagens&q=${encodeURIComponent(caminho)}`,
+      ctl ? { signal: ctl.signal } : undefined
+    );
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const j = await resp.json();
+    if (!j || !j.ok || !Array.isArray(j.dados)) throw new Error('resposta inválida');
+    return j.dados;
+  } catch (e) {
+    return null; // quem chamou usa o Supabase direto
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 function TelaPostagens({ ativo }) {
   const [linhas, setLinhas] = useState([]);
   const [pagina, setPagina] = useState(0);
@@ -8899,9 +8985,10 @@ function TelaPostagens({ ativo }) {
     setCarregando(true);
     setErro('');
     try {
-      const lote = await lerSupabasePostagem(
-        montarConsultaPostagens(aplicados, pagina)
-      );
+      const caminhoPg = montarConsultaPostagens(aplicados, pagina);
+      const semTexto = !aplicados.rom.trim() && !aplicados.busca.trim();
+      let lote = semTexto ? await lerPostagensListaCompartilhada(caminhoPg) : null;
+      if (!lote) lote = await lerSupabasePostagem(caminhoPg);
       if (minha !== seq.current) return;
       const lista = Array.isArray(lote) ? lote : [];
       setTemProxima(lista.length > POSTAGENS_TAM_PAGINA);
@@ -9551,12 +9638,155 @@ function viaFiltrarPendentes(base, cfg) {
   });
 }
 
+// CACHE COMPARTILHADO (EGRESS): cole aqui a URL "/exec" da implantação do Apps Script (extensao_v2/Code.gs).
+// Com a URL preenchida, os cards do Dashboard deixam de consultar o Supabase por conta própria: todos os usuários
+// recebem a mesma resposta guardada no servidor, então o consumo não cresce com o número de pessoas.
+// Vazio (''), ou se o servidor falhar, volta a consultar o Supabase direto (comportamento anterior).
+const CACHE_COMPARTILHADO_URL = '';
+const DASH_COMPARTILHADO = { versao: '', via: null, canc: null, ts: 0, pendente: null };
+
+async function lerCacheCompartilhado() {
+  if (!CACHE_COMPARTILHADO_URL) return null;
+  const D = DASH_COMPARTILHADO;
+  // os dois cards pedem quase juntos: reaproveita a mesma resposta por 20 s
+  if (D.canc && Date.now() - D.ts < 20000) return D;
+  if (D.pendente) return D.pendente;
+  D.pendente = (async () => {
+    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = ctl ? setTimeout(() => ctl.abort(), 30000) : null;
+    try {
+      const sep = CACHE_COMPARTILHADO_URL.includes('?') ? '&' : '?';
+      const url = `${CACHE_COMPARTILHADO_URL}${sep}action=dashboardCompartilhado&v=${encodeURIComponent(
+        D.versao || ''
+      )}`;
+      const resp = await fetch(url, ctl ? { signal: ctl.signal } : undefined);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const j = await resp.json();
+      if (!j || !j.ok) throw new Error((j && j.erro) || 'resposta inválida');
+      if (!Array.isArray(j.canc)) throw new Error('sem cancelamentos');
+      if (j.via && Array.isArray(j.via.linhas) && Array.isArray(j.via.cfg)) {
+        D.via = { linhas: j.via.linhas, cfg: j.via.cfg };
+        D.versao = j.versao || '';
+      } else if (!(j.igual && D.via)) {
+        throw new Error('sem Via Leitor');
+      }
+      D.canc = j.canc;
+      D.ts = Date.now();
+      return D;
+    } catch (e) {
+      D.ts = 0;
+      D.canc = null;
+      return null; // quem chamou usa o Supabase direto
+    } finally {
+      if (timer) clearTimeout(timer);
+      D.pendente = null;
+    }
+  })();
+  return D.pendente;
+}
+
+// Telas (Via Leitor e Cancelamentos): mesma cópia compartilhada. Devolve os dados ou null (usa o Supabase direto).
+// `tipo`: 'via' | 'canc'. A cópia fica em memória; se o servidor responder "igual", reaproveita sem baixar de novo.
+const TELA_COMPARTILHADA = {
+  via: { versao: '', dados: null, ts: 0, pendente: null },
+  canc: { versao: '', dados: null, ts: 0, pendente: null },
+};
+async function lerTelaCompartilhada(tipo) {
+  if (!CACHE_COMPARTILHADO_URL) return null;
+  const T = TELA_COMPARTILHADA[tipo];
+  if (T.dados && Date.now() - T.ts < 15000) return T.dados; // evita pedidos repetidos em sequência
+  if (T.pendente) return T.pendente;
+  T.pendente = (async () => {
+    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = ctl ? setTimeout(() => ctl.abort(), 30000) : null;
+    try {
+      const sep = CACHE_COMPARTILHADO_URL.includes('?') ? '&' : '?';
+      const url = `${CACHE_COMPARTILHADO_URL}${sep}action=tela&tipo=${tipo}&v=${encodeURIComponent(
+        T.dados ? T.versao || '' : ''
+      )}`;
+      const resp = await fetch(url, ctl ? { signal: ctl.signal } : undefined);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const j = await resp.json();
+      if (!j || !j.ok) throw new Error((j && j.erro) || 'resposta inválida');
+      if (j.dados) {
+        T.dados = j.dados;
+        T.versao = j.versao || '';
+      } else if (!(j.igual && T.dados)) {
+        throw new Error('sem dados');
+      }
+      T.ts = Date.now();
+      return T.dados;
+    } catch (e) {
+      T.ts = 0;
+      return null;
+    } finally {
+      if (timer) clearTimeout(timer);
+      T.pendente = null;
+    }
+  })();
+  return T.pendente;
+}
+
+// Depois de salvar/alterar/excluir um cancelamento: pede ao servidor para descartar a cópia guardada, para a
+// próxima leitura vir fresca (para todos). Devolve true se deu certo.
+async function invalidarTelaCompartilhada(tipo) {
+  if (!CACHE_COMPARTILHADO_URL) return false;
+  TELA_COMPARTILHADA[tipo].ts = 0; // não reaproveitar a cópia que esta aba já tem em memória
+  DASH_COMPARTILHADO.ts = 0;
+  try {
+    const sep = CACHE_COMPARTILHADO_URL.includes('?') ? '&' : '?';
+    const resp = await fetch(`${CACHE_COMPARTILHADO_URL}${sep}action=invalidar&tipo=${tipo}`);
+    if (!resp.ok) return false;
+    const j = await resp.json();
+    return !!(j && j.ok);
+  } catch (e) {
+    return false;
+  }
+}
+
 // Totais para os cards do dashboard: pedidos a expedir por empresa (BB = 1020; Equipatech = 0101/0102).
+const VIA_DASH_CACHE = { assin: '', ts: 0, linhas: null, cfgLinhas: null };
 async function viaResumoDashboard() {
-  const [linhas, cfgLinhas] = await Promise.all([
-    viaLerLote(viaCaminhoLista(), 10000, 0),
-    lerSupabasePostagem('v_via_config_painel?select=*&limit=5000'),
-  ]);
+  // EGRESS: antes baixava até 10000 linhas a cada 5 min só para somar 4 números. Agora faz uma consulta mínima
+  // e só baixa a lista se ela mudou (ou a cada 15 min). O "atrasado" continua sendo recalculado a cada chamada.
+  const caminhoAss = viaCaminhoLista()
+    .replace(`select=${VIA_SELECT}`, 'select=filial,nf,pedido')
+    .replace(
+      'order=data_saida_entrada.asc,nf.asc,pedido.asc',
+      'order=data_saida_entrada.desc,nf.desc,pedido.desc'
+    );
+  const comp = await lerCacheCompartilhado();
+  let assin = '';
+  if (!comp) {
+    try {
+      assin = await lerSupabaseAssinatura(caminhoAss);
+    } catch (e) {
+      assin = '';
+    }
+  }
+  let linhas;
+  let cfgLinhas;
+  if (comp && comp.via) {
+    linhas = comp.via.linhas;
+    cfgLinhas = comp.via.cfg;
+  } else if (
+    assin &&
+    VIA_DASH_CACHE.linhas &&
+    VIA_DASH_CACHE.assin === assin &&
+    Date.now() - VIA_DASH_CACHE.ts < 15 * 60000
+  ) {
+    linhas = VIA_DASH_CACHE.linhas;
+    cfgLinhas = VIA_DASH_CACHE.cfgLinhas;
+  } else {
+    [linhas, cfgLinhas] = await Promise.all([
+      viaLerLote(viaCaminhoLista(), 10000, 0),
+      lerSupabasePostagem('v_via_config_painel?select=*&limit=5000'),
+    ]);
+    VIA_DASH_CACHE.assin = assin;
+    VIA_DASH_CACHE.ts = Date.now();
+    VIA_DASH_CACHE.linhas = linhas;
+    VIA_DASH_CACHE.cfgLinhas = cfgLinhas;
+  }
   const cfg = viaMontarCfg(cfgLinhas);
   if (!cfg.transportadoras.length)
     throw new Error('regras de corte indisponíveis (rode o bloco 11 do SQL)');
@@ -9607,18 +9837,28 @@ function TelaViaLeitor({ ativo }) {
     setErro('');
     try {
       const caminho = viaCaminhoLista();
-      const [linhas, cfgLinhas, obsLinhas] = await Promise.all([
-        viaLerLote(caminho, VIA_TAM_PAGINA + 1, pagina * VIA_TAM_PAGINA),
-        lerSupabasePostagem('v_via_config_painel?select=*&limit=5000').then(
-          (j) => ({ ok: true, j }),
-          (e) => ({ ok: false, e })
-        ),
-        viaLerLote(
-          'v_via_obs_painel?select=filial,nf,pedido,observacao&order=filial.asc,nf.asc',
-          20000,
-          0
-        ).catch(() => []),
-      ]);
+      const comp = await lerTelaCompartilhada('via');
+      const [linhas, cfgLinhas, obsLinhas] = comp
+        ? [
+            comp.linhas.slice(
+              pagina * VIA_TAM_PAGINA,
+              pagina * VIA_TAM_PAGINA + VIA_TAM_PAGINA + 1
+            ),
+            { ok: true, j: comp.cfg },
+            comp.obs || [],
+          ]
+        : await Promise.all([
+            viaLerLote(caminho, VIA_TAM_PAGINA + 1, pagina * VIA_TAM_PAGINA),
+            lerSupabasePostagem('v_via_config_painel?select=*&limit=5000').then(
+              (j) => ({ ok: true, j }),
+              (e) => ({ ok: false, e })
+            ),
+            viaLerLote(
+              'v_via_obs_painel?select=filial,nf,pedido,observacao&order=filial.asc,nf.asc',
+              20000,
+              0
+            ).catch(() => []),
+          ]);
       if (minha !== seq.current) return;
       setTemProxima(linhas.length > VIA_TAM_PAGINA);
       setBase(linhas.slice(0, VIA_TAM_PAGINA).map(viaNormalizarLinha));
@@ -9996,6 +10236,52 @@ const CANC_FILIAIS_CNT = ['0104', '0105', '1030', '1040'];
 const CANC_ST_AG = 'Aguardando Cancelamento';
 const CANC_ST_BFT = 'Aguardando Pagto BFT';
 const CANC_ST_OK = 'Cancelado';
+const CANC_JANELA_DIAS = 30; // cancelados mais antigos que isso só entram por busca / "Carregar mais antigos"
+const CANC_HIST_TAM = 200;
+
+function cancDataIsoMenosDias(dias) {
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
+  return fmt.format(new Date(Date.now() - dias * 86400000));
+}
+
+// Total de registros e total de cancelados (2 consultas mínimas, só contagem) — os cards continuam mostrando o total real.
+async function cancTotais() {
+  const n = (a) => Number(String(a).split('|')[0]) || 0;
+  const [total, canc] = await Promise.all([
+    lerSupabaseAssinatura('v_cancelamentos_painel?select=id&order=id.desc'),
+    lerSupabaseAssinatura(
+      `v_cancelamentos_painel?select=id&status=eq.${encodeURIComponent(CANC_ST_OK)}&order=id.desc`
+    ),
+  ]);
+  return { total: n(total), canc: n(canc) };
+}
+
+// Busca no histórico inteiro (servidor): por pedido, NF ou solicitante; ou página mais antiga que um id.
+async function cancBuscarCancelados({ busca, antesDoId }) {
+  const q = [`select=*`, `status=eq.${encodeURIComponent(CANC_ST_OK)}`];
+  const t = String(busca || '').trim().replace(/[,*()%]/g, '');
+  if (t) {
+    const p = encodeURIComponent(`*${t}*`);
+    q.push(`or=(pedido.ilike.${p},nf.ilike.${p},solicitante.ilike.${p})`);
+  }
+  if (antesDoId) q.push(`id=lt.${Number(antesDoId)}`);
+  q.push('order=id.desc', `limit=${CANC_HIST_TAM}`);
+  const r = await lerSupabasePostagem(`v_cancelamentos_painel?${q.join('&')}`);
+  return Array.isArray(r) ? r : [];
+}
+
+// EGRESS: assinatura da lista de cancelamentos (total + mais recente + contagem por status), sem baixar a lista.
+async function cancAssinatura() {
+  const base = 'v_cancelamentos_painel?select=id&order=id.desc';
+  const porStatus = (st) => `${base}&status=eq.${encodeURIComponent(st)}`;
+  const partes = await Promise.all([
+    lerSupabaseAssinatura('v_cancelamentos_painel?select=id,status&order=id.desc'),
+    lerSupabaseAssinatura(porStatus(CANC_ST_OK)),
+    lerSupabaseAssinatura(porStatus(CANC_ST_BFT)),
+    lerSupabaseAssinatura(porStatus(CANC_ST_AG)),
+  ]);
+  return partes.join('#');
+}
 
 const CancIco = ({ d }) => (
   <svg
@@ -10284,11 +10570,15 @@ async function cancCopiar(texto) {
 }
 
 async function cancResumoDashboard() {
-  const linhas = await viaLerLote(
-    'v_cancelamentos_painel?select=id,status,solicitado_em,prazo_em&status=neq.Cancelado&order=id.desc',
-    20000,
-    0
-  );
+  const comp = await lerCacheCompartilhado();
+  const linhas =
+    comp && comp.canc
+      ? comp.canc
+      : await viaLerLote(
+          'v_cancelamentos_painel?select=id,status,solicitado_em,prazo_em&status=neq.Cancelado&order=id.desc',
+          20000,
+          0
+        );
   const agora = Date.now();
   const r = {
     total: 0,
@@ -10362,9 +10652,9 @@ const CANC_FORM_VAZIO = {
   motivo: '',
 };
 
-function TelaCancelamentos({ ativo }) {
+function TelaCancelamentos({ ativo, somenteLeitura }) {
   const [itens, setItens] = useState([]);
-  const [aba, setAba] = useState('lancar');
+  const [aba, setAba] = useState(somenteLeitura ? 'cancelados' : 'lancar');
   const [form, setForm] = useState({ ...CANC_FORM_VAZIO, data: cancHojeBr() });
   const [editId, setEditId] = useState(null);
   const [fStatus, setFStatus] = useState('todos');
@@ -10385,22 +10675,53 @@ function TelaCancelamentos({ ativo }) {
   const seqAnalise = useRef(0);
   const [agora, setAgora] = useState(() => Date.now());
   const ultimaCarga = useRef(0);
+  const assinCanc = useRef('');
+  const [totais, setTotais] = useState(null);
+  const [histExtra, setHistExtra] = useState([]);
+  const [histBusca, setHistBusca] = useState('');
+  const [histRes, setHistRes] = useState(null); // null = sem busca; lista = resultado da busca no servidor
+  const [histCarregando, setHistCarregando] = useState(false);
+  const [histFim, setHistFim] = useState(false);
 
   const avisar = useCallback((texto, tipo) => {
     setToast({ texto, tipo: tipo || 'ok' });
     setTimeout(() => setToast(null), 3200);
   }, []);
 
-  const carregar = useCallback(async () => {
+  // forcar=true (depois de salvar/alterar/excluir): descarta a cópia compartilhada e busca uma nova;
+  // se o servidor não responder, lê direto do Supabase. Nos outros casos usa a cópia compartilhada.
+  const carregar = useCallback(async (forcar) => {
+    const direto = forcar === true;
     setCarregando(true);
     setErro('');
     try {
-      const lista = await viaLerLote(
-        'v_cancelamentos_painel?select=*&order=id.desc',
-        20000,
-        0
-      );
+      if (CACHE_COMPARTILHADO_URL) {
+        const ok = direto ? await invalidarTelaCompartilhada('canc') : true;
+        if (ok) {
+          const comp = await lerTelaCompartilhada('canc');
+          if (comp) {
+            setItens(comp.itens);
+            if (comp.totais) setTotais(comp.totais);
+            setFixos(comp.fixos || []);
+            ultimaCarga.current = Date.now();
+            return;
+          }
+        }
+      }
+      // pendentes (sempre todos) + cancelados dos últimos CANC_JANELA_DIAS dias
+      const ini = cancDataIsoMenosDias(CANC_JANELA_DIAS);
+      const [lista, tot] = await Promise.all([
+        viaLerLote(
+          `v_cancelamentos_painel?select=*&or=(status.neq.${encodeURIComponent(
+            CANC_ST_OK
+          )},cancelado_em.gte.${ini},data_cancelamento.gte.${ini})&order=id.desc`,
+          20000,
+          0
+        ),
+        cancTotais().catch(() => null),
+      ]);
       setItens(lista);
+      if (tot) setTotais(tot);
       ultimaCarga.current = Date.now();
     } catch (e) {
       setErro(
@@ -10424,7 +10745,28 @@ function TelaCancelamentos({ ativo }) {
   useEffect(() => {
     if (!ativo) return undefined;
     if (Date.now() - ultimaCarga.current >= 30000) carregar();
-    const t = setInterval(carregar, 60000);
+    // EGRESS: antes baixava TODOS os cancelamentos (até 20000 linhas, select=*) a cada 60 s.
+    // Agora confere a assinatura (poucos bytes) e só baixa se mudou ou a cada 5 min.
+    const t = setInterval(async () => {
+      if (!paginaVisivel()) return;
+      if (CACHE_COMPARTILHADO_URL) {
+        carregar(); // o servidor confere a mudança uma vez para todos; aqui só vem resposta curta
+        return;
+      }
+      try {
+        const a = await cancAssinatura();
+        if (
+          a &&
+          a === assinCanc.current &&
+          Date.now() - ultimaCarga.current < 5 * 60000
+        )
+          return;
+        assinCanc.current = a;
+      } catch (e) {
+        // se a checagem falhar, segue para a carga normal
+      }
+      carregar();
+    }, 60000);
     return () => clearInterval(t);
   }, [ativo, carregar]);
 
@@ -10475,10 +10817,61 @@ function TelaCancelamentos({ ativo }) {
     () => itens.filter((c) => c.status !== CANC_ST_OK),
     [itens]
   );
-  const cancelados = useMemo(
-    () => itens.filter((c) => c.status === CANC_ST_OK),
-    [itens]
-  );
+  const canceladosCarregados = useMemo(() => {
+    const mapa = new Map();
+    [...itens.filter((c) => c.status === CANC_ST_OK), ...histExtra].forEach(
+      (c) => mapa.set(c.id, c)
+    );
+    return [...mapa.values()].sort((a, b) => Number(b.id) - Number(a.id));
+  }, [itens, histExtra]);
+  const cancelados = histRes !== null ? histRes : canceladosCarregados;
+  const totalCanc = totais ? totais.canc : canceladosCarregados.length;
+  const totalGeral = totais ? totais.total : itens.length;
+
+  // busca no histórico (servidor), com pausa de 500 ms ao digitar
+  useEffect(() => {
+    const t = histBusca.trim();
+    if (t.length < 2) {
+      setHistRes(null);
+      return undefined;
+    }
+    let vivo = true;
+    const timer = setTimeout(async () => {
+      setHistCarregando(true);
+      try {
+        const r = await cancBuscarCancelados({ busca: t });
+        if (vivo) setHistRes(r);
+      } catch (e) {
+        if (vivo) avisar(e.message || 'Falha na busca', 'err');
+      } finally {
+        if (vivo) setHistCarregando(false);
+      }
+    }, 500);
+    return () => {
+      vivo = false;
+      clearTimeout(timer);
+    };
+  }, [histBusca, avisar]);
+
+  async function carregarMaisAntigos() {
+    if (histCarregando) return;
+    const menor = canceladosCarregados.reduce(
+      (m, c) => Math.min(m, Number(c.id)),
+      Infinity
+    );
+    setHistCarregando(true);
+    try {
+      const r = await cancBuscarCancelados({
+        antesDoId: Number.isFinite(menor) ? menor : 0,
+      });
+      setHistExtra((cur) => [...cur, ...r]);
+      if (r.length < CANC_HIST_TAM) setHistFim(true);
+    } catch (e) {
+      avisar(e.message || 'Falha ao carregar', 'err');
+    } finally {
+      setHistCarregando(false);
+    }
+  }
   const qtd = (st) => itens.filter((c) => c.status === st).length;
   const qtdAtencao = pendentes.filter((c) => c.atencao).length;
   const qtdAtrasados = pendentes.filter((c) => cancAtrasado(c, agora)).length;
@@ -10552,7 +10945,7 @@ function TelaCancelamentos({ ativo }) {
       });
       avisar(editId ? 'Registro atualizado!' : 'Cancelamento salvo!');
       limparForm();
-      await carregar();
+      await carregar(true);
     } catch (err) {
       avisar(err.message || 'Erro ao salvar.', 'err');
     } finally {
@@ -10673,7 +11066,7 @@ function TelaCancelamentos({ ativo }) {
             ? 'Cancelado! A NF sai do Via Leitor.'
             : `${status}!`
         );
-        await carregar();
+        await carregar(true);
         if (status === CANC_ST_BFT) abrirBft(c);
       },
     });
@@ -10688,7 +11081,7 @@ function TelaCancelamentos({ ativo }) {
       acao: async () => {
         await cancRpc('cancelamento_excluir', { p_id: c.id });
         avisar('Excluído!');
-        await carregar();
+        await carregar(true);
       },
     });
   }
@@ -10773,6 +11166,7 @@ function TelaCancelamentos({ ativo }) {
                   <CancPrazo c={c} agora={agora} />
                 </td>
                 <td style={{ textAlign: 'right' }}>
+                  {!somenteLeitura && (
                   <span className="cnl-acao">
                     {tipo === 'pend' && (
                       <>
@@ -10851,6 +11245,7 @@ function TelaCancelamentos({ ativo }) {
                       <CancIco d={CANC_ICO_TRASH} />
                     </button>
                   </span>
+                  )}
                 </td>
               </tr>
             ))}
@@ -10897,6 +11292,7 @@ function TelaCancelamentos({ ativo }) {
       {erro && <div className="cnl-erro">{erro}</div>}
 
       <div className="cnl-tabs">
+        {!somenteLeitura && (
         <button
           type="button"
           className={`cnl-tab${aba === 'lancar' ? ' on' : ''}`}
@@ -10904,6 +11300,8 @@ function TelaCancelamentos({ ativo }) {
         >
           Lançar Cancelamento
         </button>
+        )}
+        {!somenteLeitura && (
         <button
           type="button"
           className={`cnl-tab${aba === 'pendentes' ? ' on' : ''}`}
@@ -10914,14 +11312,15 @@ function TelaCancelamentos({ ativo }) {
             <span className="cnl-badge">{pendentes.length}</span>
           )}
         </button>
+        )}
         <button
           type="button"
           className={`cnl-tab${aba === 'cancelados' ? ' on' : ''}`}
           onClick={() => setAba('cancelados')}
         >
           Já Cancelados
-          {cancelados.length > 0 && (
-            <span className="cnl-badge ok">{cancelados.length}</span>
+          {totalCanc > 0 && (
+            <span className="cnl-badge ok">{totalCanc}</span>
           )}
         </button>
       </div>
@@ -10930,11 +11329,11 @@ function TelaCancelamentos({ ativo }) {
         <>
           <div className="cnl-stats">
             <div className="cnl-stat">
-              <b>{itens.length}</b>
+              <b>{totalGeral}</b>
               <span>Total</span>
             </div>
             <div className="cnl-stat" style={{ '--k': 'var(--red)' }}>
-              <b>{qtd(CANC_ST_OK)}</b>
+              <b>{totalCanc}</b>
               <span>Cancelados</span>
             </div>
             <div className="cnl-stat" style={{ '--k': 'var(--blue-tx)' }}>
@@ -11238,8 +11637,42 @@ function TelaCancelamentos({ ativo }) {
 
       {aba === 'cancelados' && (
         <div className="cnl-card">
-          <h3>Pedidos Cancelados ({cancelados.length})</h3>
+          <h3>
+            Pedidos Cancelados ({cancelados.length}
+            {histRes === null && totalCanc > cancelados.length
+              ? ` de ${totalCanc}`
+              : ''}
+            )
+          </h3>
+          <input
+            className="cnl-busca"
+            type="search"
+            placeholder="Buscar no histórico completo: pedido, NF ou solicitante (mín. 2 caracteres)"
+            value={histBusca}
+            onChange={(e) => setHistBusca(e.target.value)}
+          />
+          <small style={{ display: 'block', marginBottom: 10, opacity: 0.7 }}>
+            {histRes !== null
+              ? histCarregando
+                ? 'Buscando…'
+                : `Resultado da busca no histórico completo (até ${CANC_HIST_TAM} registros).`
+              : `Mostrando os cancelados dos últimos ${CANC_JANELA_DIAS} dias. Use a busca ou "Carregar mais antigos" para ver o restante.`}
+          </small>
           {tabela(cancelados, 'canc')}
+          {histRes === null && !histFim && totalCanc > cancelados.length && (
+            <div style={{ textAlign: 'center', marginTop: 12 }}>
+              <button
+                type="button"
+                className="cnl-btn sm"
+                disabled={histCarregando}
+                onClick={carregarMaisAntigos}
+              >
+                {histCarregando
+                  ? 'Carregando…'
+                  : `Carregar mais antigos (+${CANC_HIST_TAM})`}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -11439,10 +11872,20 @@ function TelaCancelamentos({ ativo }) {
 
 export default function App() {
   const [tema, alternarTema] = useTema();
-  const [logado, setLogado] = useState(
-    () => localStorage.getItem(LOGIN_STORAGE_KEY) === 'true'
+  // guardado como 'logistica' ou 'geral' ('true' = login antigo, tratado como geral)
+  const [perfil, setPerfil] = useState(() => {
+    const v = localStorage.getItem(LOGIN_STORAGE_KEY);
+    return v === 'logistica' ? 'logistica' : v ? 'geral' : '';
+  });
+  const logado = !!perfil;
+  const ehLogistica = perfil === 'logistica';
+  const [tela, setTelaBruto] = useState('dashboard');
+  const setTela = useCallback(
+    (t) => {
+      if (ehLogistica || !TELAS_BLOQUEADAS_GERAL.includes(t)) setTelaBruto(t);
+    },
+    [ehLogistica]
   );
-  const [tela, setTela] = useState('dashboard');
   const [pedidoBuscaGlobal, setPedidoBuscaGlobal] = useState('');
   const [resultadosBuscaGlobal, setResultadosBuscaGlobal] = useState([]);
   const [buscandoGlobal, setBuscandoGlobal] = useState(false);
@@ -11579,13 +12022,17 @@ export default function App() {
 
   function sair() {
     localStorage.removeItem(LOGIN_STORAGE_KEY);
-    setLogado(false);
+    setTelaBruto('dashboard');
+    setPerfil('');
   }
 
   if (!logado)
     return (
       <TelaLogin
-        onLogin={() => setLogado(true)}
+        onLogin={(p) => {
+          setTelaBruto('dashboard');
+          setPerfil(p);
+        }}
         tema={tema}
         alternarTema={alternarTema}
       />
@@ -11739,18 +12186,20 @@ export default function App() {
             <MenuGrupBtn
               icon="EX"
               ativo={expedicaoAtiva}
-              onClick={() => setTela('viaLeitor')}
+              onClick={() => setTela(ehLogistica ? 'viaLeitor' : 'postagens')}
             >
               Expedição
             </MenuGrupBtn>
             {expedicaoAtiva && (
               <div style={{ marginTop: 4, paddingTop: 2 }}>
-                <SubMenuBtn
-                  ativo={tela === 'viaLeitor'}
-                  onClick={() => setTela('viaLeitor')}
-                >
-                  Via Leitor
-                </SubMenuBtn>
+                {ehLogistica && (
+                  <SubMenuBtn
+                    ativo={tela === 'viaLeitor'}
+                    onClick={() => setTela('viaLeitor')}
+                  >
+                    Via Leitor
+                  </SubMenuBtn>
+                )}
                 <SubMenuBtn
                   ativo={tela === 'postagens'}
                   onClick={() => setTela('postagens')}
@@ -12308,7 +12757,7 @@ export default function App() {
           )}
         </section>
         <div style={{ display: tela === 'dashboard' ? 'block' : 'none' }}>
-          <TelaDashboard setTela={setTela} />
+          <TelaDashboard setTela={setTela} ativo={tela === 'dashboard'} />
         </div>
         <div style={{ display: tela === 'faturamento' ? 'block' : 'none' }}>
           <TelaFaturamento />
@@ -12316,11 +12765,16 @@ export default function App() {
         <div style={{ display: tela === 'postagens' ? 'block' : 'none' }}>
           <TelaPostagens ativo={tela === 'postagens'} />
         </div>
-        <div style={{ display: tela === 'viaLeitor' ? 'block' : 'none' }}>
-          <TelaViaLeitor ativo={tela === 'viaLeitor'} />
-        </div>
+        {ehLogistica && (
+          <div style={{ display: tela === 'viaLeitor' ? 'block' : 'none' }}>
+            <TelaViaLeitor ativo={tela === 'viaLeitor'} />
+          </div>
+        )}
         <div style={{ display: tela === 'cancelamentos' ? 'block' : 'none' }}>
-          <TelaCancelamentos ativo={tela === 'cancelamentos'} />
+          <TelaCancelamentos
+            ativo={tela === 'cancelamentos'}
+            somenteLeitura={!ehLogistica}
+          />
         </div>
         <div style={{ display: tela === 'estoque' ? 'block' : 'none' }}>
           <TelaEstoque />
