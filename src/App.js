@@ -23,9 +23,6 @@ const LINK_APP_GESTAO =
 const LINK_APP_AJUSTE_SALDO =
   'https://script.google.com/a/macros/bbdi.com.br/s/AKfycby7AXNqbSs5ZRnLYa22oCk68S-i2Wuz_Nd8B-c1seLu6qdvfgdX1LvbA2p1Dww7FESZoA/exec';
 
-const LINK_DASHBOARD_OPERACIONAL_LOGISTICA =
-  'https://time-operacional.netlify.app/';
-
 // Supabase da Central de Expedição — somente LEITURA (funções/views criadas por fase_c_14_view_postagens_painel.sql).
 // A chave abaixo é a chave PÚBLICA (anon). Nunca coloque aqui a chave service_role / secret.
 const SUPABASE_URL = 'https://njvcostescybgwbnipec.supabase.co';
@@ -33,15 +30,24 @@ const SUPABASE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5qdmNvc3Rlc2N5Ymd3Ym5pcGVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxNzkxNzMsImV4cCI6MjEwNTc1NTE3M30.ZR9V23Fs-MzYznZCIRrTf2uXwc5oHiltb8hpmgJHADI';
 
 // Perfis de acesso:
-//   'geral'     = login da empresa toda: tudo para visualizar, EXCETO a tela Via Leitor; em Cancelamentos só o
-//                 histórico ("Já Cancelados"), sem lançar/alterar/excluir
+//   'geral'     = login da empresa toda: visualização, EXCETO Via Leitor, Ajuste de Saldo e Indicadores;
+//                 em Cancelamentos só o histórico ("Já Cancelados"); Análise de Transformações sem "Aplicar para todos"
 //   'logistica' = acesso completo (inclui Via Leitor e lançar/alterar/excluir cancelamentos)
 // ATENÇÃO: este login roda no navegador; serve para organizar o que cada pessoa vê, não para proteger dados sigilosos.
 const LOGINS = [
   { usuario: 'BBDI', senha: 'BBDI@2026', perfil: 'geral' },
   { usuario: 'LOGISTICA', senha: 'LOG@2026', perfil: 'logistica' },
 ];
-const TELAS_BLOQUEADAS_GERAL = ['viaLeitor'];
+const TELAS_BLOQUEADAS_GERAL = [
+  'viaLeitor',
+  'ajusteSaldo',
+  'indicadorDiario',
+  'indicadorExpedicaoDiario',
+  'indicadorFaturamentoMensal',
+  'indicadorExpedicaoMensal',
+  'indicadorAbastecimentoEstoque',
+  'indicadorAbastecimentoMensal',
+];
 const LOGIN_STORAGE_KEY = 'painel_operacional_logado';
 
 const FONTES_FATURAMENTO = [
@@ -3194,7 +3200,7 @@ function TelaProducao({ modo }) {
   );
 }
 
-function TelaAnaliseTransformacoes() {
+function TelaAnaliseTransformacoes({ somenteLeitura }) {
   const [dados, setDados] = useState([]);
   const [kpis, setKpis] = useState({
     totalModelos: 0,
@@ -3407,6 +3413,7 @@ function TelaAnaliseTransformacoes() {
         <Kpi titulo="Suficientes" valor={kpis.suficientes || 0} />
       </section>
 
+      {!somenteLeitura && (
       <section
         style={{
           background: C.bgCard,
@@ -3479,6 +3486,7 @@ function TelaAnaliseTransformacoes() {
           {salvandoSemanas ? 'Aplicando…' : 'Aplicar para todos'}
         </button>
       </section>
+      )}
 
       <FiltroTopo
         busca={busca}
@@ -8921,6 +8929,127 @@ function montarConsultaPostagens(filtros, pagina) {
   return `v_postagens_painel?${q.join('&')}`;
 }
 
+// Busca global de pedido nos dados do Supabase: Postagens, Via Leitor e Cancelamentos.
+// Via Leitor e Cancelamentos usam a cópia compartilhada (cache do Apps Script); Postagens usa a consulta
+// compartilhada de 5 min. Sem a URL do cache, ou se ela falhar, consulta o Supabase direto (poucas linhas).
+async function buscarPedidoSupabase(termo, ehLogistica, campo = 'pedido') {
+  const t = String(termo || '').trim().replace(/[,*()%]/g, '');
+  const out = [];
+  const falhas = [];
+  if (t.length < 3) return { itens: out, falhas };
+  const padrao = encodeURIComponent(`*${t}*`);
+  const tn = t.toLowerCase();
+  const porNf = campo === 'nf';
+  const semZeros = (v) => String(v === null || v === undefined ? '' : v).trim().toLowerCase().replace(/^0+(?=.)/, '');
+  const tnNf = semZeros(t);
+  // true se o valor do registro bate com o que foi digitado (pedido: contém; NF: contém, ignorando zeros à esquerda)
+  const bate = (obj) =>
+    porNf
+      ? semZeros(obj.nf_norm || obj.nf).includes(tnNf)
+      : String(obj.pedido || '').toLowerCase().includes(tn);
+  const dataBr = (v) => {
+    const pt = partesPostagem(v);
+    return pt ? pt.data : '-';
+  };
+
+  const tarefas = [];
+
+  // Postagens
+  tarefas.push(
+    (async () => {
+      const caminho = `v_postagens_painel?select=${POSTAGENS_COLUNAS}&busca=ilike.${encodeURIComponent(`*${tn}*`)}&order=ordem.desc,nf.desc,linha_id.asc&limit=100`;
+      let lista = await lerPostagensListaCompartilhada(caminho);
+      if (!lista) lista = await lerSupabasePostagem(caminho);
+      (Array.isArray(lista) ? lista : [])
+        .filter(bate)
+        .slice(0, 50)
+        .forEach((p) => {
+        out.push({
+          origem: 'Postagens',
+          telaDestino: 'postagens',
+          pedido: p.pedido || t,
+          filial: p.filial || '-',
+          produto: '-',
+          quantidade: p.volume || '-',
+          status: p.status_texto || p.situacao || '-',
+          data: p.postado_em ? dataBr(p.postado_em) : '-',
+          detalhe: `NF: ${p.nf || '-'} · Transportadora: ${
+            p.transportadora || '-'
+          } · Romaneio: ${p.romaneio || '-'}`,
+        });
+      });
+    })().catch((e) => falhas.push(`Postagens (${e.message || 'erro'})`))
+  );
+
+  // Via Leitor (só logística)
+  if (ehLogistica) {
+    tarefas.push(
+      (async () => {
+        const comp = await lerTelaCompartilhada('via');
+        let linhas;
+        if (comp) {
+          linhas = comp.linhas.filter(bate);
+        } else {
+          linhas = await lerSupabasePostagem(
+            `via_leitor?select=${VIA_SELECT}&filial=in.(0101,0102,1020)&${campo}=eq.${encodeURIComponent(t)}&limit=50`
+          );
+        }
+        (Array.isArray(linhas) ? linhas : []).slice(0, 50).forEach((x) => {
+          out.push({
+            origem: 'Via Leitor',
+            telaDestino: 'viaLeitor',
+            pedido: x.pedido || t,
+            filial: x.filial || '-',
+            produto: '-',
+            quantidade: x.total_unidades || x.volume || '-',
+            status: 'Faturado — aguardando expedição',
+            data: x.data_saida_entrada ? dataBr(x.data_saida_entrada) : '-',
+            detalhe: `NF: ${x.nf || '-'} · Transportadora: ${
+              viaNormLista(x.transportadora) || '-'
+            } · Cliente: ${x.cliente_codigo || '-'}`,
+          });
+        });
+      })().catch((e) => falhas.push(`Via Leitor (${e.message || 'erro'})`))
+    );
+  }
+
+  // Cancelamentos (a cópia compartilhada tem os pendentes + os últimos 30 dias; o login geral só vê cancelados)
+  tarefas.push(
+    (async () => {
+      const comp = await lerTelaCompartilhada('canc');
+      let lista;
+      if (comp) {
+        lista = comp.itens.filter(bate);
+      } else {
+        lista = await lerSupabasePostagem(
+          `v_cancelamentos_painel?select=*&${campo}=ilike.${padrao}&order=id.desc&limit=50`
+        );
+      }
+      (Array.isArray(lista) ? lista : [])
+        .filter((c) => ehLogistica || c.status === CANC_ST_OK)
+        .slice(0, 50)
+        .forEach((c) => {
+          out.push({
+            origem: 'Cancelamentos',
+            telaDestino: 'cancelamentos',
+            pedido: c.pedido || t,
+            filial: c.filial || '-',
+            produto: '-',
+            quantidade: '-',
+            status: c.status || '-',
+            data: c.data_cancelamento ? dataBr(c.data_cancelamento) : '-',
+            detalhe: `NF: ${c.nf || '-'} · Solicitante: ${
+              c.solicitante || '-'
+            } · Motivo: ${c.motivo || '-'}`,
+          });
+        });
+    })().catch((e) => falhas.push(`Cancelamentos (${e.message || 'erro'})`))
+  );
+
+  await Promise.all(tarefas);
+  return { itens: out, falhas };
+}
+
 // Listas grandes de Postagens (sem texto digitado: padrão, status/filial/transportadora, páginas) usam a cópia
 // compartilhada (5 min). Buscas por texto (NF, pedido, romaneio...) trazem poucas linhas e vão direto ao Supabase.
 async function lerPostagensListaCompartilhada(caminho) {
@@ -11890,6 +12019,7 @@ export default function App() {
   const [resultadosBuscaGlobal, setResultadosBuscaGlobal] = useState([]);
   const [buscandoGlobal, setBuscandoGlobal] = useState(false);
   const [erroBuscaGlobal, setErroBuscaGlobal] = useState('');
+  const [tipoBuscaGlobal, setTipoBuscaGlobal] = useState('pedido'); // 'pedido' | 'nf'
   const [buscaGlobalFeita, setBuscaGlobalFeita] = useState(false);
 
   useEffect(() => {
@@ -11919,12 +12049,18 @@ export default function App() {
     'indicadorAbastecimentoMensal',
   ].includes(tela);
 
-  const buscarPedidoGlobal = useCallback(() => {
+  const buscarPedidoGlobal = useCallback(async () => {
     const pedido = String(pedidoBuscaGlobal || '').trim();
+
+    const porNf = tipoBuscaGlobal === 'nf';
 
     if (!pedido) {
       setBuscaGlobalFeita(true);
-      setErroBuscaGlobal('Digite um número de pedido para pesquisar.');
+      setErroBuscaGlobal(
+        porNf
+          ? 'Digite o número da NF para pesquisar.'
+          : 'Digite um número de pedido para pesquisar.'
+      );
       setResultadosBuscaGlobal([]);
       return;
     }
@@ -11952,7 +12088,8 @@ export default function App() {
       const termoPedido = normalizar(pedido);
       const encontrados = [];
 
-      fontes.forEach((fonte) => {
+      // As planilhas (Faturamento, Estoque, Produção) não têm NF: pesquisa por NF só nos dados do Supabase.
+      (porNf ? [] : fontes).forEach((fonte) => {
         const dadosFonte = getCacheDadosPainel(fonte.key);
         const ehFaturamento =
           fonte.key === 'equipatech' || fonte.key === 'bbbaterias';
@@ -11998,6 +12135,13 @@ export default function App() {
           });
       });
 
+      // Supabase (Postagens, Via Leitor, Cancelamentos) — com o cache compartilhado
+      const sup = await buscarPedidoSupabase(
+        pedido,
+        ehLogistica,
+        porNf ? 'nf' : 'pedido'
+      );
+      encontrados.push(...sup.itens);
       setResultadosBuscaGlobal(encontrados);
 
       const totalCarregado = fontes.reduce(
@@ -12005,7 +12149,11 @@ export default function App() {
         0
       );
 
-      if (totalCarregado === 0) {
+      if (sup.falhas.length) {
+        setErroBuscaGlobal(
+          `Não foi possível pesquisar em: ${sup.falhas.join(', ')}.`
+        );
+      } else if (!porNf && totalCarregado === 0 && !encontrados.length) {
         setErroBuscaGlobal(
           'As bases ainda estão carregando. Aguarde alguns segundos e pesquise novamente.'
         );
@@ -12018,7 +12166,7 @@ export default function App() {
     } finally {
       setBuscandoGlobal(false);
     }
-  }, [pedidoBuscaGlobal]);
+  }, [pedidoBuscaGlobal, ehLogistica, tipoBuscaGlobal]);
 
   function sair() {
     localStorage.removeItem(LOGIN_STORAGE_KEY);
@@ -12157,19 +12305,6 @@ export default function App() {
           >
             Dashboard
           </MenuBtn>
-          <MenuBtn
-            icon="OP"
-            ativo={false}
-            onClick={() =>
-              window.open(
-                LINK_DASHBOARD_OPERACIONAL_LOGISTICA,
-                '_blank',
-                'noopener,noreferrer'
-              )
-            }
-          >
-            Operação Logística
-          </MenuBtn>
           <div
             style={{
               borderRadius: C.radius.md,
@@ -12274,12 +12409,14 @@ export default function App() {
                 >
                   Painel Estoque
                 </SubMenuBtn>
-                <SubMenuBtn
-                  ativo={tela === 'ajusteSaldo'}
-                  onClick={() => setTela('ajusteSaldo')}
-                >
-                  Ajuste de Saldo
-                </SubMenuBtn>
+                {ehLogistica && (
+                  <SubMenuBtn
+                    ativo={tela === 'ajusteSaldo'}
+                    onClick={() => setTela('ajusteSaldo')}
+                  >
+                    Ajuste de Saldo
+                  </SubMenuBtn>
+                )}
               </div>
             )}
           </div>
@@ -12346,6 +12483,7 @@ export default function App() {
           >
             Pedido de Venda
           </MenuBtn>
+          {ehLogistica && (
           <div
             style={{
               borderRadius: C.radius.md,
@@ -12405,6 +12543,7 @@ export default function App() {
               </div>
             )}
           </div>
+          )}
         </nav>
         <div
           style={{
@@ -12451,10 +12590,35 @@ export default function App() {
             }}
             style={{ display: 'flex', gap: 8, alignItems: 'center' }}
           >
+            <select
+              value={tipoBuscaGlobal}
+              onChange={(e) => setTipoBuscaGlobal(e.target.value)}
+              aria-label="Pesquisar por"
+              style={{
+                height: 38,
+                border: `1px solid ${C.bdMid}`,
+                borderRadius: C.radius.md,
+                padding: '0 8px',
+                fontSize: 13,
+                fontWeight: 800,
+                color: C.txtPri,
+                outline: 'none',
+                fontFamily: C.font,
+                background: C.bgCard,
+                cursor: 'pointer',
+              }}
+            >
+              <option value="pedido">Pedido</option>
+              <option value="nf">NF</option>
+            </select>
             <input
               value={pedidoBuscaGlobal}
               onChange={(e) => setPedidoBuscaGlobal(e.target.value)}
-              placeholder="Buscar pedido (nº do pedido)"
+              placeholder={
+                tipoBuscaGlobal === 'nf'
+                  ? 'Buscar NF (nº da NF)'
+                  : 'Buscar pedido (nº do pedido)'
+              }
               style={{
                 height: 38,
                 width: 260,
@@ -12522,7 +12686,13 @@ export default function App() {
                 whiteSpace: 'nowrap',
               }}
             >
-              Pesquisa nos dados já carregados: Faturamento, Estoque e Produção
+              {tipoBuscaGlobal === 'nf'
+                ? ehLogistica
+                  ? 'Pesquisa por NF: Postagens, Via Leitor e Cancelamentos'
+                  : 'Pesquisa por NF: Postagens e Cancelamentos'
+                : ehLogistica
+                ? 'Pesquisa geral: Faturamento, Estoque, Produção, Postagens, Via Leitor e Cancelamentos'
+                : 'Pesquisa geral: Faturamento, Estoque, Produção, Postagens e Cancelamentos'}
             </span>
           </form>
 
@@ -12546,7 +12716,8 @@ export default function App() {
                 }}
               >
                 <div style={{ fontSize: 13, fontWeight: 800, color: C.txtPri }}>
-                  Resultado da busca: {pedidoBuscaGlobal || '—'}
+                  Resultado da busca ({tipoBuscaGlobal === 'nf' ? 'NF' : 'pedido'}
+                  ): {pedidoBuscaGlobal || '—'}
                 </div>
                 <div
                   style={{
@@ -12561,6 +12732,40 @@ export default function App() {
                   {resultadosBuscaGlobal.length} ocorrência(s)
                 </div>
               </div>
+
+              {!buscandoGlobal && (
+                <div
+                  style={{
+                    padding: '7px 12px',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: C.txtSec,
+                    borderBottom: `1px solid ${C.bdLight}`,
+                  }}
+                >
+                  {(tipoBuscaGlobal === 'nf'
+                    ? ['Postagens', ehLogistica && 'Via Leitor', 'Cancelamentos']
+                    : [
+                        'Faturamento',
+                        'Estoque',
+                        'Produção',
+                        'Postagens',
+                        ehLogistica && 'Via Leitor',
+                        'Cancelamentos',
+                      ]
+                  )
+                    .filter(Boolean)
+                    .map(
+                      (nome) =>
+                        `${nome}: ${
+                          resultadosBuscaGlobal.filter((r) =>
+                            String(r.origem).startsWith(nome)
+                          ).length
+                        }`
+                    )
+                    .join(' · ')}
+                </div>
+              )}
 
               {erroBuscaGlobal && (
                 <div
@@ -12586,7 +12791,7 @@ export default function App() {
                     fontWeight: 800,
                   }}
                 >
-                  Pesquisando nos dados já carregados...
+                  Pesquisando...
                 </div>
               ) : resultadosBuscaGlobal.length === 0 ? (
                 <div
@@ -12597,7 +12802,9 @@ export default function App() {
                     fontWeight: 800,
                   }}
                 >
-                  Nenhum registro encontrado para esse pedido.
+                  {`Nenhum registro encontrado para ${
+                    tipoBuscaGlobal === 'nf' ? 'essa NF' : 'esse pedido'
+                  }.`}
                 </div>
               ) : (
                 <div
@@ -12779,10 +12986,11 @@ export default function App() {
         <div style={{ display: tela === 'estoque' ? 'block' : 'none' }}>
           <TelaEstoque />
         </div>
+        {ehLogistica && (
         <div style={{ display: tela === 'ajusteSaldo' ? 'block' : 'none' }}>
           <TelaAjusteSaldo />
         </div>
-
+        )}
         <div style={{ display: tela === 'consultaPecas' ? 'block' : 'none' }}>
           <TelaConsultaPecas />
         </div>
@@ -12797,7 +13005,7 @@ export default function App() {
             display: tela === 'analiseTransformacoes' ? 'block' : 'none',
           }}
         >
-          <TelaAnaliseTransformacoes />
+          <TelaAnaliseTransformacoes somenteLeitura={!ehLogistica} />
         </div>
         <div
           style={{
@@ -12809,9 +13017,12 @@ export default function App() {
         <div style={{ display: tela === 'pedidoVenda' ? 'block' : 'none' }}>
           <TelaPedidoVenda />
         </div>
+        {ehLogistica && (
         <div style={{ display: tela === 'indicadorDiario' ? 'block' : 'none' }}>
           <TelaIndicadorDiario />
         </div>
+        )}
+        {ehLogistica && (
         <div
           style={{
             display: tela === 'indicadorExpedicaoDiario' ? 'block' : 'none',
@@ -12819,6 +13030,8 @@ export default function App() {
         >
           <TelaIndicadorExpedicaoDiario />
         </div>
+        )}
+        {ehLogistica && (
         <div
           style={{
             display: tela === 'indicadorFaturamentoMensal' ? 'block' : 'none',
@@ -12826,6 +13039,8 @@ export default function App() {
         >
           <TelaIndicadorMensal tipo="faturamento" />
         </div>
+        )}
+        {ehLogistica && (
         <div
           style={{
             display: tela === 'indicadorExpedicaoMensal' ? 'block' : 'none',
@@ -12833,6 +13048,8 @@ export default function App() {
         >
           <TelaIndicadorMensal tipo="expedicao" />
         </div>
+        )}
+        {ehLogistica && (
         <div
           style={{
             display:
@@ -12841,6 +13058,8 @@ export default function App() {
         >
           <TelaIndicadorAbastecimentoEstoque />
         </div>
+        )}
+        {ehLogistica && (
         <div
           style={{
             display: tela === 'indicadorAbastecimentoMensal' ? 'block' : 'none',
@@ -12848,6 +13067,7 @@ export default function App() {
         >
           <TelaIndicadorAbastecimentoMensal />
         </div>
+        )}
       </main>
     </div>
   );
