@@ -3433,78 +3433,78 @@ function TelaAnaliseTransformacoes({ somenteLeitura }) {
       </section>
 
       {!somenteLeitura && (
-        <section
-          style={{
-            background: C.bgCard,
-            border: `1px solid ${C.bdLight}`,
-            borderRadius: C.radius.lg,
-            padding: 16,
-            marginBottom: 16,
-            boxShadow: C.shadowCard,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ marginRight: 8 }}>
-            <div
-              style={{
-                fontWeight: 800,
-                color: C.txtPri,
-                fontSize: 13,
-                fontFamily: C.font,
-              }}
-            >
-              Produzir X semanas
-            </div>
-            <div
-              style={{
-                color: C.txtMuted,
-                fontSize: 10,
-                marginTop: 2,
-                fontFamily: C.font,
-              }}
-            >
-              Escolha uma opção e aplique na coluna D de todos os produtos.
-            </div>
-          </div>
-
-          <select
-            value={semanasGlobal}
-            onChange={(e) => setSemanasGlobal(e.target.value)}
-            style={{ ...selectEl, minWidth: 135 }}
-            disabled={salvandoSemanas}
-          >
-            <option value="1">1 SEMANA</option>
-            <option value="2">2 SEMANAS</option>
-            <option value="3">3 SEMANAS</option>
-            <option value="4">4 SEMANAS</option>
-          </select>
-
-          <button
-            type="button"
-            onClick={aplicarSemanasEmTodos}
-            disabled={salvandoSemanas}
+      <section
+        style={{
+          background: C.bgCard,
+          border: `1px solid ${C.bdLight}`,
+          borderRadius: C.radius.lg,
+          padding: 16,
+          marginBottom: 16,
+          boxShadow: C.shadowCard,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ marginRight: 8 }}>
+          <div
             style={{
-              height: 36,
-              border: 'none',
-              borderRadius: C.radius.md,
-              padding: '0 16px',
-              background: salvandoSemanas ? C.bgMuted : C.primaryGrad,
-              color: salvandoSemanas ? C.txtMuted : '#fff',
               fontWeight: 800,
-              fontSize: 12,
-              cursor: salvandoSemanas ? 'not-allowed' : 'pointer',
+              color: C.txtPri,
+              fontSize: 13,
               fontFamily: C.font,
-              boxShadow: salvandoSemanas
-                ? 'none'
-                : '0 4px 14px rgba(var(--accent-rgb),0.35)',
             }}
           >
-            {salvandoSemanas ? 'Aplicando…' : 'Aplicar para todos'}
-          </button>
-        </section>
+            Produzir X semanas
+          </div>
+          <div
+            style={{
+              color: C.txtMuted,
+              fontSize: 10,
+              marginTop: 2,
+              fontFamily: C.font,
+            }}
+          >
+            Escolha uma opção e aplique na coluna D de todos os produtos.
+          </div>
+        </div>
+
+        <select
+          value={semanasGlobal}
+          onChange={(e) => setSemanasGlobal(e.target.value)}
+          style={{ ...selectEl, minWidth: 135 }}
+          disabled={salvandoSemanas}
+        >
+          <option value="1">1 SEMANA</option>
+          <option value="2">2 SEMANAS</option>
+          <option value="3">3 SEMANAS</option>
+          <option value="4">4 SEMANAS</option>
+        </select>
+
+        <button
+          type="button"
+          onClick={aplicarSemanasEmTodos}
+          disabled={salvandoSemanas}
+          style={{
+            height: 36,
+            border: 'none',
+            borderRadius: C.radius.md,
+            padding: '0 16px',
+            background: salvandoSemanas ? C.bgMuted : C.primaryGrad,
+            color: salvandoSemanas ? C.txtMuted : '#fff',
+            fontWeight: 800,
+            fontSize: 12,
+            cursor: salvandoSemanas ? 'not-allowed' : 'pointer',
+            fontFamily: C.font,
+            boxShadow: salvandoSemanas
+              ? 'none'
+              : '0 4px 14px rgba(var(--accent-rgb),0.35)',
+          }}
+        >
+          {salvandoSemanas ? 'Aplicando…' : 'Aplicar para todos'}
+        </button>
+      </section>
       )}
 
       <FiltroTopo
@@ -8281,9 +8281,7 @@ function paginaVisivel() {
 // Se a assinatura não mudou, não precisa baixar a lista de novo.
 async function lerSupabaseAssinatura(caminho) {
   const r = await fetch(
-    `${SUPABASE_URL}/rest/v1/${caminho}${
-      caminho.includes('?') ? '&' : '?'
-    }limit=1`,
+    `${SUPABASE_URL}/rest/v1/${caminho}${caminho.includes('?') ? '&' : '?'}limit=1`,
     {
       headers: { ...headersSupabasePostagem(), Prefer: 'count=exact' },
       cache: 'no-store',
@@ -9145,28 +9143,20 @@ function montarConsultaPostagens(filtros, pagina) {
 // Via Leitor e Cancelamentos usam a cópia compartilhada (cache do Apps Script); Postagens usa a consulta
 // compartilhada de 5 min. Sem a URL do cache, ou se ela falhar, consulta o Supabase direto (poucas linhas).
 async function buscarPedidoSupabase(termo, ehLogistica, campo = 'pedido') {
-  const t = String(termo || '')
-    .trim()
-    .replace(/[,*()%]/g, '');
+  const t = String(termo || '').trim().replace(/[,*()%]/g, '');
   const out = [];
   const falhas = [];
   if (t.length < 3) return { itens: out, falhas };
   const padrao = encodeURIComponent(`*${t}*`);
   const tn = t.toLowerCase();
   const porNf = campo === 'nf';
-  const semZeros = (v) =>
-    String(v === null || v === undefined ? '' : v)
-      .trim()
-      .toLowerCase()
-      .replace(/^0+(?=.)/, '');
+  const semZeros = (v) => String(v === null || v === undefined ? '' : v).trim().toLowerCase().replace(/^0+(?=.)/, '');
   const tnNf = semZeros(t);
   // true se o valor do registro bate com o que foi digitado (pedido: contém; NF: contém, ignorando zeros à esquerda)
   const bate = (obj) =>
     porNf
       ? semZeros(obj.nf_norm || obj.nf).includes(tnNf)
-      : String(obj.pedido || '')
-          .toLowerCase()
-          .includes(tn);
+      : String(obj.pedido || '').toLowerCase().includes(tn);
   const dataBr = (v) => {
     const pt = partesPostagem(v);
     return pt ? pt.data : '-';
@@ -9177,29 +9167,27 @@ async function buscarPedidoSupabase(termo, ehLogistica, campo = 'pedido') {
   // Postagens
   tarefas.push(
     (async () => {
-      const caminho = `v_postagens_painel?select=${POSTAGENS_COLUNAS}&busca=ilike.${encodeURIComponent(
-        `*${tn}*`
-      )}&order=ordem.desc,nf.desc,linha_id.asc&limit=100`;
+      const caminho = `v_postagens_painel?select=${POSTAGENS_COLUNAS}&busca=ilike.${encodeURIComponent(`*${tn}*`)}&order=ordem.desc,nf.desc,linha_id.asc&limit=100`;
       let lista = await lerPostagensListaCompartilhada(caminho);
       if (!lista) lista = await lerSupabasePostagem(caminho);
       (Array.isArray(lista) ? lista : [])
         .filter(bate)
         .slice(0, 50)
         .forEach((p) => {
-          out.push({
-            origem: 'Postagens',
-            telaDestino: 'postagens',
-            pedido: p.pedido || t,
-            filial: p.filial || '-',
-            produto: '-',
-            quantidade: p.volume || '-',
-            status: p.status_texto || p.situacao || '-',
-            data: p.postado_em ? dataBr(p.postado_em) : '-',
-            detalhe: `NF: ${p.nf || '-'} · Transportadora: ${
-              p.transportadora || '-'
-            } · Romaneio: ${p.romaneio || '-'}`,
-          });
+        out.push({
+          origem: 'Postagens',
+          telaDestino: 'postagens',
+          pedido: p.pedido || t,
+          filial: p.filial || '-',
+          produto: '-',
+          quantidade: p.volume || '-',
+          status: p.status_texto || p.situacao || '-',
+          data: p.postado_em ? dataBr(p.postado_em) : '-',
+          detalhe: `NF: ${p.nf || '-'} · Transportadora: ${
+            p.transportadora || '-'
+          } · Romaneio: ${p.romaneio || '-'}`,
         });
+      });
     })().catch((e) => falhas.push(`Postagens (${e.message || 'erro'})`))
   );
 
@@ -9213,9 +9201,7 @@ async function buscarPedidoSupabase(termo, ehLogistica, campo = 'pedido') {
           linhas = comp.linhas.filter(bate);
         } else {
           linhas = await lerSupabasePostagem(
-            `via_leitor?select=${VIA_SELECT}&filial=in.(0101,0102,1020)&${campo}=eq.${encodeURIComponent(
-              t
-            )}&limit=50`
+            `via_leitor?select=${VIA_SELECT}&filial=in.(0101,0102,1020)&${campo}=eq.${encodeURIComponent(t)}&limit=50`
           );
         }
         (Array.isArray(linhas) ? linhas : []).slice(0, 50).forEach((x) => {
@@ -9278,21 +9264,17 @@ async function buscarPedidoSupabase(termo, ehLogistica, campo = 'pedido') {
 // compartilhada (5 min). Buscas por texto (NF, pedido, romaneio...) trazem poucas linhas e vão direto ao Supabase.
 async function lerPostagensListaCompartilhada(caminho) {
   if (!CACHE_COMPARTILHADO_URL) return null;
-  const ctl =
-    typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = ctl ? setTimeout(() => ctl.abort(), 30000) : null;
   try {
     const sep = CACHE_COMPARTILHADO_URL.includes('?') ? '&' : '?';
     const resp = await fetch(
-      `${CACHE_COMPARTILHADO_URL}${sep}action=postagens&q=${encodeURIComponent(
-        caminho
-      )}`,
+      `${CACHE_COMPARTILHADO_URL}${sep}action=postagens&q=${encodeURIComponent(caminho)}`,
       ctl ? { signal: ctl.signal } : undefined
     );
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const j = await resp.json();
-    if (!j || !j.ok || !Array.isArray(j.dados))
-      throw new Error('resposta inválida');
+    if (!j || !j.ok || !Array.isArray(j.dados)) throw new Error('resposta inválida');
     return j.dados;
   } catch (e) {
     return null; // quem chamou usa o Supabase direto
@@ -9344,9 +9326,7 @@ function TelaPostagens({ ativo }) {
     try {
       const caminhoPg = montarConsultaPostagens(aplicados, pagina);
       const semTexto = !aplicados.rom.trim() && !aplicados.busca.trim();
-      let lote = semTexto
-        ? await lerPostagensListaCompartilhada(caminhoPg)
-        : null;
+      let lote = semTexto ? await lerPostagensListaCompartilhada(caminhoPg) : null;
       if (!lote) lote = await lerSupabasePostagem(caminhoPg);
       if (minha !== seq.current) return;
       const lista = Array.isArray(lote) ? lote : [];
@@ -10002,13 +9982,7 @@ function viaFiltrarPendentes(base, cfg) {
 // recebem a mesma resposta guardada no servidor, então o consumo não cresce com o número de pessoas.
 // Vazio (''), ou se o servidor falhar, volta a consultar o Supabase direto (comportamento anterior).
 const CACHE_COMPARTILHADO_URL = '';
-const DASH_COMPARTILHADO = {
-  versao: '',
-  via: null,
-  canc: null,
-  ts: 0,
-  pendente: null,
-};
+const DASH_COMPARTILHADO = { versao: '', via: null, canc: null, ts: 0, pendente: null };
 
 async function lerCacheCompartilhado() {
   if (!CACHE_COMPARTILHADO_URL) return null;
@@ -10017,8 +9991,7 @@ async function lerCacheCompartilhado() {
   if (D.canc && Date.now() - D.ts < 20000) return D;
   if (D.pendente) return D.pendente;
   D.pendente = (async () => {
-    const ctl =
-      typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = ctl ? setTimeout(() => ctl.abort(), 30000) : null;
     try {
       const sep = CACHE_COMPARTILHADO_URL.includes('?') ? '&' : '?';
@@ -10063,8 +10036,7 @@ async function lerTelaCompartilhada(tipo) {
   if (T.dados && Date.now() - T.ts < 15000) return T.dados; // evita pedidos repetidos em sequência
   if (T.pendente) return T.pendente;
   T.pendente = (async () => {
-    const ctl =
-      typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     const timer = ctl ? setTimeout(() => ctl.abort(), 30000) : null;
     try {
       const sep = CACHE_COMPARTILHADO_URL.includes('?') ? '&' : '?';
@@ -10102,9 +10074,7 @@ async function invalidarTelaCompartilhada(tipo) {
   DASH_COMPARTILHADO.ts = 0;
   try {
     const sep = CACHE_COMPARTILHADO_URL.includes('?') ? '&' : '?';
-    const resp = await fetch(
-      `${CACHE_COMPARTILHADO_URL}${sep}action=invalidar&tipo=${tipo}`
-    );
+    const resp = await fetch(`${CACHE_COMPARTILHADO_URL}${sep}action=invalidar&tipo=${tipo}`);
     if (!resp.ok) return false;
     const j = await resp.json();
     return !!(j && j.ok);
@@ -10609,9 +10579,7 @@ const CANC_JANELA_DIAS = 30; // cancelados mais antigos que isso só entram por 
 const CANC_HIST_TAM = 200;
 
 function cancDataIsoMenosDias(dias) {
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Sao_Paulo',
-  });
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' });
   return fmt.format(new Date(Date.now() - dias * 86400000));
 }
 
@@ -10621,9 +10589,7 @@ async function cancTotais() {
   const [total, canc] = await Promise.all([
     lerSupabaseAssinatura('v_cancelamentos_painel?select=id&order=id.desc'),
     lerSupabaseAssinatura(
-      `v_cancelamentos_painel?select=id&status=eq.${encodeURIComponent(
-        CANC_ST_OK
-      )}&order=id.desc`
+      `v_cancelamentos_painel?select=id&status=eq.${encodeURIComponent(CANC_ST_OK)}&order=id.desc`
     ),
   ]);
   return { total: n(total), canc: n(canc) };
@@ -10632,9 +10598,7 @@ async function cancTotais() {
 // Busca no histórico inteiro (servidor): por pedido, NF ou solicitante; ou página mais antiga que um id.
 async function cancBuscarCancelados({ busca, antesDoId }) {
   const q = [`select=*`, `status=eq.${encodeURIComponent(CANC_ST_OK)}`];
-  const t = String(busca || '')
-    .trim()
-    .replace(/[,*()%]/g, '');
+  const t = String(busca || '').trim().replace(/[,*()%]/g, '');
   if (t) {
     const p = encodeURIComponent(`*${t}*`);
     q.push(`or=(pedido.ilike.${p},nf.ilike.${p},solicitante.ilike.${p})`);
@@ -10650,9 +10614,7 @@ async function cancAssinatura() {
   const base = 'v_cancelamentos_painel?select=id&order=id.desc';
   const porStatus = (st) => `${base}&status=eq.${encodeURIComponent(st)}`;
   const partes = await Promise.all([
-    lerSupabaseAssinatura(
-      'v_cancelamentos_painel?select=id,status&order=id.desc'
-    ),
+    lerSupabaseAssinatura('v_cancelamentos_painel?select=id,status&order=id.desc'),
     lerSupabaseAssinatura(porStatus(CANC_ST_OK)),
     lerSupabaseAssinatura(porStatus(CANC_ST_BFT)),
     lerSupabaseAssinatura(porStatus(CANC_ST_AG)),
@@ -11544,88 +11506,84 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
                 </td>
                 <td style={{ textAlign: 'right' }}>
                   {!somenteLeitura && (
-                    <span className="cnl-acao">
-                      {tipo === 'pend' && (
-                        <>
-                          <button
-                            type="button"
-                            className="cnl-btn sm go"
-                            onClick={() =>
-                              mudarStatus(
-                                c,
-                                CANC_ST_OK,
-                                'Marcar como Cancelado'
-                              )
-                            }
-                          >
-                            <CancIco d={CANC_ICO_CHECK} />
-                            Cancelar
-                          </button>
-                          {c.status === CANC_ST_AG &&
-                            CANC_FILIAIS_CNT.includes(String(c.filial)) && (
-                              <button
-                                type="button"
-                                className="cnl-btn sm cntb"
-                                onClick={() =>
-                                  mudarStatus(
-                                    c,
-                                    CANC_ST_CNT,
-                                    'Marcar como Aguardando CNT'
-                                  )
-                                }
-                                title="A NF entrou no processo do CNT"
-                              >
-                                CNT
-                              </button>
-                            )}
-                          <button
-                            type="button"
-                            className="cnl-btn sm amb"
-                            onClick={() =>
-                              mudarStatus(
-                                c,
-                                CANC_ST_BFT,
-                                'Marcar como Aguardando Pagto BFT'
-                              )
-                            }
-                            title="Aguardando pagamento BFT"
-                          >
-                            BFT
-                          </button>
-                        </>
-                      )}
-                      {tipo === 'pend' && c.status === CANC_ST_BFT && (
+                  <span className="cnl-acao">
+                    {tipo === 'pend' && (
+                      <>
                         <button
                           type="button"
-                          className="cnl-btn sm bftmsg"
-                          onClick={() => abrirBft(c)}
-                          title="Texto pronto para avisar o financeiro no grupo"
+                          className="cnl-btn sm go"
+                          onClick={() =>
+                            mudarStatus(c, CANC_ST_OK, 'Marcar como Cancelado')
+                          }
                         >
-                          💬 Msg BFT
+                          <CancIco d={CANC_ICO_CHECK} />
+                          Cancelar
                         </button>
-                      )}
-                      <span className="cnl-sep" />
-                      {tipo !== 'canc' && (
+                        {c.status === CANC_ST_AG &&
+                          CANC_FILIAIS_CNT.includes(String(c.filial)) && (
+                            <button
+                              type="button"
+                              className="cnl-btn sm cntb"
+                              onClick={() =>
+                                mudarStatus(
+                                  c,
+                                  CANC_ST_CNT,
+                                  'Marcar como Aguardando CNT'
+                                )
+                              }
+                              title="A NF entrou no processo do CNT"
+                            >
+                              CNT
+                            </button>
+                          )}
                         <button
                           type="button"
-                          className="cnl-btn sm ico"
-                          onClick={() => editar(c)}
-                          title="Editar"
-                          aria-label="Editar"
+                          className="cnl-btn sm amb"
+                          onClick={() =>
+                            mudarStatus(
+                              c,
+                              CANC_ST_BFT,
+                              'Marcar como Aguardando Pagto BFT'
+                            )
+                          }
+                          title="Aguardando pagamento BFT"
                         >
-                          <CancIco d={CANC_ICO_EDIT} />
+                          BFT
                         </button>
-                      )}
+                      </>
+                    )}
+                    {tipo === 'pend' && c.status === CANC_ST_BFT && (
                       <button
                         type="button"
-                        className="cnl-btn sm ico red"
-                        onClick={() => excluir(c)}
-                        title="Excluir"
-                        aria-label="Excluir"
+                        className="cnl-btn sm bftmsg"
+                        onClick={() => abrirBft(c)}
+                        title="Texto pronto para avisar o financeiro no grupo"
                       >
-                        <CancIco d={CANC_ICO_TRASH} />
+                        💬 Msg BFT
                       </button>
-                    </span>
+                    )}
+                    <span className="cnl-sep" />
+                    {tipo !== 'canc' && (
+                      <button
+                        type="button"
+                        className="cnl-btn sm ico"
+                        onClick={() => editar(c)}
+                        title="Editar"
+                        aria-label="Editar"
+                      >
+                        <CancIco d={CANC_ICO_EDIT} />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="cnl-btn sm ico red"
+                      onClick={() => excluir(c)}
+                      title="Excluir"
+                      aria-label="Excluir"
+                    >
+                      <CancIco d={CANC_ICO_TRASH} />
+                    </button>
+                  </span>
                   )}
                 </td>
               </tr>
@@ -11674,25 +11632,25 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
 
       <div className="cnl-tabs">
         {!somenteLeitura && (
-          <button
-            type="button"
-            className={`cnl-tab${aba === 'lancar' ? ' on' : ''}`}
-            onClick={() => setAba('lancar')}
-          >
-            Lançar Cancelamento
-          </button>
+        <button
+          type="button"
+          className={`cnl-tab${aba === 'lancar' ? ' on' : ''}`}
+          onClick={() => setAba('lancar')}
+        >
+          Lançar Cancelamento
+        </button>
         )}
         {!somenteLeitura && (
-          <button
-            type="button"
-            className={`cnl-tab${aba === 'pendentes' ? ' on' : ''}`}
-            onClick={() => setAba('pendentes')}
-          >
-            Cancelamentos Pendentes
-            {pendentes.length > 0 && (
-              <span className="cnl-badge">{pendentes.length}</span>
-            )}
-          </button>
+        <button
+          type="button"
+          className={`cnl-tab${aba === 'pendentes' ? ' on' : ''}`}
+          onClick={() => setAba('pendentes')}
+        >
+          Cancelamentos Pendentes
+          {pendentes.length > 0 && (
+            <span className="cnl-badge">{pendentes.length}</span>
+          )}
+        </button>
         )}
         <button
           type="button"
@@ -11700,7 +11658,9 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
           onClick={() => setAba('cancelados')}
         >
           Já Cancelados
-          {totalCanc > 0 && <span className="cnl-badge ok">{totalCanc}</span>}
+          {totalCanc > 0 && (
+            <span className="cnl-badge ok">{totalCanc}</span>
+          )}
         </button>
       </div>
 
@@ -12250,1276 +12210,7 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
 }
 
 // ════════ LISTA FATURAMENTO — endereços dos produtos (ENDERECOS_BASE do sistema de listas) ════════
-const LF_ENDERECOS = {
-  'B140XW02-V.1': 'F-01-11',
-  'B156XTN08.1': 'F-01-9',
-  'B156XW02-V.2': 'F-01-6',
-  'B156XW04-V.8': 'F-01-2',
-  'LP140WH1-TLA2': 'F-02-9',
-  'LP156WF4-SPJ1': 'F-02-7',
-  'N140BGE-E43': 'F-02-4',
-  'N140HCA-EAC': 'F-02-2',
-  'N156BGA-EA3': 'F-03-11',
-  'N156HCA-EBA': 'F-03-8',
-  'N156HGA-EAL': 'F-03-5',
-  'NT140WHM-N43': 'F-03-2',
-  'B101AW06-V.1': 'F-04-11',
-  B116XW02: 'F-04-11',
-  'B116XW03-V.2': 'F-04-11',
-  'B116XW05-V.0': 'F-04-11',
-  B133XW01: 'F-04-10',
-  'B140RW01-V.0': 'F-04-10',
-  B140RW02: 'F-04-10',
-  'B140XTT01.0': 'F-04-10',
-  'B140XW03-V.0': 'F-04-9',
-  B156HW01: 'F-04-8',
-  'B156XTN01.0': 'F-04-7',
-  'B156XW03-V.1': 'F-04-6',
-  'B156XW04-V.8-G': 'F-04-5',
-  B173HW01: 'F-04-4',
-  'B173RTN01.1': 'F-04-3',
-  CLAA156WA01A: 'F-04-2',
-  'DP-AP127': 'F-05-11',
-  'DP-AP140': 'F-05-11',
-  'DP-AP170': 'F-05-11',
-  'DP-AP171': 'F-05-11',
-  'DP-AP190': 'F-05-10',
-  'DP-AP205': 'F-05-10',
-  'DP-AP230': 'F-05-10',
-  'DP-AP231': 'F-05-10',
-  'DP-AP232': 'F-05-9',
-  'DP-FM100': 'F-05-9',
-  'DP-FN600': 'F-05-9',
-  'DP-HF140': 'F-05-9',
-  'DP-HM320': 'F-05-8',
-  'DP-HM400': 'F-05-8',
-  'DP-LE520': 'F-05-7',
-  'DP-LF150': 'F-05-7',
-  'DP-LF151': 'F-05-6',
-  'DP-LF153': 'F-05-6',
-  'DP-LM100': 'F-05-5',
-  'DP-LM200': 'F-05-5',
-  'DP-LM300': 'F-05-4',
-  'DP-LM500': 'F-05-4',
-  'DP-LM700': 'F-05-3',
-  'DP-LP756': 'F-05-3',
-  'DP-SJ300': 'F-05-2',
-  'DP-SM300': 'F-05-2',
-  'DP-SM400': 'F-05-1',
-  'DP-SM510': 'F-05-1',
-  'LP101WH2-TLB1': 'F-06-11',
-  LP101WSA: 'F-06-11',
-  LP116WH2: 'F-06-11',
-  'LP133WP1-TJA1': 'F-06-10',
-  'LP133WX1-TLB1': 'F-06-10',
-  'LP140WF1-SPU1': 'F-06-9',
-  'LP140WH1-TLD1': 'F-06-9',
-  LP141WX1: 'F-06-9',
-  LP154WX4: 'F-06-8',
-  'LP156WF7-SPN3': 'F-06-6',
-  'LP156WF9-SPK2': 'F-06-6',
-  LP173WD1: 'F-06-4',
-  LTN140AT21: 'F-06-3',
-  LTN141AT16: 'F-06-2',
-  LTN145AT01: 'F-06-2',
-  LTN156AT36: 'F-06-1',
-  'LTN156AT40-D01': 'F-07-11',
-  'N116BGE-EA2': 'F-07-10',
-  'N133BGE-EAB': 'F-07-10',
-  'N133HSE-EA1': 'F-07-9',
-  'N140BGE-LB2': 'F-07-9',
-  'N140FGE-EA2': 'F-07-9',
-  'N140HCA-E5C': 'F-07-8',
-  'N140HCE-EN1': 'F-07-8',
-  'N140HCE-G52': 'F-07-7',
-  'N140HGE-EBA': 'F-07-7',
-  'N156BGA-E53': 'F-07-6',
-  'N156HGE-LA1': 'F-07-6',
-  'N173HCE-E31': 'F-07-5',
-  'NT116WHM-N23': 'F-07-4',
-  'NT140WHM-N44': 'F-07-4',
-  'NT140WHM-N45': 'F-07-3',
-  'NT156FHM-N43': 'F-07-2',
-  'NV156FHM-N4T': 'F-07-1',
-  'BB20-AC19-3': 'A-01-4',
-  'BB20-AC19-B21': 'A-01-3',
-  'BB20-AC19-C21': 'A-01-2',
-  'BB20-AP16-L': 'A-01-2',
-  'BB20-AP45-M2': 'A-01-2',
-  'BB20-AP85-M2': 'A-01-2',
-  'BB20-AS019-4': 'A-02-4',
-  'BB20-AS019-45': 'A-02-4',
-  'BB20-BC65': 'A-02-4',
-  'BB20-CP6300': 'A-02-3',
-  'BB20-DE19-A': 'A-02-3',
-  'BB20-DE19-B': 'A-02-3',
-  'BB20-DE19-T6': 'A-02-2',
-  'BB20-DE19-U6': 'A-03-4',
-  'BB20-HP19-4': 'A-03-5',
-  'BB20-HP19-SP': 'A-03-4',
-  'BB20-LE20-E': 'A-03-3',
-  'BB20-LE20-F': 'A-03-3',
-  'BB20-SA19-40B': 'A-03-3',
-  'BB20-SA19-A': 'A-03-2',
-  'BB20-SO19-B2': 'A-03-2',
-  'BB20-TO19-B25': 'A-03-2',
-  'BB20-19V-150W': 'B-03-4',
-  'BB20-19V-180W': 'B-03-4',
-  'BB20-19V-230W': 'B-03-4',
-  'BB20-AC19-E21': 'B-03-4',
-  'BB20-AC19-E25': 'B-03-4',
-  'BB20-AC19-F21': 'B-03-4',
-  'BB20-AC19-ONE': 'B-03-4',
-  'BB20-AP140-M3': 'B-03-4',
-  'BB20-AP18-L': 'B-03-4',
-  'BB20-AP29-C': 'B-03-4',
-  'BB20-AP30-C': 'B-03-4',
-  'BB20-AP61-C': 'B-03-4',
-  'BB20-AP65-M2': 'B-03-4',
-  'BB20-AP89-C': 'B-03-4',
-  'BB20-AP96-C': 'B-03-4',
-  'BB20-AP96-M3': 'B-03-3',
-  'BB20-AS019': 'B-03-3',
-  'BB20-AS019-3': 'B-03-3',
-  'BB20-AS019-5': 'B-03-3',
-  'BB20-AS019-6': 'B-03-3',
-  'BB20-BC45': 'B-03-3',
-  'BB20-BD45': 'B-03-3',
-  'BB20-BD65': 'B-03-3',
-  'BB20-BD90': 'B-03-3',
-  'BB20-CP19-B': 'B-03-3',
-  'BB20-CP6300-120': 'B-03-3',
-  'BB20-CP6300-135': 'B-03-3',
-  'BB20-CP6300-H': 'B-03-3',
-  'BB20-DE19-E': 'B-03-3',
-  'BB20-DE19-T13': 'B-03-3',
-  'BB20-DE19-U9': 'B-03-2',
-  'BB20-HP19-40': 'B-03-2',
-  'BB20-HP19-5': 'B-03-2',
-  'BB20-IB16-C': 'B-03-2',
-  'BB20-IB20-B': 'B-03-2',
-  'BB20-LE20-A': 'B-03-2',
-  'BB20-LE20-B': 'B-03-2',
-  'BB20-LE20-C': 'B-03-2',
-  'BB20-LG19-65': 'B-03-2',
-  'BB20-PO05': 'B-03-2',
-  'BB20-PO20': 'B-03-2',
-  'BB20-SA19-40W': 'B-03-2',
-  'BB20-SA19-C': 'B-03-2',
-  'BB11-AC066': 'C-01-4',
-  'BB11-AC074': 'C-01-4',
-  'BB11-AC077': 'C-01-4',
-  'BB11-AC081': 'C-01-4',
-  'BB11-AC082': 'C-01-3',
-  'BB11-AC085': 'C-01-3',
-  'BB11-AC086': 'C-01-3',
-  'BB11-AC088': 'C-01-3',
-  'BB11-AS065': 'C-01-3',
-  'BB11-DE080': 'C-01-2',
-  'BB11-DE085': 'C-01-2',
-  'BB11-DE099': 'C-01-2',
-  'BB11-DE099-4C': 'C-01-2',
-  'BB11-DE101': 'C-01-2',
-  'BB11-DE111': 'C-02-4',
-  'BB11-DE120': 'C-02-4',
-  'BB11-DE125': 'C-02-4',
-  'BB11-DE125-4C': 'C-02-3',
-  'BB11-HP058': 'C-02-3',
-  'BB11-HP081': 'C-02-3',
-  'BB11-HP113': 'C-02-3',
-  'BB11-LE023': 'C-02-2',
-  'BB11-LE043': 'C-02-2',
-  'BB11-SS015': 'C-02-2',
-  'BB11-SS021': 'C-02-2',
-  'BB11-AC091': 'B-01-1',
-  'BB11-AC095': 'B-01-1',
-  'BB11-AP024': 'B-01-1',
-  'BB11-AP038': 'B-01-1',
-  'BB11-AP041': 'B-01-1',
-  'BB11-AP044': 'B-01-1',
-  'BB11-AP047': 'B-01-1',
-  'BB11-AP048': 'B-01-1',
-  'BB11-AP049': 'B-01-1',
-  'BB11-AS046': 'B-01-1',
-  'BB11-AS092': 'B-01-1',
-  'BB11-AS213': 'B-01-1',
-  'BB11-AS325': 'B-01-1',
-  'BB11-AS413': 'B-01-1',
-  'BB11-AS435': 'B-01-1',
-  'BB11-AS510': 'B-01-1',
-  'BB11-AS515': 'B-01-1',
-  'BB11-AS515-B': 'B-01-1',
-  'BB11-AS515-C': 'B-01-1',
-  'BB11-AS515-D': 'B-01-1',
-  'BB11-AS531': 'B-01-1',
-  'BB11-DE064': 'B-02-1',
-  'BB11-DE078-6C': 'B-02-1',
-  'BB11-DE082': 'B-02-1',
-  'BB11-DE097': 'B-02-1',
-  'BB11-DE127': 'B-02-1',
-  'BB11-DE141-HH': 'B-02-1',
-  'BB11-DE143': 'B-02-1',
-  'BB11-DE150-H': 'B-02-1',
-  'BB11-DE156': 'B-02-1',
-  'BB11-DE157': 'B-02-1',
-  'BB11-DE410': 'B-02-1',
-  'BB11-DE9310': 'B-02-1',
-  'BB11-HP025-A': 'B-02-1',
-  'BB11-HP102': 'B-02-1',
-  'BB11-HP109': 'B-02-1',
-  'BB11-HP112': 'B-02-1',
-  'BB11-HP119': 'B-02-1',
-  'BB11-HP120': 'B-02-1',
-  'BB11-HP360': 'B-02-1',
-  'BB11-HP361': 'B-02-1',
-  'BB11-LE051': 'B-02-1',
-  'BB11-LE053': 'B-02-1',
-  'BB11-LE058-C': 'B-02-1',
-  'BB11-LE062': 'B-02-1',
-  'BB11-LE066': 'B-02-1',
-  'BB11-LE070': 'B-03-1',
-  'BB11-LE070-2C': 'B-03-1',
-  'BB11-LE540': 'B-03-1',
-  'BB11-LE720': 'B-03-1',
-  'BB11-SO043': 'B-03-1',
-  'BB11-SO044': 'B-03-1',
-  'BB11-SO049': 'B-03-1',
-  'BB11-SO240': 'B-03-1',
-  'BB11-SS030': 'B-03-1',
-  'BB11-SS670': 'B-03-1',
-  'BB11-SS940': 'B-03-1',
-  'ML-HP058': 'B-03-1',
-  'KB-AC111': 'D-01-4',
-  'KB-AC117': 'D-01-4',
-  'KB-AC117-F2': 'D-01-4',
-  'KB-AC3810T-WF': 'D-01-4',
-  'KB-AC3830T': 'D-01-4',
-  'KB-AC431': 'D-01-4',
-  'KB-AC515-54': 'D-01-3',
-  'KB-AC515-F2': 'D-01-3',
-  'KB-AC521': 'D-01-3',
-  'KB-AC5830T': 'D-01-3',
-  'KB-AP1278-US': 'D-01-3',
-  'KB-AP1369-US': 'D-01-3',
-  'KB-AS103-ST': 'D-01-2',
-  'KB-AS104': 'D-01-2',
-  'KB-ASK45': 'D-01-2',
-  'KB-ATI8371': 'D-01-2',
-  'KB-DE101': 'D-01-2',
-  'KB-DE105': 'D-01-2',
-  'KB-DE109': 'D-02-4',
-  'KB-DE111': 'D-02-4',
-  'KB-DE113': 'D-02-4',
-  'KB-DIN14-3': 'D-02-4',
-  'KB-DIN14-3SLI': 'D-02-4',
-  'KB-DIN14RN': 'D-02-4',
-  'KB-DIN15-3': 'D-02-3',
-  'KB-DIN15-3LI': 'D-02-3',
-  'KB-DIN1545': 'D-02-3',
-  'KB-DIN15R': 'D-02-3',
-  'KB-HP104': 'D-02-3',
-  'KB-HP132': 'D-02-3',
-  'KB-HP135': 'D-02-2',
-  'KB-HPCQ42': 'D-02-2',
-  'KB-HPCQ43': 'D-02-2',
-  'KB-LE109/IMP': 'D-02-2',
-  'KB-LE113': 'D-02-2',
-  'KB-LE114': 'D-02-2',
-  'KB-LE115': 'D-03-4',
-  'KB-LE122': 'D-03-4',
-  'KB-LE431': 'D-03-4',
-  'KB-LG102': 'D-03-4',
-  'KB-NAC-10': 'D-03-4',
-  'KB-NAC-13': 'D-03-4',
-  'KB-NAC-13-F4': 'D-03-3',
-  'KB-NAC-13-F4A': 'D-03-3',
-  'KB-NAC-13-TCB': 'D-03-3',
-  'KB-NAC-14': 'D-03-3',
-  'KB-NAC-40': 'D-03-3',
-  'KB-SAN300-E5K': 'D-03-3',
-  'KB-SAN300-E5K-WH': 'D-03-2',
-  'KB-SANP270': 'D-03-2',
-  'KB-SANP300': 'D-03-2',
-  'KB-SANP370': 'D-03-2',
-  'KB-SANP550': 'D-03-2',
-  'KB-SARV411': 'D-03-2',
-  'SM2-2280F9-128G': 'E-01-4',
-  'SM2-2280F9-256G': 'E-01-4',
-  'SM2-2280F9-512G': 'E-01-4',
-  'SM2-2280NVME-128G': 'E-01-4',
-  'SM2-2280NVME-256G': 'E-01-4',
-  'SM2-2280NVME-512G': 'E-01-4',
-  'SSD-700S3W5-120G': 'E-01-4',
-  'SSD-700S3W5-240G': 'E-01-4',
-  'SSD-700S3W5-480G': 'E-01-4',
-  'SM2-2280NVME-512-G4': 'E-01-4',
-  'SSD-700S3W5-1T': 'E-01-4',
-  'SSP-NVME2500-1TB': 'E-01-4',
-  'SSP-NVME2500-256G': 'E-01-4',
-  'D3NB-16E-4GB': 'E-01-4',
-  'D3NB-16E-8GB': 'E-01-4',
-  'D3NB-16L-4GB': 'E-01-4',
-  'D3NB-16L-8GB': 'E-01-4',
-  'D4DS-26E-16GB': 'E-01-4',
-  'D4DS-26E-8GB': 'E-01-4',
-  'D4NB-32E-16GB': 'E-01-4',
-  'D4NB-24E-4GB': 'E-01-4',
-  'D4NB-24E-8GB': 'E-01-4',
-  'D4NB-24E-16GB': 'E-01-4',
-  'D4NB-32E-8GB': 'E-01-4',
-  'D5DS-48E-16GB': 'E-01-4',
-  'D5NB-48E-16GB': 'E-01-4',
-  'D5NB-56E-16GB': 'E-01-4',
-  'KB-AC101': 'E-01-3',
-  'KB-AC102': 'E-01-3',
-  'KB-AC111-GAT': 'E-01-3',
-  'KB-AC115': 'E-01-3',
-  'KB-AC117-ES': 'E-01-3',
-  'KB-AC118': 'E-01-3',
-  'KB-AC119': 'E-01-3',
-  'KB-AC119-US': 'E-01-3',
-  'KB-AC120-BT': 'E-01-3',
-  'KB-AC3100': 'E-01-3',
-  'KB-AC515-43': 'E-01-3',
-  'KB-AC521-GAT': 'E-01-3',
-  'KB-AC531-BR': 'E-01-3',
-  'KB-AC5516': 'E-01-3',
-  'KB-AC591-32': 'E-01-3',
-  'KB-AC591G': 'E-01-3',
-  'KB-AC5930': 'E-01-3',
-  'KB-AC7000': 'E-01-3',
-  'KB-ACONE-B': 'E-01-3',
-  'KB-ACONE-WBR': 'E-01-3',
-  'KB-ACONE532': 'E-01-3',
-  'KB-ACONE751': 'E-01-3',
-  'KB-ACS3': 'E-01-3',
-  'KB-AP1278': 'E-01-3',
-  'KB-AP1286': 'E-01-3',
-  'KB-AP1286-US': 'E-01-3',
-  'KB-AP1369': 'E-01-3',
-  'KB-AP1370-US': 'E-01-3',
-  'KB-AP1398-US': 'E-01-3',
-  'KB-AP1425': 'E-01-3',
-  'KB-AP1502-US': 'E-01-3',
-  'KB-AP1534': 'E-01-3',
-  'KB-AP1706': 'E-01-3',
-  'KB-AP1708': 'E-01-3',
-  'KB-AP1932': 'E-01-3',
-  'KB-AP1989': 'E-01-3',
-  'KB-AP2141': 'E-01-3',
-  'KB-AS102': 'E-01-3',
-  'KB-AS105': 'E-01-3',
-  'KB-AS105-F': 'E-01-3',
-  'KB-AS105-W': 'E-01-3',
-  'KB-AS110': 'E-01-3',
-  'KB-AS117': 'E-01-3',
-  'KB-AS121-P': 'E-01-3',
-  'KB-AS122': 'E-01-3',
-  'KB-AS125': 'E-01-3',
-  'KB-AS126': 'E-01-3',
-  'KB-AS126-US': 'E-01-3',
-  'KB-AS127': 'E-01-3',
-  'KB-AS128': 'E-01-3',
-  'KB-AS131': 'E-01-3',
-  'KB-AS152': 'E-01-3',
-  'KB-AS154': 'E-01-3',
-  'KB-AS510UA': 'E-01-3',
-  'KB-AS515': 'E-01-2',
-  'KB-ASF80': 'E-01-2',
-  'KB-ASF80-BT': 'E-01-2',
-  'KB-ASK42': 'E-01-2',
-  'KB-ASK42-F': 'E-01-2',
-  'KB-ASK42-US': 'E-01-2',
-  'KB-ASM515': 'E-01-2',
-  'KB-ASN10': 'E-01-2',
-  'KB-ASUL20-SF': 'E-01-2',
-  'KB-ASUX21': 'E-01-2',
-  'KB-ASVS200': 'E-01-2',
-  'KB-ASVS400': 'E-01-2',
-  'KB-CPCQ25': 'E-01-2',
-  'KB-CPCQ29': 'E-01-2',
-  'KB-DE102': 'E-01-2',
-  'KB-DE104': 'E-01-2',
-  'KB-DE106': 'E-01-2',
-  'KB-DE107': 'E-01-2',
-  'KB-DE108': 'E-01-2',
-  'KB-DE109-BL': 'E-01-2',
-  'KB-DE1090': 'E-01-2',
-  'KB-DE111-LI': 'E-01-2',
-  'KB-DE114': 'E-01-2',
-  'KB-DE1310': 'E-01-2',
-  'KB-DE3501': 'E-01-2',
-  'KB-DE3501-SI': 'E-01-2',
-  'KB-DE3511': 'E-01-2',
-  'KB-DE3520': 'E-01-2',
-  'KB-DE4310-A': 'E-01-2',
-  'KB-DE500-BR': 'E-01-2',
-  'KB-DE5400': 'E-01-2',
-  'KB-DE5470-P': 'E-01-2',
-  'KB-DE5510': 'E-01-2',
-  'KB-DE5520': 'E-01-2',
-  'KB-DE5570': 'E-01-2',
-  'KB-DE6400-B-US': 'E-01-2',
-  'KB-DE6420-B': 'E-01-2',
-  'KB-DE7537': 'E-01-2',
-  'KB-DIN14R': 'E-01-2',
-  'KB-DIN14RN-LI': 'E-01-2',
-  'KB-DIN1545-S': 'E-01-2',
-  'KB-DIN16R': 'E-01-2',
-  'KB-DIN3168': 'E-01-2',
-  'KB-DV6000': 'E-01-2',
-  'KB-DVO3300': 'E-01-2',
-  'KB-EEE1000-B': 'E-01-2',
-  'KB-EEE1000HE': 'E-01-2',
-  'KB-EEE1005-BL': 'E-01-2',
-  'KB-EEE1015': 'E-01-2',
-  'KB-EEE1015-TC': 'E-01-2',
-  'KB-EEE1015-WH': 'E-01-2',
-  'KB-EEE900-W': 'E-01-2',
-  'KB-HCQ62': 'E-01-2',
-  'KB-HDM1-3': 'E-01-2',
-  'KB-HDM3': 'E-02-4',
-  'KB-HDM4-F': 'E-02-4',
-  'KB-HDM4-WH': 'E-02-4',
-  'KB-HDV2': 'E-02-4',
-  'KB-HDV2000': 'E-02-4',
-  'KB-HDV4-3BL': 'E-02-4',
-  'KB-HDV4-BL': 'E-02-4',
-  'KB-HDV5': 'E-02-4',
-  'KB-HDV6-3BL': 'E-02-4',
-  'KB-HDV6-6': 'E-02-4',
-  'KB-HDV6-BR': 'E-02-4',
-  'KB-HDV7-4-BR': 'E-02-4',
-  'KB-HDV7-4-PO': 'E-02-4',
-  'KB-HEL2530': 'E-02-4',
-  'KB-HEL2560': 'E-02-4',
-  'KB-HEL8440': 'E-02-4',
-  'KB-HEL8460': 'E-02-4',
-  'KB-HEL8460-F': 'E-02-4',
-  'KB-HEL8460-P': 'E-02-4',
-  'KB-HMI1000-BL': 'E-02-4',
-  'KB-HMI110-1BL': 'E-02-4',
-  'KB-HMI210': 'E-02-4',
-  'KB-HMI210-F': 'E-02-4',
-  'KB-HP0015': 'E-02-4',
-  'KB-HP027': 'E-02-4',
-  'KB-HP102': 'E-02-4',
-  'KB-HP103': 'E-02-4',
-  'KB-HP1030-G2': 'E-02-4',
-  'KB-HP104-SF': 'E-02-4',
-  'KB-HP108': 'E-02-4',
-  'KB-HP109': 'E-02-4',
-  'KB-HP114': 'E-02-4',
-  'KB-HP114-F': 'E-02-4',
-  'KB-HP115': 'E-02-4',
-  'KB-HP116': 'E-02-4',
-  'KB-HP117': 'E-02-4',
-  'KB-HP121': 'E-02-3',
-  'KB-HP124': 'E-02-3',
-  'KB-HP125-BR': 'E-02-3',
-  'KB-HP127': 'E-02-3',
-  'KB-HP127-PO': 'E-02-3',
-  'KB-HP127-PO-F': 'E-02-3',
-  'KB-HP128': 'E-02-3',
-  'KB-HP129': 'E-02-3',
-  'KB-HP130': 'E-02-3',
-  'KB-HP131': 'E-02-3',
-  'KB-HP133': 'E-02-3',
-  'KB-HP136': 'E-02-3',
-  'KB-HP137': 'E-02-3',
-  'KB-HP138': 'E-02-3',
-  'KB-HP140': 'E-02-3',
-  'KB-HP141': 'E-02-3',
-  'KB-HP2560': 'E-02-3',
-  'KB-HP320-BR': 'E-02-3',
-  'KB-HP420': 'E-02-3',
-  'KB-HP500': 'E-02-3',
-  'KB-HP500-US': 'E-02-3',
-  'KB-HP510': 'E-02-3',
-  'KB-HP650-G2': 'E-02-3',
-  'KB-HP6510': 'E-02-3',
-  'KB-HP6530B': 'E-02-3',
-  'KB-HP745-G3': 'E-02-3',
-  'KB-HP745-G7': 'E-02-3',
-  'KB-HP820-G1': 'E-02-3',
-  'KB-HPCQ10-BR': 'E-02-3',
-  'KB-HPCQ10-BR-SI': 'E-02-3',
-  'KB-HPCQ45': 'E-02-3',
-  'KB-HPCQ60': 'E-02-3',
-  'KB-HPCQ700': 'E-02-3',
-  'KB-HPG4-2-BL': 'E-02-3',
-  'KB-HPG4-2-WH': 'E-02-3',
-  'KB-HPR4330': 'E-02-3',
-  'KB-HPR4535': 'E-02-3',
-  'KB-HPR6440': 'E-02-3',
-  'KB-HPV6000': 'E-02-3',
-  'KB-LE10-2': 'E-02-3',
-  'KB-LE105': 'E-02-3',
-  'KB-LE106': 'E-02-3',
-  'KB-LE107': 'E-02-3',
-  'KB-LE108': 'E-02-3',
-  'KB-LE108-CI': 'E-02-3',
-  'KB-LE110': 'E-02-3',
-  'KB-LE111': 'E-02-3',
-  'KB-LE112': 'E-02-3',
-  'KB-LE116': 'E-02-3',
-  'KB-LE117': 'E-02-3',
-  'KB-LE118': 'E-02-3',
-  'KB-LE119': 'E-02-3',
-  'KB-LE120': 'E-02-3',
-  'KB-LE121': 'E-02-3',
-  'KB-LE123': 'E-02-2',
-  'KB-LE124': 'E-02-2',
-  'KB-LE125': 'E-02-2',
-  'KB-LE126': 'E-02-2',
-  'KB-LE127': 'E-02-2',
-  'KB-LE382': 'E-02-2',
-  'KB-LE480S': 'E-02-2',
-  'KB-LE481S': 'E-02-2',
-  'KB-LEB470': 'E-02-2',
-  'KB-LEB5050': 'E-02-2',
-  'KB-LEF514': 'E-02-2',
-  'KB-LEG50': 'E-02-2',
-  'KB-LEG530': 'E-02-2',
-  'KB-LEG550': 'E-02-2',
-  'KB-LEIZ450': 'E-02-2',
-  'KB-LEIZ450-FC': 'E-02-2',
-  'KB-LEIZ450-SF': 'E-02-2',
-  'KB-LES400-BL': 'E-02-2',
-  'KB-LES400-BL-US': 'E-02-2',
-  'KB-LES400-CI': 'E-02-2',
-  'KB-LEY520': 'E-02-2',
-  'KB-LEZ400': 'E-02-2',
-  'KB-LEZ480': 'E-02-2',
-  'KB-LG103': 'E-02-2',
-  'KB-LG105': 'E-02-2',
-  'KB-LG106': 'E-02-2',
-  'KB-LGA510-B': 'E-02-2',
-  'KB-LGC400-BR': 'E-02-2',
-  'KB-LGLW60': 'E-02-2',
-  'KB-LGR410-B': 'E-02-2',
-  'KB-LGR510-B': 'E-02-2',
-  'KB-LGU360': 'E-02-2',
-  'KB-NAC-06': 'E-02-2',
-  'KB-NAC-06-SF': 'E-02-2',
-  'KB-NAC-08': 'E-02-2',
-  'KB-NAC-12': 'E-02-2',
-  'KB-NAC-13-F': 'E-02-2',
-  'KB-NAC-15': 'E-02-2',
-  'KB-NAC-17': 'E-02-2',
-  'KB-NAC-21': 'E-02-2',
-  'KB-NAC-22': 'E-02-2',
-  'KB-NAC-23': 'E-02-2',
-  'KB-NAC-23-F10': 'E-02-2',
-  'KB-NAC-23-F4': 'E-02-2',
-  'KB-NAC-24': 'E-02-2',
-  'KB-NAC-25': 'E-02-2',
-  'KB-NAC-26': 'E-02-2',
-  'KB-NAC-27': 'E-02-2',
-  'KB-NAC-29': 'E-02-2',
-  'KB-NAC-30-B': 'E-02-2',
-  'KB-NAC-30-S': 'E-02-2',
-  'KB-NAC-31': 'E-02-2',
-  'KB-NAC-37': 'E-02-2',
-  'KB-NAC-38': 'E-02-2',
-  'KB-NAC-41': 'E-03-4',
-  'KB-NAC-42': 'E-03-4',
-  'KB-PO003': 'E-03-4',
-  'KB-PO3010': 'E-03-4',
-  'KB-SA102-WH-US': 'E-03-4',
-  'KB-SA103': 'E-03-4',
-  'KB-SA103-WH': 'E-03-4',
-  'KB-SA111': 'E-03-4',
-  'KB-SA112': 'E-03-4',
-  'KB-SA113': 'E-03-4',
-  'KB-SA114': 'E-03-4',
-  'KB-SA116': 'E-03-4',
-  'KB-SA117': 'E-03-4',
-  'KB-SA117-WH': 'E-03-4',
-  'KB-SA118': 'E-03-4',
-  'KB-SA119': 'E-03-4',
-  'KB-SA119-US': 'E-03-4',
-  'KB-SA120': 'E-03-4',
-  'KB-SA122': 'E-03-4',
-  'KB-SA311': 'E-03-4',
-  'KB-SANP270-WH': 'E-03-4',
-  'KB-SANP530': 'E-03-4',
-  'KB-SANP550-WH': 'E-03-4',
-  'KB-SANP670': 'E-03-4',
-  'KB-SAR480': 'E-03-4',
-  'KB-SARV511': 'E-03-4',
-  'KB-SO104-B': 'E-03-4',
-  'KB-SO104-W': 'E-03-4',
-  'KB-SO105': 'E-03-4',
-  'KB-SO107-B': 'E-03-4',
-  'KB-SO107-W': 'E-03-4',
-  'KB-SO109': 'E-03-4',
-  'KB-SOCW-BL': 'E-03-4',
-  'KB-SOCW-WH-F': 'E-03-4',
-  'KB-SOEA-BL': 'E-03-4',
-  'KB-SOEA-WH': 'E-03-4',
-  'KB-SOEB-BL': 'E-03-3',
-  'KB-SOEB-WH': 'E-03-3',
-  'KB-SOEB-WH-CF': 'E-03-3',
-  'KB-SOEE-BL': 'E-03-3',
-  'KB-SOEE-WH': 'E-03-3',
-  'KB-SOEG-BL': 'E-03-3',
-  'KB-SOEG-WH': 'E-03-3',
-  'KB-SOEH-WH': 'E-03-3',
-  'KB-SOFE14': 'E-03-3',
-  'KB-SOM-BL': 'E-03-3',
-  'KB-SOM-SI': 'E-03-3',
-  'KB-SOSD-BN': 'E-03-3',
-  'KB-SOSD-SI': 'E-03-3',
-  'KB-SOSVC14': 'E-03-3',
-  'KB-SOSVE15': 'E-03-3',
-  'KB-SOSVE15-WH-F': 'E-03-3',
-  'KB-SOSVE151': 'E-03-3',
-  'KB-SOSVF14-B': 'E-03-3',
-  'KB-SOSVP71': 'E-03-3',
-  'KB-SOSVT13': 'E-03-3',
-  'KB-TM2300-BR': 'E-03-3',
-  'KB-TO101': 'E-03-3',
-  'KB-TO104': 'E-03-3',
-  'KB-TOA200-BL': 'E-03-3',
-  'KB-TOA200-SI': 'E-03-3',
-  'KB-TOA660': 'E-03-3',
-  'KB-TOC650': 'E-03-3',
-  'KB-TOC850': 'E-03-4',
-  'KB-TOL600': 'E-03-5',
-  'KB-TOP750-BR': 'E-03-6',
-  'KB-AC5830T-TC': 'E-03-3',
-  'KB-AS103': 'E-03-3',
-  'KB-SANP270-TP-BLUE': 'E-03-2',
-  'KB-SANP370-TP-B': 'E-03-2',
-  'KB-SANP370-TP-S': 'E-03-2',
-  'KB-SARV511-TC': 'E-03-2',
-  'PM-14FNB': 'E-03-2',
-  'PM-15FNB': 'E-03-2',
-  'PM-16FNG': 'E-03-2',
-  'PM-17FNB': 'E-03-2',
-  'BB11-AC058-PRO': 'C-03-4',
-  'BB11-AC071': 'C-03-4',
-  'BB11-AC072': 'C-03-4',
-  'BB11-AC075': 'C-03-4',
-  'BB11-AP028': 'C-03-4',
-  'BB11-AP034': 'C-03-4',
-  'BB11-AS055': 'C-03-4',
-  'BB11-AS060': 'C-03-4',
-  'BB11-AS083': 'C-03-4',
-  'BB11-AS084': 'C-03-3',
-  'BB11-AS088': 'C-03-3',
-  'BB11-ASX510': 'C-03-3',
-  'BB11-DE040': 'C-03-3',
-  'BB11-DE061': 'C-03-3',
-  'BB11-DE063': 'C-03-3',
-  'BB11-DE065': 'C-03-3',
-  'BB11-DE069': 'C-03-3',
-  'BB11-DE084-6C': 'C-03-3',
-  'BB11-DE086': 'C-03-2',
-  'BB11-DE089': 'C-03-2',
-  'BB11-DE091': 'C-03-2',
-  'BB11-DE096': 'C-03-2',
-  'BB11-DE096-H': 'C-03-2',
-  'BB11-DE098': 'C-03-2',
-  'BB11-DE111-4C': 'C-03-2',
-  'BB11-DE119': 'C-03-2',
-  'BB11-DE121': 'C-03-2',
-  'BB11-DE122': 'B-01-4',
-  'BB11-DE124': 'B-01-4',
-  'BB11-DE133': 'B-01-4',
-  'BB11-DE133-3C': 'B-01-4',
-  'BB11-DE137': 'B-01-4',
-  'BB11-DE137-4C': 'B-01-4',
-  'BB11-DE138': 'B-01-4',
-  'BB11-DE147': 'B-01-4',
-  'BB11-DE155': 'B-01-3',
-  'BB11-DE3410': 'B-01-3',
-  'BB11-DE3500-3C': 'B-01-3',
-  'BB11-DE549': 'B-01-3',
-  'BB11-DE7300-3C': 'B-01-3',
-  'BB11-HP031-A': 'B-01-3',
-  'BB11-HP031-H': 'B-01-3',
-  'BB11-HP058-H': 'B-01-3',
-  'BB11-HP064': 'B-01-3',
-  'BB11-HP068': 'B-01-2',
-  'BB11-HP082': 'B-01-2',
-  'BB11-HP085': 'B-01-2',
-  'BB11-HP086': 'B-01-2',
-  'BB11-HP088': 'B-01-2',
-  'BB11-HP094': 'B-01-2',
-  'BB11-HP097': 'B-01-2',
-  'BB11-HP098': 'B-01-2',
-  'BB11-HP100': 'B-02-4',
-  'BB11-HP103': 'B-02-4',
-  'BB11-HP104': 'B-02-4',
-  'BB11-HP105': 'B-02-4',
-  'BB11-HP830': 'B-02-4',
-  'BB11-LE009': 'B-02-4',
-  'BB11-LE014': 'B-02-4',
-  'BB11-LE019': 'B-02-4',
-  'BB11-LE024': 'B-02-4',
-  'BB11-LE025': 'B-02-3',
-  'BB11-LE031': 'B-02-3',
-  'BB11-LE032': 'B-02-3',
-  'BB11-LE034': 'B-02-3',
-  'BB11-LE041': 'B-02-3',
-  'BB11-LE052': 'B-02-3',
-  'BB11-LE055': 'B-02-3',
-  'BB11-LE057': 'B-02-3',
-  'BB11-LG010-B': 'B-02-3',
-  'BB11-NA003-11': 'B-02-2',
-  'BB11-NA003-14': 'B-02-2',
-  'BB11-NA005': 'B-02-2',
-  'BB11-SO031': 'B-02-2',
-  'BB11-SO036': 'B-02-2',
-  'BB11-SS015-S': 'B-02-2',
-  'BB11-SS015-WH': 'B-02-2',
-  'BB11-SS017': 'B-02-2',
-  'BB11-TS004-A': 'B-02-2',
-  'KB-AC515-55': 'D-01-1',
-  'KB-ACN515-45': 'D-01-1',
-  'KB-ACN515-47': 'D-01-1',
-  'KB-ACSF314': 'D-01-1',
-  'KB-AP1370': 'D-01-1',
-  'KB-ASX513': 'D-02-1',
-  'KB-DEI5480': 'D-02-1',
-  'KB-DEV3401': 'D-02-1',
-  'KB-DEV3510': 'D-02-1',
-  'KB-DEV3510-SI': 'D-02-1',
-  'KB-LEI382MF': 'D-02-1',
-  'KB-TO105': 'D-02-1',
-  'BB11-AC003-11': 'F-08-4',
-  'BB11-AC037-V11': 'F-08-4',
-  'BB11-AC038-A': 'F-08-4',
-  'BB11-AC051-A': 'F-08-4',
-  'BB11-AC058-PRO-H': 'F-08-3',
-  'BB11-AC060-B': 'F-08-3',
-  'BB11-AC060-BW': 'F-08-3',
-  'BB11-AC060-SW': 'F-08-3',
-  'BB11-AC062-A': 'F-08-2',
-  'BB11-AC063': 'F-08-2',
-  'BB11-AC066-H': 'F-08-2',
-  'BB11-AC068': 'F-08-1',
-  'BB11-AC070': 'F-08-1',
-  'BB11-AC073': 'F-08-1',
-  'BB11-AC076': 'F-09-4',
-  'BB11-AC079': 'F-09-4',
-  'BB11-AC080': 'F-09-4',
-  'BB11-AC084': 'F-09-3',
-  'BB11-AC087': 'F-09-3',
-  'BB11-AC089': 'F-09-3',
-  'BB11-AC090': 'F-09-2',
-  'BB11-AP021-W': 'F-09-2',
-  'BB11-AP025': 'F-09-2',
-  'BB11-AP026': 'F-09-1',
-  'BB11-AP027': 'F-09-1',
-  'BB11-AP029': 'F-09-1',
-  'BB11-AP030': 'F-10-4',
-  'BB11-AP031': 'F-10-4',
-  'BB11-AP032': 'F-10-3',
-  'BB11-AP033': 'F-10-3',
-  'BB11-AP035': 'F-10-2',
-  'BB11-AP036': 'F-10-2',
-  'BB11-AP037': 'F-10-2',
-  'BB11-AP039': 'F-10-1',
-  'BB11-AP043': 'F-10-1',
-  'BB11-AP045': 'F-11-4',
-  'BB11-AP046': 'F-11-4',
-  'BB11-AP050': 'F-11-4',
-  'BB11-AS052-B': 'F-11-3',
-  'BB11-AS054': 'F-11-3',
-  'BB11-AS056': 'F-11-3',
-  'BB11-AS057': 'F-11-2',
-  'BB11-AS059': 'F-11-2',
-  'BB11-AS061': 'F-11-2',
-  'BB11-AS062': 'F-11-2',
-  'BB11-AS063': 'F-11-1',
-  'BB11-AS064': 'F-11-1',
-  'BB11-AS066': 'F-12-4',
-  'BB11-AS067': 'F-12-4',
-  'BB11-AS068': 'F-12-4',
-  'BB11-AS071': 'F-12-4',
-  'BB11-AS073': 'F-12-4',
-  'BB11-AS074': 'F-12-3',
-  'BB11-AS075': 'F-12-3',
-  'BB11-AS076': 'F-12-2',
-  'BB11-AS077': 'F-12-2',
-  'BB11-AS078': 'F-12-2',
-  'BB11-AS079': 'F-12-1',
-  'BB11-AS081': 'F-12-1',
-  'BB11-AS085': 'F-12-1',
-  'BB11-AS430': 'F-12-1',
-  'BB11-AS433': 'F-13-4',
-  'BB11-AS451': 'F-13-4',
-  'BB11-AS507': 'F-13-3',
-  'BB11-AS540': 'F-13-3',
-  'BB11-AS550': 'F-13-3',
-  'BB11-CP041-A': 'F-13-2',
-  'BB11-CP045': 'F-13-2',
-  'BB11-DE003-A': 'F-13-2',
-  'BB11-DE025-PRO': 'F-13-2',
-  'BB11-DE037': 'F-13-2',
-  'BB11-DE040-H': 'F-13-1',
-  'BB11-DE050-6': 'F-13-1',
-  'BB11-DE051': 'F-14-4',
-  'BB11-DE052': 'F-14-4',
-  'BB11-DE052-H': 'F-14-4',
-  'BB11-DE053-H': 'F-14-3',
-  'BB11-DE055-HH': 'F-14-3',
-  'BB11-DE057': 'F-14-3',
-  'BB11-DE061-H': 'F-14-3',
-  'BB11-DE062': 'F-14-2',
-  'BB11-DE063-H': 'F-14-2',
-  'BB11-DE067': 'F-14-1',
-  'BB11-DE076': 'F-14-1',
-  'BB11-DE080-H': 'F-14-1',
-  'BB11-DE081': 'F-14-1',
-  'BB11-DE081-H': 'F-15-4',
-  'BB11-DE085-H': 'F-15-4',
-  'BB11-DE087': 'F-15-4',
-  'BB11-DE088': 'F-15-3',
-  'BB11-DE091-H': 'F-15-3',
-  'BB11-DE094': 'F-15-3',
-  'BB11-DE095': 'F-15-2',
-  'BB11-DE102': 'F-15-2',
-  'BB11-DE103': 'F-15-2',
-  'BB11-DE105': 'F-15-2',
-  'BB11-DE105-3C': 'F-15-1',
-  'BB11-DE107': 'F-15-1',
-  'BB11-DE108': 'F-16-4',
-  'BB11-DE110': 'F-16-3',
-  'BB11-DE118': 'F-16-3',
-  'BB11-DE119-3C': 'F-16-3',
-  'BB11-DE123': 'F-16-2',
-  'BB11-DE126': 'F-16-2',
-  'BB11-DE127-3C': 'F-16-2',
-  'BB11-DE128': 'F-16-1',
-  'BB11-DE132': 'F-16-1',
-  'BB11-DE134': 'F-16-1',
-  'BB11-DE135': 'F-17-4',
-  'BB11-DE138-4C': 'F-17-4',
-  'BB11-DE139': 'F-17-4',
-  'BB11-DE141': 'F-17-3',
-  'BB11-DE145': 'F-17-3',
-  'BB11-DE148': 'F-17-3',
-  'BB11-DE149': 'F-17-2',
-  'BB11-DE150': 'F-17-2',
-  'BB11-DE151': 'F-17-1',
-  'BB11-DE151-3C': 'F-17-1',
-  'BB11-DE153': 'F-17-1',
-  'BB11-DE154': 'F-18-4',
-  'BB11-DE175': 'F-18-4',
-  'BB11-DE3410-4C': 'F-18-4',
-  'BB11-DE3500-4C': 'F-18-3',
-  'BB11-DE3511-3C': 'F-18-3',
-  'BB11-DE3511-4C': 'F-18-2',
-  'BB11-DE3590': 'F-18-2',
-  'BB11-DE5285': 'F-18-1',
-  'BB11-DE5520-3C': 'F-18-1',
-  'BB11-DE5520-4C': 'F-18-1',
-  'BB11-DE5550': 'F-19-4',
-  'BB11-DE7300-4C': 'F-19-4',
-  'BB11-HP019-A': 'F-19-4',
-  'BB11-HP020-PRO': 'F-19-3',
-  'BB11-HP022-PRO': 'F-19-3',
-  'BB11-HP028-H': 'F-19-3',
-  'BB11-HP033-A': 'F-19-3',
-  'BB11-HP034-A': 'F-19-2',
-  'BB11-HP035-PRO': 'F-19-2',
-  'BB11-HP040-H': 'F-19-2',
-  'BB11-HP043-A': 'F-19-2',
-  'BB11-HP044-A': 'F-19-1',
-  'BB11-HP046': 'F-19-1',
-  'BB11-HP050-H': 'F-19-1',
-  'BB11-HP051': 'F-19-1',
-  'BB11-HP054': 'F-20-4',
-  'BB11-HP056': 'F-20-4',
-  'BB11-HP066': 'F-20-4',
-  'BB11-HP067': 'F-20-4',
-  'BB11-HP070': 'F-20-4',
-  'BB11-HP072': 'F-20-3',
-  'BB11-HP073': 'F-20-3',
-  'BB11-HP073-9C': 'F-20-3',
-  'BB11-HP074': 'F-20-2',
-  'BB11-HP077': 'F-20-2',
-  'BB11-HP078': 'F-20-1',
-  'BB11-HP080': 'F-20-1',
-  'BB11-HP087': 'F-20-1',
-  'BB11-HP088-S': 'F-21-4',
-  'BB11-HP089': 'F-21-4',
-  'BB11-HP090': 'F-21-4',
-  'BB11-HP092': 'F-21-3',
-  'BB11-HP093': 'F-21-3',
-  'BB11-HP101': 'F-21-3',
-  'BB11-HP1030': 'F-21-3',
-  'BB11-HP108': 'F-21-2',
-  'BB11-HP110': 'F-21-2',
-  'BB11-HP111': 'F-21-2',
-  'BB11-HP114': 'F-21-1',
-  'BB11-HP115': 'F-21-1',
-  'BB11-HP117': 'F-21-1',
-  'BB11-HP455': 'F-22-4',
-  'BB11-IB049-PRO': 'F-22-4',
-  'BB11-IB055-H': 'F-22-4',
-  'BB11-IT008-A': 'F-22-4',
-  'BB11-LE007-A': 'F-22-3',
-  'BB11-LE007-H': 'F-22-3',
-  'BB11-LE010': 'F-22-3',
-  'BB11-LE015': 'F-22-3',
-  'BB11-LE017': 'F-22-3',
-  'BB11-LE019-H': 'F-22-2',
-  'BB11-LE021': 'F-22-2',
-  'BB11-LE022': 'F-22-2',
-  'BB11-LE027': 'F-22-1',
-  'BB11-LE029': 'F-22-1',
-  'BB11-LE030': 'F-22-1',
-  'BB11-LE033': 'F-23-4',
-  'BB11-LE040': 'F-23-4',
-  'BB11-LE042': 'F-23-4',
-  'BB11-LE044': 'F-23-4',
-  'BB11-LE045': 'F-23-3',
-  'BB11-LE046': 'F-23-3',
-  'BB11-LE047': 'F-23-3',
-  'BB11-LE050': 'F-23-2',
-  'BB11-LE058': 'F-23-2',
-  'BB11-LE063': 'F-23-2',
-  'BB11-LE280': 'F-23-2',
-  'BB11-LE507': 'F-23-1',
-  'BB11-LE910': 'F-23-1',
-  'BB11-LEL380': 'F-23-1',
-  'BB11-LET490': 'F-23-1',
-  'BB11-LG001-A': 'F-24-4',
-  'BB11-LG009': 'F-24-4',
-  'BB11-LG009-WH': 'F-24-4',
-  'BB11-LG011': 'F-24-3',
-  'BB11-LG012': 'F-24-3',
-  'BB11-MS002': 'F-24-2',
-  'BB11-NA006': 'F-24-2',
-  'BB11-NA018': 'F-24-2',
-  'BB11-NA021': 'F-24-2',
-  'BB11-SO015-PRO': 'F-24-1',
-  'BB11-SO023-A': 'F-24-1',
-  'BB11-SO023-A2': 'F-24-1',
-  'BB11-SO025-H': 'F-25-4',
-  'BB11-SO038': 'F-25-4',
-  'BB11-SO040': 'F-25-4',
-  'BB11-SO041': 'F-25-3',
-  'BB11-SO042': 'F-25-3',
-  'BB11-SO046': 'F-25-3',
-  'BB11-SO047': 'F-25-3',
-  'BB11-SS005-A': 'F-25-2',
-  'BB11-SS016': 'F-25-2',
-  'BB11-SS019': 'F-25-2',
-  'BB11-SS022': 'F-25-1',
-  'BB11-SS037': 'F-25-1',
-  'BB11-SS200': 'F-25-1',
-  'BB11-SS530': 'F-25-1',
-  'BB11-TS004-H': 'F-23-5',
-  'BB11-TS029-A': 'F-23-5',
-  'BB11-TS085-A': 'F-24-5',
-  'BB11-TS091': 'F-24-5',
-  'BB11-TS092': 'F-24-5',
-  'BB11-TS096': 'F-25-5',
-  'ML-AC077': 'F-25-5',
-  'ML-DE080-H': 'F-25-5',
-  'ML-DE120': 'F-25-5',
-  'BB20-AP140-C': 'A-01-1',
-  'BB24-MACB-M': 'A-01-1',
-  'BB20-MI3': 'A-01-1',
-  'BB24-SAMS-M': 'A-01-1',
-  'BB24-HP-M': 'A-01-1',
-  'BB20-HP19': 'A-01-1',
-  'CA-AC315': 'F-26-8',
-  'CA-AC515': 'F-26-8',
-  'CA-ACVX15': 'F-26-8',
-  'CA-AN515': 'F-26-7',
-  'CA-DE3590': 'F-26-7',
-  'CAB-AC315': 'F-26-7',
-  'CAB-AC515': 'F-26-6',
-  'CAB-AC533': 'F-26-6',
-  'CAB-LE3156': 'F-26-6',
-  'CAB-SA300': 'F-26-5',
-  'CAB-SA530': 'F-26-5',
-  'CC-AC531': 'F-26-5',
-  'CC-DE3410': 'F-26-4',
-  'CC-DE3580': 'F-26-4',
-  'CC-DE5547': 'F-26-4',
-  'CC-DE5558': 'F-26-3',
-  'CCD-LEG50': 'F-26-3',
-  'CCD-SA550': 'F-26-3',
-  'CD-DE1430': 'F-26-2',
-  'CD-DE3490': 'F-26-2',
-  'CD-DE5110': 'F-26-2',
-  'CAB-DE15R6': 'F-26-1',
-  'CAB-DE17R4': 'F-26-1',
-  'BB12-CA001-A': 'F-27-8',
-  'BB12-CA008-A': 'F-27-8',
-  'BB12-CA009-A': 'F-27-8',
-  'BB12-CA010-A': 'F-27-8',
-  'BB12-CA014-A': 'F-27-8',
-  'BB12-CA015-A': 'F-27-8',
-  'BB12-CA016': 'F-27-8',
-  'BB12-CA016-D': 'F-27-7',
-  'BB12-CA017': 'F-27-7',
-  'BB12-CA018': 'F-27-7',
-  'BB12-CA019': 'F-27-7',
-  'BB12-CA020': 'F-27-7',
-  'BB12-CA022': 'F-27-7',
-  'BB12-CA023': 'F-27-7',
-  'BB12-CA024': 'F-27-6',
-  'BB12-CA025': 'F-27-6',
-  'BB12-CA027': 'F-27-6',
-  'BB12-CA028': 'F-27-6',
-  'BB12-CS006': 'F-27-6',
-  'BB12-FU004-A': 'F-27-6',
-  'BB12-FU006-A': 'F-27-6',
-  'BB12-GE002-A': 'F-27-5',
-  'BB12-GP001': 'F-27-5',
-  'BB12-GP002': 'F-27-5',
-  'BB12-GP003': 'F-27-5',
-  'BB12-GP004': 'F-27-5',
-  'BB12-GP005': 'F-27-5',
-  'BB12-GP006': 'F-27-5',
-  'BB12-HP001-A': 'F-27-4',
-  'BB12-NI004-A': 'F-27-4',
-  'BB12-NI008-A': 'F-27-4',
-  'BB12-NI009-A': 'F-27-4',
-  'BB12-NI011': 'F-27-4',
-  'BB12-NI012': 'F-27-4',
-  'BB12-NI013': 'F-27-4',
-  'BB12-NI014': 'F-27-3',
-  'BB12-NI015': 'F-27-3',
-  'BB12-NI016': 'F-27-3',
-  'BB12-NI018': 'F-27-3',
-  'BB12-NI019': 'F-27-3',
-  'BB12-NI025': 'F-27-3',
-  'BB12-OP006-A': 'F-27-3',
-  'BB12-OP008-A': 'F-27-2',
-  'BB12-PO001-A': 'F-27-2',
-  'BB12-PS002-A': 'F-27-2',
-  'BB12-PS005-A': 'F-27-2',
-  'BB12-PS006-A': 'F-27-2',
-  'BB12-PS008-A': 'F-27-2',
-  'BB12-PS011-A': 'F-27-2',
-  'BB12-PS014': 'F-27-1',
-  'BB12-SA003-A': 'F-27-1',
-  'BB12-SO006-A': 'F-27-1',
-  'BB12-SO007-A': 'F-27-1',
-  'BB12-SO011-A': 'F-27-1',
-  'BB12-SO012': 'F-27-1',
-  'BB12-SO013': 'F-27-1',
-  'BB12-SO014': 'F-28-8',
-  'BB12-SO015': 'F-28-8',
-  'BB12-SS006-A': 'F-28-8',
-  'BB12-SS007-A': 'F-28-8',
-  'BB13-JV034-A': 'F-28-8',
-  'BB13-PS008-H': 'F-28-8',
-  'BB13-PS014-A': 'F-28-8',
-  'BB13-PS016-A': 'F-28-7',
-  'BB13-PS027': 'F-28-7',
-  'BB13-SO001-H': 'F-28-7',
-  'BB13-SO002-B': 'F-28-7',
-  'BB13-SO005-A': 'F-28-7',
-  'BB13-SO005-C': 'F-28-7',
-  'BB13-SO013-A': 'F-28-7',
-  'BB13-SO014-A': 'F-28-6',
-  'BB13-SO015-A': 'F-28-6',
-  'BB13-SO017-A': 'F-28-6',
-  'BB13-SO017-H': 'F-28-6',
-  'BB13-SO025-DIG': 'F-28-6',
-  'BB13-SO026': 'F-28-6',
-  'BB13-SO027': 'F-28-6',
-  'BB13-SO031': 'F-28-5',
-  'BB13-SO032': 'F-28-5',
-  'BB13-SO033': 'F-28-5',
-  'BB13-SO034': 'F-28-5',
-  'BB14-BP-L100-A': 'F-28-5',
-  'BB14-BP-L100-S': 'F-28-5',
-  'BB14-BPU90': 'F-28-5',
-  'BB14-SO016': 'F-28-4',
-  'BB32-AHDBT-301': 'F-28-4',
-  'BB32-AHDBT-401': 'F-28-4',
-  'BB32-AHDBT-501': 'F-28-4',
-  'BB32-CA13L': 'F-28-4',
-  'BB32-CA1L': 'F-28-4',
-  'BB32-CA4L': 'F-28-4',
-  'BB32-CAE10': 'F-28-3',
-  'BB32-CAE10-D': 'F-28-3',
-  'BB32-CAE17': 'F-28-3',
-  'BB32-CAE6': 'F-28-3',
-  'BB32-CAE8': 'F-28-3',
-  'BB32-FU40': 'F-28-3',
-  'BB32-NIEL14': 'F-28-3',
-  'BB32-NIEL19': 'F-28-2',
-  'BB32-NIEL23': 'F-28-2',
-  'BB32-NIEL5': 'F-28-2',
-  'BB32-PABL19': 'F-28-2',
-  'BB32-SO550': 'F-28-2',
-  'BB32-SO570': 'F-28-2',
-  'BB32-SO970': 'F-28-2',
-  'BB32-SOBG1': 'F-28-1',
-  'BB32-SOBN1': 'F-28-1',
-  'BB32-SOFW50': 'F-28-1',
-  'BB32-SOFZ100': 'F-28-1',
-  'CABO-2507': 'F-28-1',
-  'CABO-4530': 'F-28-1',
-  'CABO-AC19-B21': 'F-28-1',
-  'CABO-AP16-L': 'F-29-8',
-  'CABO-AP65-M2': 'F-29-8',
-  'CABO-BP': 'F-29-8',
-  'CABO-C': 'F-29-8',
-  'CABO-CP18-A': 'F-29-8',
-  'CABO-CP6300': 'F-29-8',
-  'CABO-DE19-A': 'F-29-8',
-  'CABO-DE19-T6': 'F-29-7',
-  'CABO-DE19-U6': 'F-29-7',
-  'CABO-HP19-4': 'F-29-7',
-  'CABO-HP19-40': 'F-29-7',
-  'CABO-LE79': 'F-29-7',
-  'CABO-LEUSB': 'F-29-7',
-  'CABO-SA19-40B': 'F-29-7',
-  'CABO-SA19-A': 'F-29-6',
-  'CABO-SO19-B2': 'F-29-6',
-  'CABO-TO19-B25': 'F-29-6',
-  'CABO-TP': 'F-29-6',
-  'CI-AC001': 'F-29-6',
-  'CI-AC002': 'F-29-6',
-  'CI-AC005': 'F-29-6',
-  'CI-AC3820T': 'F-29-5',
-  'CI-AC4738': 'F-29-5',
-  'CI-AC4739': 'F-29-5',
-  'CI-AC4750': 'F-29-5',
-  'CI-AC515': 'F-29-5',
-  'CI-AC5421': 'F-29-5',
-  'CI-AC5571': 'F-29-5',
-  'CI-AC5733': 'F-29-4',
-  'CI-AC5750': 'F-29-4',
-  'CI-ACE1-471': 'F-29-4',
-  'CI-ACV5-571': 'F-29-4',
-  'CI-AS002': 'F-29-4',
-  'CI-AS004': 'F-29-4',
-  'CI-AS543': 'F-29-4',
-  'CI-ASA45': 'F-29-3',
-  'CI-ASS400': 'F-29-3',
-  'CI-CCEU25': 'F-29-3',
-  'CI-DE001': 'F-29-3',
-  'CI-DE002': 'F-29-3',
-  'CI-DE005': 'F-29-3',
-  'CI-DE006': 'F-29-3',
-  'CI-DE007': 'F-29-2',
-  'CI-DE008': 'F-29-2',
-  'CI-DE1555': 'F-29-2',
-  'CI-DE3300': 'F-29-2',
-  'CI-DE3421': 'F-29-2',
-  'CI-DE3460': 'F-29-2',
-  'CI-DE3490': 'F-29-2',
-  'CI-DE3511': 'F-29-1',
-  'CI-DE3550': 'F-29-1',
-  'CI-DE3560': 'F-29-1',
-  'CI-DE3579': 'F-29-1',
-  'CI-DE5400': 'F-29-1',
-  'CI-DE5423': 'F-29-1',
-  'CI-DE5450': 'F-29-1',
-  'CI-DE5481': 'F-30-8',
-  'CI-DE5570': 'F-30-8',
-  'CI-DE7472': 'F-30-8',
-  'CI-DEN4030': 'F-30-8',
-  'CI-DEN4110': 'F-30-8',
-  'CI-DEN5030': 'F-30-8',
-  'CI-DEN5050': 'F-30-8',
-  'CI-DEN5110': 'F-30-7',
-  'CI-DEV3400': 'F-30-7',
-  'CI-HP001': 'F-30-7',
-  'CI-HP002': 'F-30-7',
-  'CI-HP005': 'F-30-7',
-  'CI-HP14K': 'F-30-7',
-  'CI-HP256': 'F-30-7',
-  'CI-HP4325': 'F-30-6',
-  'CI-HP4330S': 'F-30-6',
-  'CI-HP440': 'F-30-6',
-  'CI-HP4530S': 'F-30-6',
-  'CI-HP52000': 'F-30-6',
-  'CI-HPCQ42-3PIN': 'F-30-6',
-  'CI-HPCQ43': 'F-30-6',
-  'CI-HPDM42': 'F-30-5',
-  'CI-HPDV66': 'F-30-5',
-  'CI-HPDV67': 'F-30-5',
-  'CI-HPG6-2000': 'F-30-5',
-  'CI-IT7520': 'F-30-5',
-  'CI-LE001': 'F-30-5',
-  'CI-LE002': 'F-30-5',
-  'CI-LE003': 'F-30-4',
-  'CI-LE400': 'F-30-4',
-  'CI-LE530': 'F-30-4',
-  'CI-LEB480': 'F-30-4',
-  'CI-LEG460': 'F-30-4',
-  'CI-LEG470': 'F-30-4',
-  'CI-LES400': 'F-30-4',
-  'CI-LET470': 'F-30-3',
-  'CI-LG580': 'F-30-3',
-  'CI-PH14M2': 'F-30-3',
-  'CI-SA001': 'F-30-3',
-  'CI-SA003': 'F-30-3',
-  'CI-SA004': 'F-30-3',
-  'CI-SA0410': 'F-30-3',
-  'CI-SA300E': 'F-30-2',
-  'CI-SA905S': 'F-30-2',
-  'CI-SANP300': 'F-30-2',
-  'CI-SANP550': 'F-30-2',
-  'CI-SO001': 'F-30-2',
-  'CI-SO6100': 'F-30-2',
-  'CI-SOVT13': 'F-30-2',
-  'B116XW03-V.0': 'E-01-1',
-  'B156RW01-V.0': 'E-01-1',
-  'DP-FP100': 'E-01-1',
-  'DP-HF141': 'E-01-1',
-  'DP-HF142': 'E-01-1',
-  'DP-HF143': 'E-01-1',
-  'DP-HM101': 'E-01-1',
-  'DP-HM120': 'E-01-1',
-  'DP-NP100': 'E-01-1',
-  'DP-SJ270': 'E-01-1',
-  'DP-SJ340': 'E-01-1',
-  'DP-ST300': 'E-01-1',
-  LP154WX7: 'E-01-1',
-  'BB20-AC19-F25': 'A-21-5',
-  'BB20-AC19-ONE40': 'A-21-5',
-  'BB20-AP14.5': 'A-21-5',
-  'BB20-AS009': 'A-21-4',
-  'BB20-CP18-A': 'A-21-4',
-  'BB20-CP18-E': 'A-21-3',
-  'BB20-CP19-A': 'A-21-3',
-  'BB20-CP6300-180': 'A-21-3',
-  'BB20-DE19-C': 'A-21-2',
-  'BB20-DE19-D': 'A-21-2',
-  'BB20-DE19-G': 'A-21-1',
-  'BB20-DE19-N': 'A-21-1',
-  'BB20-DE19-T9': 'A-21-1',
-  'BB20-HP19-3': 'A-22-5',
-  'BB20-HP19-6': 'A-22-5',
-  'BB20-IB20-C': 'A-22-4',
-  'BB20-LE20-D': 'A-22-3',
-  'BB20-LE20-G': 'A-22-3',
-  'BB20-LE20-H': 'A-22-2',
-  'BB20-MI2': 'A-22-2',
-  'BB20-MI4': 'A-22-1',
-  'BB20-PH19': 'A-22-1',
-  'BB20-PH19-30': 'A-22-1',
-  'BB20-PO12-A': 'A-22-1',
-  'BB20-PO20-B': 'A-23-5',
-  'BB20-SA12-A': 'A-23-4',
-  'BB20-SO10.5-30': 'A-23-4',
-  'BB20-SO19-40': 'A-23-3',
-  'BB20-SO19-A': 'A-23-3',
-  'BB20-SO19-B': 'A-23-3',
-  'BB20-SO19-E': 'A-23-2',
-  'BB24-ACER-M': 'A-23-2',
-  'BB24-ASUS-M': 'A-23-1',
-  'BB24-DELL-M': 'A-23-1',
-  'BB24-LENV-M': 'A-23-1',
-  'MLF-DE19-T6': 'A-23-1',
-};
+const LF_ENDERECOS = {"B140XW02-V.1":"F-01-11","B156XTN08.1":"F-01-9","B156XW02-V.2":"F-01-6","B156XW04-V.8":"F-01-2","LP140WH1-TLA2":"F-02-9","LP156WF4-SPJ1":"F-02-7","N140BGE-E43":"F-02-4","N140HCA-EAC":"F-02-2","N156BGA-EA3":"F-03-11","N156HCA-EBA":"F-03-8","N156HGA-EAL":"F-03-5","NT140WHM-N43":"F-03-2","B101AW06-V.1":"F-04-11","B116XW02":"F-04-11","B116XW03-V.2":"F-04-11","B116XW05-V.0":"F-04-11","B133XW01":"F-04-10","B140RW01-V.0":"F-04-10","B140RW02":"F-04-10","B140XTT01.0":"F-04-10","B140XW03-V.0":"F-04-9","B156HW01":"F-04-8","B156XTN01.0":"F-04-7","B156XW03-V.1":"F-04-6","B156XW04-V.8-G":"F-04-5","B173HW01":"F-04-4","B173RTN01.1":"F-04-3","CLAA156WA01A":"F-04-2","DP-AP127":"F-05-11","DP-AP140":"F-05-11","DP-AP170":"F-05-11","DP-AP171":"F-05-11","DP-AP190":"F-05-10","DP-AP205":"F-05-10","DP-AP230":"F-05-10","DP-AP231":"F-05-10","DP-AP232":"F-05-9","DP-FM100":"F-05-9","DP-FN600":"F-05-9","DP-HF140":"F-05-9","DP-HM320":"F-05-8","DP-HM400":"F-05-8","DP-LE520":"F-05-7","DP-LF150":"F-05-7","DP-LF151":"F-05-6","DP-LF153":"F-05-6","DP-LM100":"F-05-5","DP-LM200":"F-05-5","DP-LM300":"F-05-4","DP-LM500":"F-05-4","DP-LM700":"F-05-3","DP-LP756":"F-05-3","DP-SJ300":"F-05-2","DP-SM300":"F-05-2","DP-SM400":"F-05-1","DP-SM510":"F-05-1","LP101WH2-TLB1":"F-06-11","LP101WSA":"F-06-11","LP116WH2":"F-06-11","LP133WP1-TJA1":"F-06-10","LP133WX1-TLB1":"F-06-10","LP140WF1-SPU1":"F-06-9","LP140WH1-TLD1":"F-06-9","LP141WX1":"F-06-9","LP154WX4":"F-06-8","LP156WF7-SPN3":"F-06-6","LP156WF9-SPK2":"F-06-6","LP173WD1":"F-06-4","LTN140AT21":"F-06-3","LTN141AT16":"F-06-2","LTN145AT01":"F-06-2","LTN156AT36":"F-06-1","LTN156AT40-D01":"F-07-11","N116BGE-EA2":"F-07-10","N133BGE-EAB":"F-07-10","N133HSE-EA1":"F-07-9","N140BGE-LB2":"F-07-9","N140FGE-EA2":"F-07-9","N140HCA-E5C":"F-07-8","N140HCE-EN1":"F-07-8","N140HCE-G52":"F-07-7","N140HGE-EBA":"F-07-7","N156BGA-E53":"F-07-6","N156HGE-LA1":"F-07-6","N173HCE-E31":"F-07-5","NT116WHM-N23":"F-07-4","NT140WHM-N44":"F-07-4","NT140WHM-N45":"F-07-3","NT156FHM-N43":"F-07-2","NV156FHM-N4T":"F-07-1","BB20-AC19-3":"A-01-4","BB20-AC19-B21":"A-01-3","BB20-AC19-C21":"A-01-2","BB20-AP16-L":"A-01-2","BB20-AP45-M2":"A-01-2","BB20-AP85-M2":"A-01-2","BB20-AS019-4":"A-02-4","BB20-AS019-45":"A-02-4","BB20-BC65":"A-02-4","BB20-CP6300":"A-02-3","BB20-DE19-A":"A-02-3","BB20-DE19-B":"A-02-3","BB20-DE19-T6":"A-02-2","BB20-DE19-U6":"A-03-4","BB20-HP19-4":"A-03-5","BB20-HP19-SP":"A-03-4","BB20-LE20-E":"A-03-3","BB20-LE20-F":"A-03-3","BB20-SA19-40B":"A-03-3","BB20-SA19-A":"A-03-2","BB20-SO19-B2":"A-03-2","BB20-TO19-B25":"A-03-2","BB20-19V-150W":"B-03-4","BB20-19V-180W":"B-03-4","BB20-19V-230W":"B-03-4","BB20-AC19-E21":"B-03-4","BB20-AC19-E25":"B-03-4","BB20-AC19-F21":"B-03-4","BB20-AC19-ONE":"B-03-4","BB20-AP140-M3":"B-03-4","BB20-AP18-L":"B-03-4","BB20-AP29-C":"B-03-4","BB20-AP30-C":"B-03-4","BB20-AP61-C":"B-03-4","BB20-AP65-M2":"B-03-4","BB20-AP89-C":"B-03-4","BB20-AP96-C":"B-03-4","BB20-AP96-M3":"B-03-3","BB20-AS019":"B-03-3","BB20-AS019-3":"B-03-3","BB20-AS019-5":"B-03-3","BB20-AS019-6":"B-03-3","BB20-BC45":"B-03-3","BB20-BD45":"B-03-3","BB20-BD65":"B-03-3","BB20-BD90":"B-03-3","BB20-CP19-B":"B-03-3","BB20-CP6300-120":"B-03-3","BB20-CP6300-135":"B-03-3","BB20-CP6300-H":"B-03-3","BB20-DE19-E":"B-03-3","BB20-DE19-T13":"B-03-3","BB20-DE19-U9":"B-03-2","BB20-HP19-40":"B-03-2","BB20-HP19-5":"B-03-2","BB20-IB16-C":"B-03-2","BB20-IB20-B":"B-03-2","BB20-LE20-A":"B-03-2","BB20-LE20-B":"B-03-2","BB20-LE20-C":"B-03-2","BB20-LG19-65":"B-03-2","BB20-PO05":"B-03-2","BB20-PO20":"B-03-2","BB20-SA19-40W":"B-03-2","BB20-SA19-C":"B-03-2","BB11-AC066":"C-01-4","BB11-AC074":"C-01-4","BB11-AC077":"C-01-4","BB11-AC081":"C-01-4","BB11-AC082":"C-01-3","BB11-AC085":"C-01-3","BB11-AC086":"C-01-3","BB11-AC088":"C-01-3","BB11-AS065":"C-01-3","BB11-DE080":"C-01-2","BB11-DE085":"C-01-2","BB11-DE099":"C-01-2","BB11-DE099-4C":"C-01-2","BB11-DE101":"C-01-2","BB11-DE111":"C-02-4","BB11-DE120":"C-02-4","BB11-DE125":"C-02-4","BB11-DE125-4C":"C-02-3","BB11-HP058":"C-02-3","BB11-HP081":"C-02-3","BB11-HP113":"C-02-3","BB11-LE023":"C-02-2","BB11-LE043":"C-02-2","BB11-SS015":"C-02-2","BB11-SS021":"C-02-2","BB11-AC091":"B-01-1","BB11-AC095":"B-01-1","BB11-AP024":"B-01-1","BB11-AP038":"B-01-1","BB11-AP041":"B-01-1","BB11-AP044":"B-01-1","BB11-AP047":"B-01-1","BB11-AP048":"B-01-1","BB11-AP049":"B-01-1","BB11-AS046":"B-01-1","BB11-AS092":"B-01-1","BB11-AS213":"B-01-1","BB11-AS325":"B-01-1","BB11-AS413":"B-01-1","BB11-AS435":"B-01-1","BB11-AS510":"B-01-1","BB11-AS515":"B-01-1","BB11-AS515-B":"B-01-1","BB11-AS515-C":"B-01-1","BB11-AS515-D":"B-01-1","BB11-AS531":"B-01-1","BB11-DE064":"B-02-1","BB11-DE078-6C":"B-02-1","BB11-DE082":"B-02-1","BB11-DE097":"B-02-1","BB11-DE127":"B-02-1","BB11-DE141-HH":"B-02-1","BB11-DE143":"B-02-1","BB11-DE150-H":"B-02-1","BB11-DE156":"B-02-1","BB11-DE157":"B-02-1","BB11-DE410":"B-02-1","BB11-DE9310":"B-02-1","BB11-HP025-A":"B-02-1","BB11-HP102":"B-02-1","BB11-HP109":"B-02-1","BB11-HP112":"B-02-1","BB11-HP119":"B-02-1","BB11-HP120":"B-02-1","BB11-HP360":"B-02-1","BB11-HP361":"B-02-1","BB11-LE051":"B-02-1","BB11-LE053":"B-02-1","BB11-LE058-C":"B-02-1","BB11-LE062":"B-02-1","BB11-LE066":"B-02-1","BB11-LE070":"B-03-1","BB11-LE070-2C":"B-03-1","BB11-LE540":"B-03-1","BB11-LE720":"B-03-1","BB11-SO043":"B-03-1","BB11-SO044":"B-03-1","BB11-SO049":"B-03-1","BB11-SO240":"B-03-1","BB11-SS030":"B-03-1","BB11-SS670":"B-03-1","BB11-SS940":"B-03-1","ML-HP058":"B-03-1","KB-AC111":"D-01-4","KB-AC117":"D-01-4","KB-AC117-F2":"D-01-4","KB-AC3810T-WF":"D-01-4","KB-AC3830T":"D-01-4","KB-AC431":"D-01-4","KB-AC515-54":"D-01-3","KB-AC515-F2":"D-01-3","KB-AC521":"D-01-3","KB-AC5830T":"D-01-3","KB-AP1278-US":"D-01-3","KB-AP1369-US":"D-01-3","KB-AS103-ST":"D-01-2","KB-AS104":"D-01-2","KB-ASK45":"D-01-2","KB-ATI8371":"D-01-2","KB-DE101":"D-01-2","KB-DE105":"D-01-2","KB-DE109":"D-02-4","KB-DE111":"D-02-4","KB-DE113":"D-02-4","KB-DIN14-3":"D-02-4","KB-DIN14-3SLI":"D-02-4","KB-DIN14RN":"D-02-4","KB-DIN15-3":"D-02-3","KB-DIN15-3LI":"D-02-3","KB-DIN1545":"D-02-3","KB-DIN15R":"D-02-3","KB-HP104":"D-02-3","KB-HP132":"D-02-3","KB-HP135":"D-02-2","KB-HPCQ42":"D-02-2","KB-HPCQ43":"D-02-2","KB-LE109/IMP":"D-02-2","KB-LE113":"D-02-2","KB-LE114":"D-02-2","KB-LE115":"D-03-4","KB-LE122":"D-03-4","KB-LE431":"D-03-4","KB-LG102":"D-03-4","KB-NAC-10":"D-03-4","KB-NAC-13":"D-03-4","KB-NAC-13-F4":"D-03-3","KB-NAC-13-F4A":"D-03-3","KB-NAC-13-TCB":"D-03-3","KB-NAC-14":"D-03-3","KB-NAC-40":"D-03-3","KB-SAN300-E5K":"D-03-3","KB-SAN300-E5K-WH":"D-03-2","KB-SANP270":"D-03-2","KB-SANP300":"D-03-2","KB-SANP370":"D-03-2","KB-SANP550":"D-03-2","KB-SARV411":"D-03-2","SM2-2280F9-128G":"E-01-4","SM2-2280F9-256G":"E-01-4","SM2-2280F9-512G":"E-01-4","SM2-2280NVME-128G":"E-01-4","SM2-2280NVME-256G":"E-01-4","SM2-2280NVME-512G":"E-01-4","SSD-700S3W5-120G":"E-01-4","SSD-700S3W5-240G":"E-01-4","SSD-700S3W5-480G":"E-01-4","SM2-2280NVME-512-G4":"E-01-4","SSD-700S3W5-1T":"E-01-4","SSP-NVME2500-1TB":"E-01-4","SSP-NVME2500-256G":"E-01-4","D3NB-16E-4GB":"E-01-4","D3NB-16E-8GB":"E-01-4","D3NB-16L-4GB":"E-01-4","D3NB-16L-8GB":"E-01-4","D4DS-26E-16GB":"E-01-4","D4DS-26E-8GB":"E-01-4","D4NB-32E-16GB":"E-01-4","D4NB-24E-4GB":"E-01-4","D4NB-24E-8GB":"E-01-4","D4NB-24E-16GB":"E-01-4","D4NB-32E-8GB":"E-01-4","D5DS-48E-16GB":"E-01-4","D5NB-48E-16GB":"E-01-4","D5NB-56E-16GB":"E-01-4","KB-AC101":"E-01-3","KB-AC102":"E-01-3","KB-AC111-GAT":"E-01-3","KB-AC115":"E-01-3","KB-AC117-ES":"E-01-3","KB-AC118":"E-01-3","KB-AC119":"E-01-3","KB-AC119-US":"E-01-3","KB-AC120-BT":"E-01-3","KB-AC3100":"E-01-3","KB-AC515-43":"E-01-3","KB-AC521-GAT":"E-01-3","KB-AC531-BR":"E-01-3","KB-AC5516":"E-01-3","KB-AC591-32":"E-01-3","KB-AC591G":"E-01-3","KB-AC5930":"E-01-3","KB-AC7000":"E-01-3","KB-ACONE-B":"E-01-3","KB-ACONE-WBR":"E-01-3","KB-ACONE532":"E-01-3","KB-ACONE751":"E-01-3","KB-ACS3":"E-01-3","KB-AP1278":"E-01-3","KB-AP1286":"E-01-3","KB-AP1286-US":"E-01-3","KB-AP1369":"E-01-3","KB-AP1370-US":"E-01-3","KB-AP1398-US":"E-01-3","KB-AP1425":"E-01-3","KB-AP1502-US":"E-01-3","KB-AP1534":"E-01-3","KB-AP1706":"E-01-3","KB-AP1708":"E-01-3","KB-AP1932":"E-01-3","KB-AP1989":"E-01-3","KB-AP2141":"E-01-3","KB-AS102":"E-01-3","KB-AS105":"E-01-3","KB-AS105-F":"E-01-3","KB-AS105-W":"E-01-3","KB-AS110":"E-01-3","KB-AS117":"E-01-3","KB-AS121-P":"E-01-3","KB-AS122":"E-01-3","KB-AS125":"E-01-3","KB-AS126":"E-01-3","KB-AS126-US":"E-01-3","KB-AS127":"E-01-3","KB-AS128":"E-01-3","KB-AS131":"E-01-3","KB-AS152":"E-01-3","KB-AS154":"E-01-3","KB-AS510UA":"E-01-3","KB-AS515":"E-01-2","KB-ASF80":"E-01-2","KB-ASF80-BT":"E-01-2","KB-ASK42":"E-01-2","KB-ASK42-F":"E-01-2","KB-ASK42-US":"E-01-2","KB-ASM515":"E-01-2","KB-ASN10":"E-01-2","KB-ASUL20-SF":"E-01-2","KB-ASUX21":"E-01-2","KB-ASVS200":"E-01-2","KB-ASVS400":"E-01-2","KB-CPCQ25":"E-01-2","KB-CPCQ29":"E-01-2","KB-DE102":"E-01-2","KB-DE104":"E-01-2","KB-DE106":"E-01-2","KB-DE107":"E-01-2","KB-DE108":"E-01-2","KB-DE109-BL":"E-01-2","KB-DE1090":"E-01-2","KB-DE111-LI":"E-01-2","KB-DE114":"E-01-2","KB-DE1310":"E-01-2","KB-DE3501":"E-01-2","KB-DE3501-SI":"E-01-2","KB-DE3511":"E-01-2","KB-DE3520":"E-01-2","KB-DE4310-A":"E-01-2","KB-DE500-BR":"E-01-2","KB-DE5400":"E-01-2","KB-DE5470-P":"E-01-2","KB-DE5510":"E-01-2","KB-DE5520":"E-01-2","KB-DE5570":"E-01-2","KB-DE6400-B-US":"E-01-2","KB-DE6420-B":"E-01-2","KB-DE7537":"E-01-2","KB-DIN14R":"E-01-2","KB-DIN14RN-LI":"E-01-2","KB-DIN1545-S":"E-01-2","KB-DIN16R":"E-01-2","KB-DIN3168":"E-01-2","KB-DV6000":"E-01-2","KB-DVO3300":"E-01-2","KB-EEE1000-B":"E-01-2","KB-EEE1000HE":"E-01-2","KB-EEE1005-BL":"E-01-2","KB-EEE1015":"E-01-2","KB-EEE1015-TC":"E-01-2","KB-EEE1015-WH":"E-01-2","KB-EEE900-W":"E-01-2","KB-HCQ62":"E-01-2","KB-HDM1-3":"E-01-2","KB-HDM3":"E-02-4","KB-HDM4-F":"E-02-4","KB-HDM4-WH":"E-02-4","KB-HDV2":"E-02-4","KB-HDV2000":"E-02-4","KB-HDV4-3BL":"E-02-4","KB-HDV4-BL":"E-02-4","KB-HDV5":"E-02-4","KB-HDV6-3BL":"E-02-4","KB-HDV6-6":"E-02-4","KB-HDV6-BR":"E-02-4","KB-HDV7-4-BR":"E-02-4","KB-HDV7-4-PO":"E-02-4","KB-HEL2530":"E-02-4","KB-HEL2560":"E-02-4","KB-HEL8440":"E-02-4","KB-HEL8460":"E-02-4","KB-HEL8460-F":"E-02-4","KB-HEL8460-P":"E-02-4","KB-HMI1000-BL":"E-02-4","KB-HMI110-1BL":"E-02-4","KB-HMI210":"E-02-4","KB-HMI210-F":"E-02-4","KB-HP0015":"E-02-4","KB-HP027":"E-02-4","KB-HP102":"E-02-4","KB-HP103":"E-02-4","KB-HP1030-G2":"E-02-4","KB-HP104-SF":"E-02-4","KB-HP108":"E-02-4","KB-HP109":"E-02-4","KB-HP114":"E-02-4","KB-HP114-F":"E-02-4","KB-HP115":"E-02-4","KB-HP116":"E-02-4","KB-HP117":"E-02-4","KB-HP121":"E-02-3","KB-HP124":"E-02-3","KB-HP125-BR":"E-02-3","KB-HP127":"E-02-3","KB-HP127-PO":"E-02-3","KB-HP127-PO-F":"E-02-3","KB-HP128":"E-02-3","KB-HP129":"E-02-3","KB-HP130":"E-02-3","KB-HP131":"E-02-3","KB-HP133":"E-02-3","KB-HP136":"E-02-3","KB-HP137":"E-02-3","KB-HP138":"E-02-3","KB-HP140":"E-02-3","KB-HP141":"E-02-3","KB-HP2560":"E-02-3","KB-HP320-BR":"E-02-3","KB-HP420":"E-02-3","KB-HP500":"E-02-3","KB-HP500-US":"E-02-3","KB-HP510":"E-02-3","KB-HP650-G2":"E-02-3","KB-HP6510":"E-02-3","KB-HP6530B":"E-02-3","KB-HP745-G3":"E-02-3","KB-HP745-G7":"E-02-3","KB-HP820-G1":"E-02-3","KB-HPCQ10-BR":"E-02-3","KB-HPCQ10-BR-SI":"E-02-3","KB-HPCQ45":"E-02-3","KB-HPCQ60":"E-02-3","KB-HPCQ700":"E-02-3","KB-HPG4-2-BL":"E-02-3","KB-HPG4-2-WH":"E-02-3","KB-HPR4330":"E-02-3","KB-HPR4535":"E-02-3","KB-HPR6440":"E-02-3","KB-HPV6000":"E-02-3","KB-LE10-2":"E-02-3","KB-LE105":"E-02-3","KB-LE106":"E-02-3","KB-LE107":"E-02-3","KB-LE108":"E-02-3","KB-LE108-CI":"E-02-3","KB-LE110":"E-02-3","KB-LE111":"E-02-3","KB-LE112":"E-02-3","KB-LE116":"E-02-3","KB-LE117":"E-02-3","KB-LE118":"E-02-3","KB-LE119":"E-02-3","KB-LE120":"E-02-3","KB-LE121":"E-02-3","KB-LE123":"E-02-2","KB-LE124":"E-02-2","KB-LE125":"E-02-2","KB-LE126":"E-02-2","KB-LE127":"E-02-2","KB-LE382":"E-02-2","KB-LE480S":"E-02-2","KB-LE481S":"E-02-2","KB-LEB470":"E-02-2","KB-LEB5050":"E-02-2","KB-LEF514":"E-02-2","KB-LEG50":"E-02-2","KB-LEG530":"E-02-2","KB-LEG550":"E-02-2","KB-LEIZ450":"E-02-2","KB-LEIZ450-FC":"E-02-2","KB-LEIZ450-SF":"E-02-2","KB-LES400-BL":"E-02-2","KB-LES400-BL-US":"E-02-2","KB-LES400-CI":"E-02-2","KB-LEY520":"E-02-2","KB-LEZ400":"E-02-2","KB-LEZ480":"E-02-2","KB-LG103":"E-02-2","KB-LG105":"E-02-2","KB-LG106":"E-02-2","KB-LGA510-B":"E-02-2","KB-LGC400-BR":"E-02-2","KB-LGLW60":"E-02-2","KB-LGR410-B":"E-02-2","KB-LGR510-B":"E-02-2","KB-LGU360":"E-02-2","KB-NAC-06":"E-02-2","KB-NAC-06-SF":"E-02-2","KB-NAC-08":"E-02-2","KB-NAC-12":"E-02-2","KB-NAC-13-F":"E-02-2","KB-NAC-15":"E-02-2","KB-NAC-17":"E-02-2","KB-NAC-21":"E-02-2","KB-NAC-22":"E-02-2","KB-NAC-23":"E-02-2","KB-NAC-23-F10":"E-02-2","KB-NAC-23-F4":"E-02-2","KB-NAC-24":"E-02-2","KB-NAC-25":"E-02-2","KB-NAC-26":"E-02-2","KB-NAC-27":"E-02-2","KB-NAC-29":"E-02-2","KB-NAC-30-B":"E-02-2","KB-NAC-30-S":"E-02-2","KB-NAC-31":"E-02-2","KB-NAC-37":"E-02-2","KB-NAC-38":"E-02-2","KB-NAC-41":"E-03-4","KB-NAC-42":"E-03-4","KB-PO003":"E-03-4","KB-PO3010":"E-03-4","KB-SA102-WH-US":"E-03-4","KB-SA103":"E-03-4","KB-SA103-WH":"E-03-4","KB-SA111":"E-03-4","KB-SA112":"E-03-4","KB-SA113":"E-03-4","KB-SA114":"E-03-4","KB-SA116":"E-03-4","KB-SA117":"E-03-4","KB-SA117-WH":"E-03-4","KB-SA118":"E-03-4","KB-SA119":"E-03-4","KB-SA119-US":"E-03-4","KB-SA120":"E-03-4","KB-SA122":"E-03-4","KB-SA311":"E-03-4","KB-SANP270-WH":"E-03-4","KB-SANP530":"E-03-4","KB-SANP550-WH":"E-03-4","KB-SANP670":"E-03-4","KB-SAR480":"E-03-4","KB-SARV511":"E-03-4","KB-SO104-B":"E-03-4","KB-SO104-W":"E-03-4","KB-SO105":"E-03-4","KB-SO107-B":"E-03-4","KB-SO107-W":"E-03-4","KB-SO109":"E-03-4","KB-SOCW-BL":"E-03-4","KB-SOCW-WH-F":"E-03-4","KB-SOEA-BL":"E-03-4","KB-SOEA-WH":"E-03-4","KB-SOEB-BL":"E-03-3","KB-SOEB-WH":"E-03-3","KB-SOEB-WH-CF":"E-03-3","KB-SOEE-BL":"E-03-3","KB-SOEE-WH":"E-03-3","KB-SOEG-BL":"E-03-3","KB-SOEG-WH":"E-03-3","KB-SOEH-WH":"E-03-3","KB-SOFE14":"E-03-3","KB-SOM-BL":"E-03-3","KB-SOM-SI":"E-03-3","KB-SOSD-BN":"E-03-3","KB-SOSD-SI":"E-03-3","KB-SOSVC14":"E-03-3","KB-SOSVE15":"E-03-3","KB-SOSVE15-WH-F":"E-03-3","KB-SOSVE151":"E-03-3","KB-SOSVF14-B":"E-03-3","KB-SOSVP71":"E-03-3","KB-SOSVT13":"E-03-3","KB-TM2300-BR":"E-03-3","KB-TO101":"E-03-3","KB-TO104":"E-03-3","KB-TOA200-BL":"E-03-3","KB-TOA200-SI":"E-03-3","KB-TOA660":"E-03-3","KB-TOC650":"E-03-3","KB-TOC850":"E-03-4","KB-TOL600":"E-03-5","KB-TOP750-BR":"E-03-6","KB-AC5830T-TC":"E-03-3","KB-AS103":"E-03-3","KB-SANP270-TP-BLUE":"E-03-2","KB-SANP370-TP-B":"E-03-2","KB-SANP370-TP-S":"E-03-2","KB-SARV511-TC":"E-03-2","PM-14FNB":"E-03-2","PM-15FNB":"E-03-2","PM-16FNG":"E-03-2","PM-17FNB":"E-03-2","BB11-AC058-PRO":"C-03-4","BB11-AC071":"C-03-4","BB11-AC072":"C-03-4","BB11-AC075":"C-03-4","BB11-AP028":"C-03-4","BB11-AP034":"C-03-4","BB11-AS055":"C-03-4","BB11-AS060":"C-03-4","BB11-AS083":"C-03-4","BB11-AS084":"C-03-3","BB11-AS088":"C-03-3","BB11-ASX510":"C-03-3","BB11-DE040":"C-03-3","BB11-DE061":"C-03-3","BB11-DE063":"C-03-3","BB11-DE065":"C-03-3","BB11-DE069":"C-03-3","BB11-DE084-6C":"C-03-3","BB11-DE086":"C-03-2","BB11-DE089":"C-03-2","BB11-DE091":"C-03-2","BB11-DE096":"C-03-2","BB11-DE096-H":"C-03-2","BB11-DE098":"C-03-2","BB11-DE111-4C":"C-03-2","BB11-DE119":"C-03-2","BB11-DE121":"C-03-2","BB11-DE122":"B-01-4","BB11-DE124":"B-01-4","BB11-DE133":"B-01-4","BB11-DE133-3C":"B-01-4","BB11-DE137":"B-01-4","BB11-DE137-4C":"B-01-4","BB11-DE138":"B-01-4","BB11-DE147":"B-01-4","BB11-DE155":"B-01-3","BB11-DE3410":"B-01-3","BB11-DE3500-3C":"B-01-3","BB11-DE549":"B-01-3","BB11-DE7300-3C":"B-01-3","BB11-HP031-A":"B-01-3","BB11-HP031-H":"B-01-3","BB11-HP058-H":"B-01-3","BB11-HP064":"B-01-3","BB11-HP068":"B-01-2","BB11-HP082":"B-01-2","BB11-HP085":"B-01-2","BB11-HP086":"B-01-2","BB11-HP088":"B-01-2","BB11-HP094":"B-01-2","BB11-HP097":"B-01-2","BB11-HP098":"B-01-2","BB11-HP100":"B-02-4","BB11-HP103":"B-02-4","BB11-HP104":"B-02-4","BB11-HP105":"B-02-4","BB11-HP830":"B-02-4","BB11-LE009":"B-02-4","BB11-LE014":"B-02-4","BB11-LE019":"B-02-4","BB11-LE024":"B-02-4","BB11-LE025":"B-02-3","BB11-LE031":"B-02-3","BB11-LE032":"B-02-3","BB11-LE034":"B-02-3","BB11-LE041":"B-02-3","BB11-LE052":"B-02-3","BB11-LE055":"B-02-3","BB11-LE057":"B-02-3","BB11-LG010-B":"B-02-3","BB11-NA003-11":"B-02-2","BB11-NA003-14":"B-02-2","BB11-NA005":"B-02-2","BB11-SO031":"B-02-2","BB11-SO036":"B-02-2","BB11-SS015-S":"B-02-2","BB11-SS015-WH":"B-02-2","BB11-SS017":"B-02-2","BB11-TS004-A":"B-02-2","KB-AC515-55":"D-01-1","KB-ACN515-45":"D-01-1","KB-ACN515-47":"D-01-1","KB-ACSF314":"D-01-1","KB-AP1370":"D-01-1","KB-ASX513":"D-02-1","KB-DEI5480":"D-02-1","KB-DEV3401":"D-02-1","KB-DEV3510":"D-02-1","KB-DEV3510-SI":"D-02-1","KB-LEI382MF":"D-02-1","KB-TO105":"D-02-1","BB11-AC003-11":"F-08-4","BB11-AC037-V11":"F-08-4","BB11-AC038-A":"F-08-4","BB11-AC051-A":"F-08-4","BB11-AC058-PRO-H":"F-08-3","BB11-AC060-B":"F-08-3","BB11-AC060-BW":"F-08-3","BB11-AC060-SW":"F-08-3","BB11-AC062-A":"F-08-2","BB11-AC063":"F-08-2","BB11-AC066-H":"F-08-2","BB11-AC068":"F-08-1","BB11-AC070":"F-08-1","BB11-AC073":"F-08-1","BB11-AC076":"F-09-4","BB11-AC079":"F-09-4","BB11-AC080":"F-09-4","BB11-AC084":"F-09-3","BB11-AC087":"F-09-3","BB11-AC089":"F-09-3","BB11-AC090":"F-09-2","BB11-AP021-W":"F-09-2","BB11-AP025":"F-09-2","BB11-AP026":"F-09-1","BB11-AP027":"F-09-1","BB11-AP029":"F-09-1","BB11-AP030":"F-10-4","BB11-AP031":"F-10-4","BB11-AP032":"F-10-3","BB11-AP033":"F-10-3","BB11-AP035":"F-10-2","BB11-AP036":"F-10-2","BB11-AP037":"F-10-2","BB11-AP039":"F-10-1","BB11-AP043":"F-10-1","BB11-AP045":"F-11-4","BB11-AP046":"F-11-4","BB11-AP050":"F-11-4","BB11-AS052-B":"F-11-3","BB11-AS054":"F-11-3","BB11-AS056":"F-11-3","BB11-AS057":"F-11-2","BB11-AS059":"F-11-2","BB11-AS061":"F-11-2","BB11-AS062":"F-11-2","BB11-AS063":"F-11-1","BB11-AS064":"F-11-1","BB11-AS066":"F-12-4","BB11-AS067":"F-12-4","BB11-AS068":"F-12-4","BB11-AS071":"F-12-4","BB11-AS073":"F-12-4","BB11-AS074":"F-12-3","BB11-AS075":"F-12-3","BB11-AS076":"F-12-2","BB11-AS077":"F-12-2","BB11-AS078":"F-12-2","BB11-AS079":"F-12-1","BB11-AS081":"F-12-1","BB11-AS085":"F-12-1","BB11-AS430":"F-12-1","BB11-AS433":"F-13-4","BB11-AS451":"F-13-4","BB11-AS507":"F-13-3","BB11-AS540":"F-13-3","BB11-AS550":"F-13-3","BB11-CP041-A":"F-13-2","BB11-CP045":"F-13-2","BB11-DE003-A":"F-13-2","BB11-DE025-PRO":"F-13-2","BB11-DE037":"F-13-2","BB11-DE040-H":"F-13-1","BB11-DE050-6":"F-13-1","BB11-DE051":"F-14-4","BB11-DE052":"F-14-4","BB11-DE052-H":"F-14-4","BB11-DE053-H":"F-14-3","BB11-DE055-HH":"F-14-3","BB11-DE057":"F-14-3","BB11-DE061-H":"F-14-3","BB11-DE062":"F-14-2","BB11-DE063-H":"F-14-2","BB11-DE067":"F-14-1","BB11-DE076":"F-14-1","BB11-DE080-H":"F-14-1","BB11-DE081":"F-14-1","BB11-DE081-H":"F-15-4","BB11-DE085-H":"F-15-4","BB11-DE087":"F-15-4","BB11-DE088":"F-15-3","BB11-DE091-H":"F-15-3","BB11-DE094":"F-15-3","BB11-DE095":"F-15-2","BB11-DE102":"F-15-2","BB11-DE103":"F-15-2","BB11-DE105":"F-15-2","BB11-DE105-3C":"F-15-1","BB11-DE107":"F-15-1","BB11-DE108":"F-16-4","BB11-DE110":"F-16-3","BB11-DE118":"F-16-3","BB11-DE119-3C":"F-16-3","BB11-DE123":"F-16-2","BB11-DE126":"F-16-2","BB11-DE127-3C":"F-16-2","BB11-DE128":"F-16-1","BB11-DE132":"F-16-1","BB11-DE134":"F-16-1","BB11-DE135":"F-17-4","BB11-DE138-4C":"F-17-4","BB11-DE139":"F-17-4","BB11-DE141":"F-17-3","BB11-DE145":"F-17-3","BB11-DE148":"F-17-3","BB11-DE149":"F-17-2","BB11-DE150":"F-17-2","BB11-DE151":"F-17-1","BB11-DE151-3C":"F-17-1","BB11-DE153":"F-17-1","BB11-DE154":"F-18-4","BB11-DE175":"F-18-4","BB11-DE3410-4C":"F-18-4","BB11-DE3500-4C":"F-18-3","BB11-DE3511-3C":"F-18-3","BB11-DE3511-4C":"F-18-2","BB11-DE3590":"F-18-2","BB11-DE5285":"F-18-1","BB11-DE5520-3C":"F-18-1","BB11-DE5520-4C":"F-18-1","BB11-DE5550":"F-19-4","BB11-DE7300-4C":"F-19-4","BB11-HP019-A":"F-19-4","BB11-HP020-PRO":"F-19-3","BB11-HP022-PRO":"F-19-3","BB11-HP028-H":"F-19-3","BB11-HP033-A":"F-19-3","BB11-HP034-A":"F-19-2","BB11-HP035-PRO":"F-19-2","BB11-HP040-H":"F-19-2","BB11-HP043-A":"F-19-2","BB11-HP044-A":"F-19-1","BB11-HP046":"F-19-1","BB11-HP050-H":"F-19-1","BB11-HP051":"F-19-1","BB11-HP054":"F-20-4","BB11-HP056":"F-20-4","BB11-HP066":"F-20-4","BB11-HP067":"F-20-4","BB11-HP070":"F-20-4","BB11-HP072":"F-20-3","BB11-HP073":"F-20-3","BB11-HP073-9C":"F-20-3","BB11-HP074":"F-20-2","BB11-HP077":"F-20-2","BB11-HP078":"F-20-1","BB11-HP080":"F-20-1","BB11-HP087":"F-20-1","BB11-HP088-S":"F-21-4","BB11-HP089":"F-21-4","BB11-HP090":"F-21-4","BB11-HP092":"F-21-3","BB11-HP093":"F-21-3","BB11-HP101":"F-21-3","BB11-HP1030":"F-21-3","BB11-HP108":"F-21-2","BB11-HP110":"F-21-2","BB11-HP111":"F-21-2","BB11-HP114":"F-21-1","BB11-HP115":"F-21-1","BB11-HP117":"F-21-1","BB11-HP455":"F-22-4","BB11-IB049-PRO":"F-22-4","BB11-IB055-H":"F-22-4","BB11-IT008-A":"F-22-4","BB11-LE007-A":"F-22-3","BB11-LE007-H":"F-22-3","BB11-LE010":"F-22-3","BB11-LE015":"F-22-3","BB11-LE017":"F-22-3","BB11-LE019-H":"F-22-2","BB11-LE021":"F-22-2","BB11-LE022":"F-22-2","BB11-LE027":"F-22-1","BB11-LE029":"F-22-1","BB11-LE030":"F-22-1","BB11-LE033":"F-23-4","BB11-LE040":"F-23-4","BB11-LE042":"F-23-4","BB11-LE044":"F-23-4","BB11-LE045":"F-23-3","BB11-LE046":"F-23-3","BB11-LE047":"F-23-3","BB11-LE050":"F-23-2","BB11-LE058":"F-23-2","BB11-LE063":"F-23-2","BB11-LE280":"F-23-2","BB11-LE507":"F-23-1","BB11-LE910":"F-23-1","BB11-LEL380":"F-23-1","BB11-LET490":"F-23-1","BB11-LG001-A":"F-24-4","BB11-LG009":"F-24-4","BB11-LG009-WH":"F-24-4","BB11-LG011":"F-24-3","BB11-LG012":"F-24-3","BB11-MS002":"F-24-2","BB11-NA006":"F-24-2","BB11-NA018":"F-24-2","BB11-NA021":"F-24-2","BB11-SO015-PRO":"F-24-1","BB11-SO023-A":"F-24-1","BB11-SO023-A2":"F-24-1","BB11-SO025-H":"F-25-4","BB11-SO038":"F-25-4","BB11-SO040":"F-25-4","BB11-SO041":"F-25-3","BB11-SO042":"F-25-3","BB11-SO046":"F-25-3","BB11-SO047":"F-25-3","BB11-SS005-A":"F-25-2","BB11-SS016":"F-25-2","BB11-SS019":"F-25-2","BB11-SS022":"F-25-1","BB11-SS037":"F-25-1","BB11-SS200":"F-25-1","BB11-SS530":"F-25-1","BB11-TS004-H":"F-23-5","BB11-TS029-A":"F-23-5","BB11-TS085-A":"F-24-5","BB11-TS091":"F-24-5","BB11-TS092":"F-24-5","BB11-TS096":"F-25-5","ML-AC077":"F-25-5","ML-DE080-H":"F-25-5","ML-DE120":"F-25-5","BB20-AP140-C":"A-01-1","BB24-MACB-M":"A-01-1","BB20-MI3":"A-01-1","BB24-SAMS-M":"A-01-1","BB24-HP-M":"A-01-1","BB20-HP19":"A-01-1","CA-AC315":"F-26-8","CA-AC515":"F-26-8","CA-ACVX15":"F-26-8","CA-AN515":"F-26-7","CA-DE3590":"F-26-7","CAB-AC315":"F-26-7","CAB-AC515":"F-26-6","CAB-AC533":"F-26-6","CAB-LE3156":"F-26-6","CAB-SA300":"F-26-5","CAB-SA530":"F-26-5","CC-AC531":"F-26-5","CC-DE3410":"F-26-4","CC-DE3580":"F-26-4","CC-DE5547":"F-26-4","CC-DE5558":"F-26-3","CCD-LEG50":"F-26-3","CCD-SA550":"F-26-3","CD-DE1430":"F-26-2","CD-DE3490":"F-26-2","CD-DE5110":"F-26-2","CAB-DE15R6":"F-26-1","CAB-DE17R4":"F-26-1","BB12-CA001-A":"F-27-8","BB12-CA008-A":"F-27-8","BB12-CA009-A":"F-27-8","BB12-CA010-A":"F-27-8","BB12-CA014-A":"F-27-8","BB12-CA015-A":"F-27-8","BB12-CA016":"F-27-8","BB12-CA016-D":"F-27-7","BB12-CA017":"F-27-7","BB12-CA018":"F-27-7","BB12-CA019":"F-27-7","BB12-CA020":"F-27-7","BB12-CA022":"F-27-7","BB12-CA023":"F-27-7","BB12-CA024":"F-27-6","BB12-CA025":"F-27-6","BB12-CA027":"F-27-6","BB12-CA028":"F-27-6","BB12-CS006":"F-27-6","BB12-FU004-A":"F-27-6","BB12-FU006-A":"F-27-6","BB12-GE002-A":"F-27-5","BB12-GP001":"F-27-5","BB12-GP002":"F-27-5","BB12-GP003":"F-27-5","BB12-GP004":"F-27-5","BB12-GP005":"F-27-5","BB12-GP006":"F-27-5","BB12-HP001-A":"F-27-4","BB12-NI004-A":"F-27-4","BB12-NI008-A":"F-27-4","BB12-NI009-A":"F-27-4","BB12-NI011":"F-27-4","BB12-NI012":"F-27-4","BB12-NI013":"F-27-4","BB12-NI014":"F-27-3","BB12-NI015":"F-27-3","BB12-NI016":"F-27-3","BB12-NI018":"F-27-3","BB12-NI019":"F-27-3","BB12-NI025":"F-27-3","BB12-OP006-A":"F-27-3","BB12-OP008-A":"F-27-2","BB12-PO001-A":"F-27-2","BB12-PS002-A":"F-27-2","BB12-PS005-A":"F-27-2","BB12-PS006-A":"F-27-2","BB12-PS008-A":"F-27-2","BB12-PS011-A":"F-27-2","BB12-PS014":"F-27-1","BB12-SA003-A":"F-27-1","BB12-SO006-A":"F-27-1","BB12-SO007-A":"F-27-1","BB12-SO011-A":"F-27-1","BB12-SO012":"F-27-1","BB12-SO013":"F-27-1","BB12-SO014":"F-28-8","BB12-SO015":"F-28-8","BB12-SS006-A":"F-28-8","BB12-SS007-A":"F-28-8","BB13-JV034-A":"F-28-8","BB13-PS008-H":"F-28-8","BB13-PS014-A":"F-28-8","BB13-PS016-A":"F-28-7","BB13-PS027":"F-28-7","BB13-SO001-H":"F-28-7","BB13-SO002-B":"F-28-7","BB13-SO005-A":"F-28-7","BB13-SO005-C":"F-28-7","BB13-SO013-A":"F-28-7","BB13-SO014-A":"F-28-6","BB13-SO015-A":"F-28-6","BB13-SO017-A":"F-28-6","BB13-SO017-H":"F-28-6","BB13-SO025-DIG":"F-28-6","BB13-SO026":"F-28-6","BB13-SO027":"F-28-6","BB13-SO031":"F-28-5","BB13-SO032":"F-28-5","BB13-SO033":"F-28-5","BB13-SO034":"F-28-5","BB14-BP-L100-A":"F-28-5","BB14-BP-L100-S":"F-28-5","BB14-BPU90":"F-28-5","BB14-SO016":"F-28-4","BB32-AHDBT-301":"F-28-4","BB32-AHDBT-401":"F-28-4","BB32-AHDBT-501":"F-28-4","BB32-CA13L":"F-28-4","BB32-CA1L":"F-28-4","BB32-CA4L":"F-28-4","BB32-CAE10":"F-28-3","BB32-CAE10-D":"F-28-3","BB32-CAE17":"F-28-3","BB32-CAE6":"F-28-3","BB32-CAE8":"F-28-3","BB32-FU40":"F-28-3","BB32-NIEL14":"F-28-3","BB32-NIEL19":"F-28-2","BB32-NIEL23":"F-28-2","BB32-NIEL5":"F-28-2","BB32-PABL19":"F-28-2","BB32-SO550":"F-28-2","BB32-SO570":"F-28-2","BB32-SO970":"F-28-2","BB32-SOBG1":"F-28-1","BB32-SOBN1":"F-28-1","BB32-SOFW50":"F-28-1","BB32-SOFZ100":"F-28-1","CABO-2507":"F-28-1","CABO-4530":"F-28-1","CABO-AC19-B21":"F-28-1","CABO-AP16-L":"F-29-8","CABO-AP65-M2":"F-29-8","CABO-BP":"F-29-8","CABO-C":"F-29-8","CABO-CP18-A":"F-29-8","CABO-CP6300":"F-29-8","CABO-DE19-A":"F-29-8","CABO-DE19-T6":"F-29-7","CABO-DE19-U6":"F-29-7","CABO-HP19-4":"F-29-7","CABO-HP19-40":"F-29-7","CABO-LE79":"F-29-7","CABO-LEUSB":"F-29-7","CABO-SA19-40B":"F-29-7","CABO-SA19-A":"F-29-6","CABO-SO19-B2":"F-29-6","CABO-TO19-B25":"F-29-6","CABO-TP":"F-29-6","CI-AC001":"F-29-6","CI-AC002":"F-29-6","CI-AC005":"F-29-6","CI-AC3820T":"F-29-5","CI-AC4738":"F-29-5","CI-AC4739":"F-29-5","CI-AC4750":"F-29-5","CI-AC515":"F-29-5","CI-AC5421":"F-29-5","CI-AC5571":"F-29-5","CI-AC5733":"F-29-4","CI-AC5750":"F-29-4","CI-ACE1-471":"F-29-4","CI-ACV5-571":"F-29-4","CI-AS002":"F-29-4","CI-AS004":"F-29-4","CI-AS543":"F-29-4","CI-ASA45":"F-29-3","CI-ASS400":"F-29-3","CI-CCEU25":"F-29-3","CI-DE001":"F-29-3","CI-DE002":"F-29-3","CI-DE005":"F-29-3","CI-DE006":"F-29-3","CI-DE007":"F-29-2","CI-DE008":"F-29-2","CI-DE1555":"F-29-2","CI-DE3300":"F-29-2","CI-DE3421":"F-29-2","CI-DE3460":"F-29-2","CI-DE3490":"F-29-2","CI-DE3511":"F-29-1","CI-DE3550":"F-29-1","CI-DE3560":"F-29-1","CI-DE3579":"F-29-1","CI-DE5400":"F-29-1","CI-DE5423":"F-29-1","CI-DE5450":"F-29-1","CI-DE5481":"F-30-8","CI-DE5570":"F-30-8","CI-DE7472":"F-30-8","CI-DEN4030":"F-30-8","CI-DEN4110":"F-30-8","CI-DEN5030":"F-30-8","CI-DEN5050":"F-30-8","CI-DEN5110":"F-30-7","CI-DEV3400":"F-30-7","CI-HP001":"F-30-7","CI-HP002":"F-30-7","CI-HP005":"F-30-7","CI-HP14K":"F-30-7","CI-HP256":"F-30-7","CI-HP4325":"F-30-6","CI-HP4330S":"F-30-6","CI-HP440":"F-30-6","CI-HP4530S":"F-30-6","CI-HP52000":"F-30-6","CI-HPCQ42-3PIN":"F-30-6","CI-HPCQ43":"F-30-6","CI-HPDM42":"F-30-5","CI-HPDV66":"F-30-5","CI-HPDV67":"F-30-5","CI-HPG6-2000":"F-30-5","CI-IT7520":"F-30-5","CI-LE001":"F-30-5","CI-LE002":"F-30-5","CI-LE003":"F-30-4","CI-LE400":"F-30-4","CI-LE530":"F-30-4","CI-LEB480":"F-30-4","CI-LEG460":"F-30-4","CI-LEG470":"F-30-4","CI-LES400":"F-30-4","CI-LET470":"F-30-3","CI-LG580":"F-30-3","CI-PH14M2":"F-30-3","CI-SA001":"F-30-3","CI-SA003":"F-30-3","CI-SA004":"F-30-3","CI-SA0410":"F-30-3","CI-SA300E":"F-30-2","CI-SA905S":"F-30-2","CI-SANP300":"F-30-2","CI-SANP550":"F-30-2","CI-SO001":"F-30-2","CI-SO6100":"F-30-2","CI-SOVT13":"F-30-2","B116XW03-V.0":"E-01-1","B156RW01-V.0":"E-01-1","DP-FP100":"E-01-1","DP-HF141":"E-01-1","DP-HF142":"E-01-1","DP-HF143":"E-01-1","DP-HM101":"E-01-1","DP-HM120":"E-01-1","DP-NP100":"E-01-1","DP-SJ270":"E-01-1","DP-SJ340":"E-01-1","DP-ST300":"E-01-1","LP154WX7":"E-01-1","BB20-AC19-F25":"A-21-5","BB20-AC19-ONE40":"A-21-5","BB20-AP14.5":"A-21-5","BB20-AS009":"A-21-4","BB20-CP18-A":"A-21-4","BB20-CP18-E":"A-21-3","BB20-CP19-A":"A-21-3","BB20-CP6300-180":"A-21-3","BB20-DE19-C":"A-21-2","BB20-DE19-D":"A-21-2","BB20-DE19-G":"A-21-1","BB20-DE19-N":"A-21-1","BB20-DE19-T9":"A-21-1","BB20-HP19-3":"A-22-5","BB20-HP19-6":"A-22-5","BB20-IB20-C":"A-22-4","BB20-LE20-D":"A-22-3","BB20-LE20-G":"A-22-3","BB20-LE20-H":"A-22-2","BB20-MI2":"A-22-2","BB20-MI4":"A-22-1","BB20-PH19":"A-22-1","BB20-PH19-30":"A-22-1","BB20-PO12-A":"A-22-1","BB20-PO20-B":"A-23-5","BB20-SA12-A":"A-23-4","BB20-SO10.5-30":"A-23-4","BB20-SO19-40":"A-23-3","BB20-SO19-A":"A-23-3","BB20-SO19-B":"A-23-3","BB20-SO19-E":"A-23-2","BB24-ACER-M":"A-23-2","BB24-ASUS-M":"A-23-1","BB24-DELL-M":"A-23-1","BB24-LENV-M":"A-23-1","MLF-DE19-T6":"A-23-1"};
 
 // ════════════════════════════════════════════════════════════════════════
 // LISTA FATURAMENTO — gerar listas, CSV, impressão, histórico e Picking Poluído
@@ -13604,9 +12295,7 @@ async function lfApi(path, opt = {}) {
 
 // ─── CSV ──────────────────────────────────────────────────────────────
 function lfNorm(s) {
-  return String(s || '')
-    .trim()
-    .replace(/^"|"$/g, '');
+  return String(s || '').trim().replace(/^"|"$/g, '');
 }
 function lfParseLine(line, sep) {
   const out = [];
@@ -13681,20 +12370,12 @@ function lfGet(row, idx, names) {
   return '';
 }
 function lfNum(v) {
-  return (
-    Number(
-      String(v || '0')
-        .replace(',', '.')
-        .replace(/[^0-9.-]/g, '')
-    ) || 0
-  );
+  return Number(String(v || '0').replace(',', '.').replace(/[^0-9.-]/g, '')) || 0;
 }
 function lfFmtData(d) {
   try {
     const dt = new Date(d);
-    return Number.isNaN(dt.getTime())
-      ? String(d || '')
-      : dt.toLocaleString('pt-BR');
+    return Number.isNaN(dt.getTime()) ? String(d || '') : dt.toLocaleString('pt-BR');
   } catch (e) {
     return d || '';
   }
@@ -13705,10 +12386,7 @@ function lfChunk(arr, n) {
   return out;
 }
 function lfChaveRanking(valor) {
-  let texto = lfNorm(valor)
-    .replace(/ /g, ' ')
-    .replace(/\s+/g, '')
-    .toUpperCase();
+  let texto = lfNorm(valor).replace(/ /g, ' ').replace(/\s+/g, '').toUpperCase();
   if (/^\d+[.,]0+$/.test(texto)) texto = texto.replace(/[.,]0+$/, '');
   return texto;
 }
@@ -13734,22 +12412,14 @@ function lfLocalizarEndereco(produto, row, idx) {
     'Endereco Produto',
   ]);
   if (doArquivo) return doArquivo;
-  const chave = String(produto || '')
-    .trim()
-    .toUpperCase();
-  return (
-    LF_ENDERECOS[chave] || LF_ENDERECOS[String(produto || '').trim()] || ''
-  );
+  const chave = String(produto || '').trim().toUpperCase();
+  return LF_ENDERECOS[chave] || LF_ENDERECOS[String(produto || '').trim()] || '';
 }
 function lfLocalizacaoHistorico(produto, salva) {
   const s = String(salva || '').trim();
   if (s) return s;
-  const chave = String(produto || '')
-    .trim()
-    .toUpperCase();
-  return (
-    LF_ENDERECOS[chave] || LF_ENDERECOS[String(produto || '').trim()] || ''
-  );
+  const chave = String(produto || '').trim().toUpperCase();
+  return LF_ENDERECOS[chave] || LF_ENDERECOS[String(produto || '').trim()] || '';
 }
 
 // ─── Regras de envio ao estoque ───────────────────────────────────────
@@ -13776,19 +12446,13 @@ function lfConsolidar(rows, idx, dataExecISO, dataExecTexto) {
       linhasInvalidas++;
       continue;
     }
-    const quantidade = lfNum(
-      lfGet(row, idx, ['Quantidade a Faturar', 'Quantidade Faturar'])
-    );
+    const quantidade = lfNum(lfGet(row, idx, ['Quantidade a Faturar', 'Quantidade Faturar']));
 
     if (!mapa.has(pedido)) {
       mapa.set(pedido, {
         pedido,
         filial: lfGet(row, idx, ['C9 Filial']),
-        transportadora: lfGet(row, idx, [
-          'C5_DESCTRS',
-          'C5_DESCTRIS',
-          'C5 DESCTRS',
-        ]),
+        transportadora: lfGet(row, idx, ['C5_DESCTRS', 'C5_DESCTRIS', 'C5 DESCTRS']),
         totalQtd: 0,
         tipoCaixa: false,
         pickingInsuficiente: false,
@@ -13801,19 +12465,15 @@ function lfConsolidar(rows, idx, dataExecISO, dataExecTexto) {
 
     if (
       lfTextoRegra(
-        lfGet(row, idx, [
-          'Tipo de faturamento',
-          'Tipo de Faturamento',
-          'Tipo Faturamento',
-        ])
+        lfGet(row, idx, ['Tipo de faturamento', 'Tipo de Faturamento', 'Tipo Faturamento'])
       ).includes('CAIXA')
     ) {
       pedidoObj.tipoCaixa = true;
     }
     if (
-      lfTextoRegra(
-        lfGet(row, idx, ['FILTRO V.1', 'Filtro V.1', 'FILTRO V1'])
-      ).includes('PICKING INSUFICIENTE')
+      lfTextoRegra(lfGet(row, idx, ['FILTRO V.1', 'Filtro V.1', 'FILTRO V1'])).includes(
+        'PICKING INSUFICIENTE'
+      )
     ) {
       pedidoObj.pickingInsuficiente = true;
     }
@@ -13856,39 +12516,21 @@ function lfConsolidar(rows, idx, dataExecISO, dataExecTexto) {
 
 // ─── Consultas leves (pedidos_gerados / pedidos_estoque) ──────────────
 async function lfConsultarPedidos(tabela, campos, pedidos) {
-  const unicos = [
-    ...new Set(
-      (pedidos || []).map((p) => String(p || '').trim()).filter(Boolean)
-    ),
-  ];
+  const unicos = [...new Set((pedidos || []).map((p) => String(p || '').trim()).filter(Boolean))];
   const consultas = [];
   for (let i = 0; i < unicos.length; i += 180) {
     const valores = unicos
       .slice(i, i + 180)
       .map((v) => encodeURIComponent(v))
       .join(',');
-    consultas.push(
-      lfApi(
-        '/' +
-          tabela +
-          '?select=' +
-          campos +
-          '&pedido=in.(' +
-          valores +
-          ')&limit=5000'
-      )
-    );
+    consultas.push(lfApi('/' + tabela + '?select=' + campos + '&pedido=in.(' + valores + ')&limit=5000'));
   }
   const resultados = consultas.length ? await Promise.all(consultas) : [];
   return resultados.flat().filter(Boolean);
 }
 // Pedidos já gerados em lista (tabela leve, uma linha por pedido).
 async function lfPedidosJaGerados(pedidos) {
-  const lista = await lfConsultarPedidos(
-    'pedidos_gerados',
-    'pedido,lista,usuario,data_hora',
-    pedidos
-  );
+  const lista = await lfConsultarPedidos('pedidos_gerados', 'pedido,lista,usuario,data_hora', pedidos);
   const mapa = new Map();
   lista.forEach((x) => {
     const pedido = String(x.pedido || '').trim();
@@ -13908,11 +12550,7 @@ async function lfPedidosJaNoEstoque(pedidos) {
   return new Set(lista.map((x) => String(x.pedido || '').trim()));
 }
 async function lfRegistrarPedidosEstoque(pedidos) {
-  const unicos = [
-    ...new Set(
-      (pedidos || []).map((p) => String(p || '').trim()).filter(Boolean)
-    ),
-  ];
+  const unicos = [...new Set((pedidos || []).map((p) => String(p || '').trim()).filter(Boolean))];
   if (!unicos.length) return;
   await lfApi('/pedidos_estoque?on_conflict=pedido', {
     method: 'POST',
@@ -13921,9 +12559,7 @@ async function lfRegistrarPedidosEstoque(pedidos) {
   });
 }
 async function lfProximoNumero() {
-  const hist = await lfApi(
-    '/historico_listas?select=lista&order=id.desc&limit=1'
-  );
+  const hist = await lfApi('/historico_listas?select=lista&order=id.desc&limit=1');
   if (!hist || !hist.length) return 1;
   const encontrado = String(hist[0].lista || '').match(/(\d+)/);
   if (!encontrado) return 1;
@@ -13933,15 +12569,7 @@ async function lfProximoNumero() {
 }
 
 // ─── Fila da planilha (fila_lancamentos) ──────────────────────────────
-function lfMontarItemFila({
-  pedido,
-  ordem,
-  motivo,
-  cabecalhos,
-  linha,
-  usuario,
-  email,
-}) {
+function lfMontarItemFila({ pedido, ordem, motivo, cabecalhos, linha, usuario, email }) {
   const item = {};
   LF_COLUNAS_FILA.forEach((c) => {
     item[c] = '';
@@ -13965,8 +12593,7 @@ function lfMontarItemFila({
 }
 async function lfSalvarFila(itens) {
   const validos = (itens || []).filter(
-    (i) =>
-      String(i?.chave || '').trim() && String(i?.['C9 Pedido'] || '').trim()
+    (i) => String(i?.chave || '').trim() && String(i?.['C9 Pedido'] || '').trim()
   );
   if (!validos.length) return { confirmados: 0, pedidos: [] };
   const preparados = validos.map((i) => ({
@@ -13975,24 +12602,15 @@ async function lfSalvarFila(itens) {
     erro: null,
     enviado_em: null,
   }));
-  const resposta = await lfApi(
-    '/fila_lancamentos?on_conflict=chave&select=chave,status,erro',
-    {
-      method: 'POST',
-      body: JSON.stringify(preparados),
-      headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
-    }
-  );
+  const resposta = await lfApi('/fila_lancamentos?on_conflict=chave&select=chave,status,erro', {
+    method: 'POST',
+    body: JSON.stringify(preparados),
+    headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+  });
   const registros = Array.isArray(resposta) ? resposta : [];
   const pedidos = [
     ...new Set(
-      registros
-        .map((i) =>
-          String(i.chave || '')
-            .split('|')[0]
-            .trim()
-        )
-        .filter(Boolean)
+      registros.map((i) => String(i.chave || '').split('|')[0].trim()).filter(Boolean)
     ),
   ];
   return { confirmados: registros.length, pedidos };
@@ -14040,12 +12658,7 @@ async function lfPreview(rows, idx) {
     }
     const chave = p.filial + '|' + p.transportadora;
     if (!grupos[chave]) {
-      grupos[chave] = {
-        filial: p.filial,
-        transportadora: p.transportadora,
-        pedidos: 0,
-        unidades: 0,
-      };
+      grupos[chave] = { filial: p.filial, transportadora: p.transportadora, pedidos: 0, unidades: 0 };
     }
     grupos[chave].pedidos++;
     grupos[chave].unidades += p.totalQtd;
@@ -14064,21 +12677,12 @@ async function lfPreview(rows, idx) {
   };
 }
 
-async function lfGerarListas({
-  rows,
-  headers,
-  idx,
-  usuario,
-  email,
-  origemArquivo,
-}) {
+async function lfGerarListas({ rows, headers, idx, usuario, email, origemArquivo }) {
   const dataExecISO = new Date().toISOString();
   const dataExecTexto = lfFmtData(dataExecISO);
   const consolidado = lfConsolidar(rows, idx, dataExecISO, dataExecTexto);
   const pedidosAtuais = consolidado.pedidos.map((p) => p.pedido);
-  const comRegra = consolidado.pedidos
-    .filter((p) => lfMotivoEstoque(p))
-    .map((p) => p.pedido);
+  const comRegra = consolidado.pedidos.filter((p) => lfMotivoEstoque(p)).map((p) => p.pedido);
 
   const [done, numeroInicial, jaNoEstoque] = await Promise.all([
     lfPedidosJaGerados(pedidosAtuais),
@@ -14173,10 +12777,7 @@ async function lfGerarListas({
           const linhaCsv = (item.row || []).map((v) => lfNorm(v));
           headers.forEach((cab, i) => {
             const nome = lfNorm(cab).toLowerCase();
-            if (
-              nome === 'quantidade a faturar' ||
-              nome === 'quantidade faturar'
-            ) {
+            if (nome === 'quantidade a faturar' || nome === 'quantidade faturar') {
               linhaCsv[i] = String(Number(item.qtd || 0));
             }
           });
@@ -14223,12 +12824,7 @@ async function lfGerarListas({
       const n = String(x.pedido || '').trim();
       if (!n || vistos.has(n)) return;
       vistos.add(n);
-      pedidosGerados.push({
-        pedido: n,
-        lista: x.lista,
-        usuario: x.usuario,
-        data_hora: x.data_hora,
-      });
+      pedidosGerados.push({ pedido: n, lista: x.lista, usuario: x.usuario, data_hora: x.data_hora });
     });
     gravacoes.push(
       lfApi('/pedidos_gerados?on_conflict=pedido', {
@@ -14249,10 +12845,7 @@ async function lfGerarListas({
   const filaPromise = filaEstoque.length
     ? lfSalvarFila(filaEstoque)
     : Promise.resolve({ confirmados: 0, pedidos: [] });
-  const [, resultadoFila] = await Promise.all([
-    Promise.all(gravacoes),
-    filaPromise,
-  ]);
+  const [, resultadoFila] = await Promise.all([Promise.all(gravacoes), filaPromise]);
 
   if (filaEstoque.length && resultadoFila.confirmados === 0) {
     throw new Error(
@@ -14287,18 +12880,10 @@ async function lfGerarListas({
 // ─── Impressão ────────────────────────────────────────────────────────
 // Valor de uma coluna do CSV original guardado no histórico.
 function lfValorCsv(registro, nomes) {
-  const cab = Array.isArray(registro?.cabecalhos_csv)
-    ? registro.cabecalhos_csv
-    : [];
+  const cab = Array.isArray(registro?.cabecalhos_csv) ? registro.cabecalhos_csv : [];
   const lin = Array.isArray(registro?.linha_csv) ? registro.linha_csv : [];
   const alvo = nomes.map((n) => String(n).trim().toLowerCase());
-  const i = cab.findIndex((c) =>
-    alvo.includes(
-      String(c || '')
-        .trim()
-        .toLowerCase()
-    )
-  );
+  const i = cab.findIndex((c) => alvo.includes(String(c || '').trim().toLowerCase()));
   return i >= 0 ? String(lin[i] ?? '').trim() : '';
 }
 // Ranking por pedido, na ordem da primeira aparição.
@@ -14324,8 +12909,7 @@ async function lfBuscarImpressao(lista) {
         '&order=id.asc&limit=5000'
     ),
   ]);
-  const info =
-    Array.isArray(cabecalhos) && cabecalhos.length ? cabecalhos[0] : {};
+  const info = Array.isArray(cabecalhos) && cabecalhos.length ? cabecalhos[0] : {};
   return { lista, info, registros: Array.isArray(itens) ? itens : [] };
 }
 async function lfMarcarImpressas(listas) {
@@ -14345,12 +12929,7 @@ async function lfExcluir({ tipo, lista, pedido, motivo, usuario, email }) {
   if (tipo === 'LISTA') {
     await lfApi('/rpc/cancelar_lista_controlada', {
       method: 'POST',
-      body: JSON.stringify({
-        p_lista: lista,
-        p_motivo: motivo,
-        p_usuario: usuario,
-        p_email: email,
-      }),
+      body: JSON.stringify({ p_lista: lista, p_motivo: motivo, p_usuario: usuario, p_email: email }),
       headers: { Prefer: 'return=representation' },
     });
   } else {
@@ -14376,17 +12955,13 @@ async function lfExcluir({ tipo, lista, pedido, motivo, usuario, email }) {
       });
     } else {
       await lfApi(
-        '/pedidos_gerados?pedido=eq.' +
-          encodeURIComponent(pedido) +
-          '&lista=eq.' +
-          encodeURIComponent(lista),
+        '/pedidos_gerados?pedido=eq.' + encodeURIComponent(pedido) + '&lista=eq.' + encodeURIComponent(lista),
         { method: 'DELETE', headers: { Prefer: 'return=minimal' } }
       );
     }
   } catch (e) {
     aviso =
-      'A exclusão foi registrada, mas não consegui liberar o(s) pedido(s) para gerar de novo: ' +
-      e.message;
+      'A exclusão foi registrada, mas não consegui liberar o(s) pedido(s) para gerar de novo: ' + e.message;
   }
   return aviso;
 }
@@ -14412,12 +12987,9 @@ function lfDataFinanceiroOriginal(item) {
     const v = linhaOriginal[6];
     return v === null || v === undefined ? '' : String(v);
   }
-  const cabecalhos = Array.isArray(item?.cabecalhos_csv)
-    ? item.cabecalhos_csv
-    : [];
+  const cabecalhos = Array.isArray(item?.cabecalhos_csv) ? item.cabecalhos_csv : [];
   const porCab = lfValorCab(cabecalhos, linhaOriginal, ['DataHoraFinanceiro']);
-  if (porCab !== null && porCab !== undefined && String(porCab) !== '')
-    return String(porCab);
+  if (porCab !== null && porCab !== undefined && String(porCab) !== '') return String(porCab);
   return String(item?.data_hora_financeiro || '');
 }
 function lfConsolidarItensPoluido(itens) {
@@ -14433,9 +13005,7 @@ function lfConsolidarItensPoluido(itens) {
 }
 function lfPrepararCsvPoluido(item) {
   const dataHoraFinanceiroCsv = lfDataFinanceiroOriginal(item);
-  let cabecalhos = Array.isArray(item.cabecalhos_csv)
-    ? [...item.cabecalhos_csv]
-    : [];
+  let cabecalhos = Array.isArray(item.cabecalhos_csv) ? [...item.cabecalhos_csv] : [];
   let linha = Array.isArray(item.linha_csv) ? [...item.linha_csv] : [];
 
   // Pedidos antigos sem a linha completa do CSV: monta o conjunto básico de colunas.
@@ -14480,15 +13050,10 @@ function lfPrepararCsvPoluido(item) {
     }
     if (nome === 'c9 filial') linha[i] = String(item.filial || '');
     if (nome === 'c9 pedido') linha[i] = String(item.pedido || '');
-    if (
-      nome === 'c5_desctrs' ||
-      nome === 'c5 desctrs' ||
-      nome === 'c5_desctris'
-    ) {
+    if (nome === 'c5_desctrs' || nome === 'c5 desctrs' || nome === 'c5_desctris') {
       linha[i] = String(item.transportadora || '');
     }
-    if (nome === 'unidade de faturamento')
-      linha[i] = String(item.unidade_faturamento || '');
+    if (nome === 'unidade de faturamento') linha[i] = String(item.unidade_faturamento || '');
     if (nome === 'datahorafinanceiro') linha[i] = dataHoraFinanceiroCsv;
     if (nome === 'tipo de separacao') linha[i] = LF_MOTIVO_POLUIDO;
     if (nome === 'filtro v.1') linha[i] = LF_MOTIVO_POLUIDO;
@@ -14523,42 +13088,23 @@ async function lfLancarPoluido({ pedido, usuario, email }) {
 
   const existentes = Array.isArray(filaExistente) ? filaExistente : [];
   const ativos = existentes.filter((i) =>
-    ['PENDENTE', 'PROCESSANDO', 'ENVIADO'].includes(
-      String(i.status || '').toUpperCase()
-    )
+    ['PENDENTE', 'PROCESSANDO', 'ENVIADO'].includes(String(i.status || '').toUpperCase())
   );
   if (ativos.length) {
     throw new Error('Este pedido já está na fila ou na planilha do estoque.');
   }
 
-  const comErro = existentes.filter(
-    (i) => String(i.status || '').toUpperCase() === 'ERRO'
-  );
+  const comErro = existentes.filter((i) => String(i.status || '').toUpperCase() === 'ERRO');
   if (comErro.length) {
     await lfApi(
-      '/fila_lancamentos?' +
-        colPedido +
-        '=eq.' +
-        encodeURIComponent(pedido) +
-        '&motivo=eq.' +
-        encodeURIComponent(motivo),
+      '/fila_lancamentos?' + colPedido + '=eq.' + encodeURIComponent(pedido) + '&motivo=eq.' + encodeURIComponent(motivo),
       {
         method: 'PATCH',
-        body: JSON.stringify({
-          status: 'PENDENTE',
-          erro: null,
-          enviado_em: null,
-        }),
+        body: JSON.stringify({ status: 'PENDENTE', erro: null, enviado_em: null }),
         headers: { Prefer: 'return=minimal' },
       }
     );
-    return {
-      tipo: 'ok',
-      mensagem:
-        'Pedido ' +
-        pedido +
-        ' reenviado ao estoque. Aguardando o processamento automático.',
-    };
+    return { tipo: 'ok', mensagem: 'Pedido ' + pedido + ' reenviado ao estoque. Aguardando o processamento automático.' };
   }
 
   if (!Array.isArray(itensHistorico) || !itensHistorico.length) {
@@ -14566,9 +13112,7 @@ async function lfLancarPoluido({ pedido, usuario, email }) {
   }
 
   const listas = [
-    ...new Set(
-      itensHistorico.map((i) => String(i.lista || '').trim()).filter(Boolean)
-    ),
+    ...new Set(itensHistorico.map((i) => String(i.lista || '').trim()).filter(Boolean)),
   ];
   const cabecalhos = await Promise.all(
     listas.map((lista) =>
@@ -14582,14 +13126,9 @@ async function lfLancarPoluido({ pedido, usuario, email }) {
   const infos = cabecalhos
     .flat()
     .filter(Boolean)
-    .sort(
-      (a, b) =>
-        new Date(b.data_hora || 0).getTime() -
-        new Date(a.data_hora || 0).getTime()
-    );
-  const infoAtiva = infos.find(
-    (i) => String(i.status || 'ATIVA').toUpperCase() !== 'CANCELADA'
-  ) ||
+    .sort((a, b) => new Date(b.data_hora || 0).getTime() - new Date(a.data_hora || 0).getTime());
+  const infoAtiva =
+    infos.find((i) => String(i.status || 'ATIVA').toUpperCase() !== 'CANCELADA') ||
     infos[0] || { lista: listas[0] || '' };
 
   if (String(infoAtiva.status || 'ATIVA').toUpperCase() === 'CANCELADA') {
@@ -14597,14 +13136,9 @@ async function lfLancarPoluido({ pedido, usuario, email }) {
   }
 
   const listaEscolhida = String(infoAtiva.lista || listas[0] || '');
-  const itensDaLista = itensHistorico.filter(
-    (i) => String(i.lista || '') === listaEscolhida
-  );
-  const itens = lfConsolidarItensPoluido(
-    itensDaLista.length ? itensDaLista : itensHistorico
-  );
-  if (!itens.length)
-    throw new Error('Nenhum produto válido foi encontrado para este pedido.');
+  const itensDaLista = itensHistorico.filter((i) => String(i.lista || '') === listaEscolhida);
+  const itens = lfConsolidarItensPoluido(itensDaLista.length ? itensDaLista : itensHistorico);
+  if (!itens.length) throw new Error('Nenhum produto válido foi encontrado para este pedido.');
 
   const fila = itens.map((item, indice) => {
     const completo = {
@@ -14612,9 +13146,7 @@ async function lfLancarPoluido({ pedido, usuario, email }) {
       pedido,
       lista: listaEscolhida || item.lista || '',
       filial: String(item.filial || infoAtiva.filial || '').trim(),
-      transportadora: String(
-        item.transportadora || infoAtiva.transportadora || ''
-      ).trim(),
+      transportadora: String(item.transportadora || infoAtiva.transportadora || '').trim(),
     };
     const csv = lfPrepararCsvPoluido(completo);
     return lfMontarItemFila({
@@ -14630,14 +13162,9 @@ async function lfLancarPoluido({ pedido, usuario, email }) {
 
   const resultado = await lfSalvarFila(fila);
   if (resultado.confirmados === 0) {
-    throw new Error(
-      'O Supabase não confirmou o envio do pedido para a fila da planilha (Lançamentos).'
-    );
+    throw new Error('O Supabase não confirmou o envio do pedido para a fila da planilha (Lançamentos).');
   }
-  const unidades = fila.reduce(
-    (t, i) => t + lfNum(i['Quantidade a Faturar']),
-    0
-  );
+  const unidades = fila.reduce((t, i) => t + lfNum(i['Quantidade a Faturar']), 0);
   return {
     tipo: 'ok',
     mensagem:
@@ -14710,8 +13237,7 @@ function LfBlocoImpressao({ lista, info, registros }) {
             <br />
             <b>Cancelada por:</b> {info.ajustada_por || info.usuario || ''}
             <br />
-            <b>Data do cancelamento:</b>{' '}
-            {lfFmtData(info.ajustada_em || info.data_hora)}
+            <b>Data do cancelamento:</b> {lfFmtData(info.ajustada_em || info.data_hora)}
           </div>
         </div>
       </div>
@@ -14727,8 +13253,7 @@ function LfBlocoImpressao({ lista, info, registros }) {
         <div>
           <h2>{lista}</h2>
           <div>
-            Filial: <b>{info.filial || registros[0]?.filial || ''}</b> &nbsp;
-            Transportadora:{' '}
+            Filial: <b>{info.filial || registros[0]?.filial || ''}</b> &nbsp; Transportadora:{' '}
             <b>{info.transportadora || registros[0]?.transportadora || ''}</b>
           </div>
         </div>
@@ -14762,18 +13287,13 @@ function LfBlocoImpressao({ lista, info, registros }) {
               <td>{ranking[i]}</td>
               <td>{x.produto || ''}</td>
               <td>{x.quantidade || 0}</td>
-              <td>
-                {lfLocalizacaoHistorico(x.produto, x.localizacao) ||
-                  'SEM ENDEREÇO'}
-              </td>
+              <td>{lfLocalizacaoHistorico(x.produto, x.localizacao) || 'SEM ENDEREÇO'}</td>
               <td>{info.filial || x.filial || ''}</td>
               <td>{x.pedido || ''}</td>
               <td>{x.unidade_faturamento || ''}</td>
               <td>{x.data_hora_financeiro || ''}</td>
               <td>{info.transportadora || x.transportadora || ''}</td>
-              <td>
-                {lfValorCsv(x, ['Tipo de faturamento', 'Tipo Faturamento'])}
-              </td>
+              <td>{lfValorCsv(x, ['Tipo de faturamento', 'Tipo Faturamento'])}</td>
               <td>{lfValorCsv(x, ['FILTRO V.1', 'FILTRO V1'])}</td>
             </tr>
           ))}
@@ -14810,57 +13330,23 @@ function LfCard({ titulo, subtitulo, children, acoes, semPadding }) {
           }}
         >
           <div>
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 800,
-                color: C.txtPri,
-                fontFamily: C.font,
-                letterSpacing: '-0.01em',
-              }}
-            >
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.txtPri, fontFamily: C.font, letterSpacing: '-0.01em' }}>
               {titulo}
             </div>
             {subtitulo && (
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: C.txtMuted,
-                  marginTop: 2,
-                  fontFamily: C.font,
-                }}
-              >
+              <div style={{ fontSize: 12, fontWeight: 500, color: C.txtMuted, marginTop: 2, fontFamily: C.font }}>
                 {subtitulo}
               </div>
             )}
           </div>
-          {acoes && (
-            <div
-              style={{
-                display: 'flex',
-                gap: 8,
-                flexWrap: 'wrap',
-                alignItems: 'center',
-              }}
-            >
-              {acoes}
-            </div>
-          )}
+          {acoes && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>{acoes}</div>}
         </div>
       )}
       <div style={{ padding: semPadding ? 0 : 20 }}>{children}</div>
     </div>
   );
 }
-function LfBtn({
-  children,
-  onClick,
-  disabled,
-  tipo = 'neutro',
-  title,
-  pequeno,
-}) {
+function LfBtn({ children, onClick, disabled, tipo = 'neutro', title, pequeno }) {
   const cores = {
     primario: { bg: C.primaryGrad, cor: '#fff', bd: 'transparent' },
     verde: { bg: C.green, cor: '#fff', bd: 'transparent' },
@@ -14886,10 +13372,7 @@ function LfBtn({
         cursor: disabled ? 'not-allowed' : 'pointer',
         fontFamily: C.font,
         whiteSpace: 'nowrap',
-        boxShadow:
-          disabled || tipo === 'neutro' || tipo === 'perigo'
-            ? 'none'
-            : C.shadowSm,
+        boxShadow: disabled || tipo === 'neutro' || tipo === 'perigo' ? 'none' : C.shadowSm,
       }}
     >
       {children}
@@ -14969,21 +13452,13 @@ function LfBadge({ tipo = 'neutro', children }) {
         whiteSpace: 'nowrap',
       }}
     >
-      <span
-        style={{ width: 6, height: 6, borderRadius: '50%', background: m[2] }}
-      />
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: m[2] }} />
       {children}
     </span>
   );
 }
 function LfKpi({ rotulo, valor, detalhe, tipo = 'neutro' }) {
-  const cor = {
-    ok: C.green,
-    warn: C.amber,
-    erro: C.red,
-    info: C.blue,
-    neutro: C.txtMuted,
-  }[tipo];
+  const cor = { ok: C.green, warn: C.amber, erro: C.red, info: C.blue, neutro: C.txtMuted }[tipo];
   return (
     <div
       style={{
@@ -14997,15 +13472,7 @@ function LfKpi({ rotulo, valor, detalhe, tipo = 'neutro' }) {
         fontFamily: C.font,
       }}
     >
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          color: C.txtMuted,
-          textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-        }}
-      >
+      <div style={{ fontSize: 11, fontWeight: 700, color: C.txtMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
         {rotulo}
       </div>
       <div
@@ -15021,29 +13488,12 @@ function LfKpi({ rotulo, valor, detalhe, tipo = 'neutro' }) {
       >
         {valor}
       </div>
-      {detalhe && (
-        <div
-          style={{
-            fontSize: 11.5,
-            color: C.txtSec,
-            marginTop: 4,
-            fontWeight: 500,
-          }}
-        >
-          {detalhe}
-        </div>
-      )}
+      {detalhe && <div style={{ fontSize: 11.5, color: C.txtSec, marginTop: 4, fontWeight: 500 }}>{detalhe}</div>}
     </div>
   );
 }
 function LfKpis({ children }) {
-  return (
-    <div
-      style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}
-    >
-      {children}
-    </div>
-  );
+  return <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>{children}</div>;
 }
 function LfVazio({ children }) {
   return (
@@ -15107,23 +13557,11 @@ function LfTabela({ colunas, children, numericas = [], altura, compacta }) {
         borderRadius: C.radius.lg,
       }}
     >
-      <table
-        className={`lf-table${altura ? ' lf-sticky' : ''}${
-          compacta ? ' lf-compact' : ''
-        }`}
-        style={{ width: '100%', borderCollapse: 'collapse' }}
-      >
+      <table className={`lf-table${altura ? ' lf-sticky' : ''}${compacta ? ' lf-compact' : ''}`} style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
             {colunas.map((c, i) => (
-              <th
-                key={c + i}
-                style={
-                  numericas.includes(c)
-                    ? { ...lfThStyle, textAlign: 'right' }
-                    : lfThStyle
-                }
-              >
+              <th key={c + i} style={numericas.includes(c) ? { ...lfThStyle, textAlign: 'right' } : lfThStyle}>
                 {c}
               </th>
             ))}
@@ -15141,22 +13579,15 @@ function LfTabela({ colunas, children, numericas = [], altura, compacta }) {
 const LF_VL_SELECT_BASE =
   'filial,pedido,qtd_total,transportadora,produtos,lib_estoque,data_limite,tempo_pedido_horas,lista_status,tem_lista,no_estoque,atualizado_em';
 // Colunas novas (separador / status da separação / faturador): existem depois de rodar criar_faturador_separacao.sql.
-const LF_VL_SELECT_FAT =
-  LF_VL_SELECT_BASE +
-  ',separador,separacao_status,separacao_inicio,separacao_fim,separacao_id,faturador,faturador_manual';
+const LF_VL_SELECT_FAT = LF_VL_SELECT_BASE + ',separador,separacao_status,separacao_inicio,separacao_fim,separacao_id,faturador,faturador_manual';
 // + andamento da separação no estoque (painel_estoque): itens do pedido, entregues e em separação.
-const LF_VL_SELECT_EST =
-  LF_VL_SELECT_FAT + ',est_itens,est_entregues,est_separando';
+const LF_VL_SELECT_EST = LF_VL_SELECT_FAT + ',est_itens,est_entregues,est_separando';
 // + itens do pedido (produto e quantidade) para a tela "Ver pedido".
 const LF_VL_SELECT = LF_VL_SELECT_EST + ',itens';
 // Produto na tabela: até 2 modelos aparecem; acima disso vira o botão "Ver N itens".
 const LF_VL_MAX_MODELOS = 2;
 function lfVlItens(r) {
-  if (Array.isArray(r.itens) && r.itens.length)
-    return r.itens.map((i) => ({
-      produto: String(i.produto || ''),
-      qtd: i.qtd == null ? null : Number(i.qtd),
-    }));
+  if (Array.isArray(r.itens) && r.itens.length) return r.itens.map((i) => ({ produto: String(i.produto || ''), qtd: i.qtd == null ? null : Number(i.qtd) }));
   return String(r.produtos || '')
     .split(',')
     .map((x) => x.trim())
@@ -15180,11 +13611,7 @@ const lfVlAplica = (r) => !!r.tem_lista || !!r.no_estoque;
 function lfVlCor(r) {
   if (r.restante == null) return null;
   if (r.restante <= LF_VL_ALERTA_MS) return 'vermelho';
-  if (
-    Number(r.qtd_total) > LF_VL_GRANDE_QTD &&
-    r.restante <= LF_VL_GRANDE_ALERTA_MS
-  )
-    return 'azul';
+  if (Number(r.qtd_total) > LF_VL_GRANDE_QTD && r.restante <= LF_VL_GRANDE_ALERTA_MS) return 'azul';
   return null;
 }
 const LF_VL_VERDE = '#2f6b55'; // cabeçalho verde da planilha
@@ -15194,19 +13621,12 @@ const LF_VL_LARANJA = '#ff9900';
 // Contagem regressiva em tempo real: 2:25:50 (h:mm:ss). Negativo = já passou do prazo.
 // 29/10 11:55:59 (sem o ano, para a tabela caber na tela com as colunas novas)
 const sepQuandoSeg = (ts) =>
-  !ts
-    ? '—'
-    : `${new Date(ts).toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-      })} ${new Date(ts).toLocaleTimeString('pt-BR')}`;
+  !ts ? '—' : `${new Date(ts).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${new Date(ts).toLocaleTimeString('pt-BR')}`;
 function lfRestante(ms) {
   const neg = ms < 0;
   const t = Math.floor(Math.abs(ms) / 1000);
   const p = (n) => String(n).padStart(2, '0');
-  const txt = `${Math.floor(t / 3600)}:${p(Math.floor((t % 3600) / 60))}:${p(
-    t % 60
-  )}`;
+  const txt = `${Math.floor(t / 3600)}:${p(Math.floor((t % 3600) / 60))}:${p(t % 60)}`;
   return neg ? `−${txt}` : txt;
 }
 // ─── Via Leitor: subir o relatório manualmente ─────────────────────────
@@ -15221,27 +13641,15 @@ const lfVlPrazoHoras = (q) => (q <= 5 ? 2 : q <= 200 ? 4 : q <= 1000 ? 5 : 12);
 // Datas em "hora de parede" de Brasília guardadas como UTC (evita depender do fuso do navegador).
 const lfVlNoDia = (ms, h) => {
   const d = new Date(ms);
-  return Date.UTC(
-    d.getUTCFullYear(),
-    d.getUTCMonth(),
-    d.getUTCDate(),
-    h[0],
-    h[1],
-    h[2]
-  );
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), h[0], h[1], h[2]);
 };
 const lfVlDiaUtil = (ms) => {
   const w = new Date(ms).getUTCDay();
-  return (
-    w !== 0 &&
-    w !== 6 &&
-    !LF_VL_FERIADOS.includes(new Date(ms).toISOString().slice(0, 10))
-  );
+  return w !== 0 && w !== 6 && !LF_VL_FERIADOS.includes(new Date(ms).toISOString().slice(0, 10));
 };
 function lfVlProxInicio(ms) {
   let d = lfVlNoDia(ms + LF_VL_DIA, LF_VL_EXP_INI);
-  for (let i = 0; i < 800 && !lfVlDiaUtil(d); i++)
-    d = lfVlNoDia(d + LF_VL_DIA, LF_VL_EXP_INI);
+  for (let i = 0; i < 800 && !lfVlDiaUtil(d); i++) d = lfVlNoDia(d + LF_VL_DIA, LF_VL_EXP_INI);
   return d;
 }
 function lfVlAjustarInicio(ms) {
@@ -15280,25 +13688,16 @@ const lfVlIso = (ms) => new Date(ms).toISOString().slice(0, 19) + '-03:00';
 const lfVlTxtData = (ms) => {
   const d = new Date(ms);
   const p = (n) => String(n).padStart(2, '0');
-  return `${p(d.getUTCDate())}/${p(
-    d.getUTCMonth() + 1
-  )}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(
-    d.getUTCSeconds()
-  )}`;
+  return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
 };
 // Aceita número de série do Excel, dd/mm/aaaa (ou mm/dd/aaaa, conforme `fmt`) com hora opcional,
 // aaaa-mm-dd[T ]hh:mm[:ss] e aaaammddhhmmss.
 function lfVlData(v, fmt) {
   if (v == null || v === '') return null;
-  if (typeof v === 'number')
-    return v > 20000
-      ? Math.round(((v - 25569) * LF_VL_DIA) / 1000) * 1000
-      : null;
+  if (typeof v === 'number') return v > 20000 ? Math.round(((v - 25569) * LF_VL_DIA) / 1000) * 1000 : null;
   const t = String(v).trim();
   if (!t) return null;
-  let m = t.match(
-    /(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\D+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/
-  );
+  let m = t.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\D+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
   let g;
   if (m) {
     const a = +m[1];
@@ -15306,10 +13705,7 @@ function lfVlData(v, fmt) {
     g = fmt === 'mdy' ? [+m[3], a, b] : [+m[3], b, a]; // [ano, mês, dia]
     g.push(+(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
   } else {
-    m =
-      t.match(
-        /(\d{4})-(\d{2})-(\d{2})(?:[T\s]+(\d{2}):(\d{2})(?::(\d{2}))?)?/
-      ) || t.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
+    m = t.match(/(\d{4})-(\d{2})-(\d{2})(?:[T\s]+(\d{2}):(\d{2})(?::(\d{2}))?)?/) || t.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
     if (!m) {
       if (/^\d{5}(\.\d+)?$/.test(t)) return lfVlData(Number(t));
       return null;
@@ -15323,8 +13719,7 @@ function lfVlData(v, fmt) {
 // Hora solta ("14:04:49" ou fração do dia do Excel) em segundos.
 function lfVlSegundos(v) {
   if (v == null || v === '') return null;
-  if (typeof v === 'number')
-    return v >= 0 && v < 1 ? Math.round(v * 86400) : null;
+  if (typeof v === 'number') return v >= 0 && v < 1 ? Math.round(v * 86400) : null;
   const m = String(v).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
   return m ? +m[1] * 3600 + +m[2] * 60 + +(m[3] || 0) : null;
 }
@@ -15333,10 +13728,7 @@ function lfVlDataHora(dv, hv, fmt) {
   if (dv == null || dv === '') return null;
   const seg = lfVlSegundos(hv);
   if (seg == null) return lfVlData(dv, fmt);
-  const dia =
-    typeof dv === 'number'
-      ? lfVlData(Math.floor(dv))
-      : lfVlData(String(dv).trim().split(/[T\s]/)[0], fmt);
+  const dia = typeof dv === 'number' ? lfVlData(Math.floor(dv)) : lfVlData(String(dv).trim().split(/[T\s]/)[0], fmt);
   return dia == null ? null : dia + seg * 1000;
 }
 function lfVlNumero(v) {
@@ -15344,11 +13736,7 @@ function lfVlNumero(v) {
   const t = String(v == null ? '' : v).trim();
   if (!t) return 0;
   // pt-BR: "1.250" = 1250 (ponto de milhar); "1,5" = 1.5
-  const s = t.includes(',')
-    ? t.replace(/\./g, '').replace(',', '.')
-    : /^\d{1,3}(\.\d{3})+$/.test(t)
-    ? t.replace(/\./g, '')
-    : t;
+  const s = t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : /^\d{1,3}(\.\d{3})+$/.test(t) ? t.replace(/\./g, '') : t;
   const n = parseFloat(s.replace(/[^0-9.\-]/g, ''));
   return Number.isNaN(n) ? 0 : n;
 }
@@ -15396,9 +13784,7 @@ async function lfVlEntrada(z, nome) {
   const el = z.dv.getUint16(e.off + 28, true);
   const ini = e.off + 30 + nl + el;
   const dados = z.u8.subarray(ini, ini + e.comp);
-  return new TextDecoder('utf-8').decode(
-    e.metodo === 0 ? dados : await lfVlInflar(dados)
-  );
+  return new TextDecoder('utf-8').decode(e.metodo === 0 ? dados : await lfVlInflar(dados));
 }
 async function lfVlLerXlsx(buf) {
   const z = lfVlZip(buf);
@@ -15407,11 +13793,7 @@ async function lfVlLerXlsx(buf) {
   const sst = await lfVlEntrada(z, 'xl/sharedStrings.xml');
   if (sst) {
     Array.from(xml(sst).getElementsByTagName('si')).forEach((si) => {
-      ss.push(
-        Array.from(si.getElementsByTagName('t'))
-          .map((t) => t.textContent)
-          .join('')
-      );
+      ss.push(Array.from(si.getElementsByTagName('t')).map((t) => t.textContent).join(''));
     });
   }
   // primeira aba do arquivo
@@ -15420,16 +13802,8 @@ async function lfVlLerXlsx(buf) {
   const rels = await lfVlEntrada(z, 'xl/_rels/workbook.xml.rels');
   if (wb && rels) {
     const sh = xml(wb).getElementsByTagName('sheet')[0];
-    const rid =
-      sh &&
-      (sh.getAttribute('r:id') ||
-        sh.getAttributeNS(
-          'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-          'id'
-        ));
-    const rel = Array.from(xml(rels).getElementsByTagName('Relationship')).find(
-      (r) => r.getAttribute('Id') === rid
-    );
+    const rid = sh && (sh.getAttribute('r:id') || sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id'));
+    const rel = Array.from(xml(rels).getElementsByTagName('Relationship')).find((r) => r.getAttribute('Id') === rid);
     if (rel) {
       const t = rel.getAttribute('Target') || '';
       alvo = t.startsWith('/') ? t.slice(1) : 'xl/' + t;
@@ -15458,16 +13832,12 @@ async function lfVlLerXlsx(buf) {
       const v = vEl ? vEl.textContent : '';
       let val;
       if (t === 's') val = ss[Number(v)] == null ? '' : ss[Number(v)];
-      else if (t === 'inlineStr')
-        val = Array.from(c.getElementsByTagName('t'))
-          .map((x) => x.textContent)
-          .join('');
+      else if (t === 'inlineStr') val = Array.from(c.getElementsByTagName('t')).map((x) => x.textContent).join('');
       else if (t === 'str' || t === 'e' || t === 'b') val = v;
       else val = v === '' ? '' : Number(v);
       linha[i < 0 ? linha.length : i] = val;
     });
-    for (let k = 0; k < linha.length; k++)
-      if (linha[k] === undefined) linha[k] = '';
+    for (let k = 0; k < linha.length; k++) if (linha[k] === undefined) linha[k] = '';
     matriz.push(linha);
   });
   return matriz;
@@ -15486,36 +13856,22 @@ async function lfVlLerOds(buf) {
   Array.from(aba.getElementsByTagNameNS(NT, 'table-row')).forEach((tr) => {
     const linha = [];
     Array.from(tr.children).forEach((c) => {
-      if (c.localName !== 'table-cell' && c.localName !== 'covered-table-cell')
-        return;
+      if (c.localName !== 'table-cell' && c.localName !== 'covered-table-cell') return;
       const vt = c.getAttributeNS(NO, 'value-type');
       let val = '';
-      if (vt === 'float' || vt === 'percentage' || vt === 'currency')
-        val = Number(c.getAttributeNS(NO, 'value'));
+      if (vt === 'float' || vt === 'percentage' || vt === 'currency') val = Number(c.getAttributeNS(NO, 'value'));
       else if (vt === 'date') val = c.getAttributeNS(NO, 'date-value') || '';
       else if (vt === 'time') {
-        const m = (c.getAttributeNS(NO, 'time-value') || '').match(
-          /PT(\d+)H(\d+)M(\d+)/
-        );
+        const m = (c.getAttributeNS(NO, 'time-value') || '').match(/PT(\d+)H(\d+)M(\d+)/);
         val = m ? `${m[1].padStart(2, '0')}:${m[2]}:${m[3]}` : '';
       } else if (vt === 'boolean') val = c.getAttributeNS(NO, 'boolean-value');
-      else if (vt)
-        val = Array.from(c.children)
-          .filter((p) => p.localName === 'p')
-          .map((p) => p.textContent)
-          .join(' ');
-      const rep = Math.min(
-        Number(c.getAttributeNS(NT, 'number-columns-repeated') || 1),
-        val === '' ? 1 : 200
-      );
+      else if (vt) val = Array.from(c.children).filter((p) => p.localName === 'p').map((p) => p.textContent).join(' ');
+      const rep = Math.min(Number(c.getAttributeNS(NT, 'number-columns-repeated') || 1), val === '' ? 1 : 200);
       for (let k = 0; k < rep; k++) linha.push(val);
     });
     while (linha.length && linha[linha.length - 1] === '') linha.pop();
     if (!linha.length) return;
-    const vezes = Math.min(
-      Number(tr.getAttributeNS(NT, 'number-rows-repeated') || 1),
-      200
-    );
+    const vezes = Math.min(Number(tr.getAttributeNS(NT, 'number-rows-repeated') || 1), 200);
     for (let k = 0; k < vezes; k++) matriz.push(linha);
   });
   return matriz;
@@ -15525,24 +13881,14 @@ async function lfVlLerArquivo(arquivo) {
   const b = new Uint8Array(buf.slice(0, 4));
   if (b[0] === 0x50 && b[1] === 0x4b) {
     // "PK" = zip: .ods (LibreOffice, tem content.xml) ou .xlsx (Excel)
-    return lfVlZip(buf).arqs['content.xml']
-      ? lfVlLerOds(buf)
-      : lfVlLerXlsx(buf);
+    return lfVlZip(buf).arqs['content.xml'] ? lfVlLerOds(buf) : lfVlLerXlsx(buf);
   }
-  if (b[0] === 0xd0 && b[1] === 0xcf)
-    throw new Error(
-      'Este é um .xls antigo. Abra no Excel e salve como .xlsx ou .csv.'
-    );
+  if (b[0] === 0xd0 && b[1] === 0xcf) throw new Error('Este é um .xls antigo. Abra no Excel e salve como .xlsx ou .csv.');
   const texto = await lfLerTextoCsv(arquivo);
   const linhas = texto.split(/\r?\n/).filter((l) => l.trim());
   const amostra = linhas.slice(0, 8).join('\n');
   const cont = (c) => amostra.split(c).length - 1;
-  const sep =
-    cont(';') >= cont('\t') && cont(';') >= cont(',')
-      ? ';'
-      : cont('\t') >= cont(',')
-      ? '\t'
-      : ',';
+  const sep = cont(';') >= cont('\t') && cont(';') >= cont(',') ? ';' : cont('\t') >= cont(',') ? '\t' : ',';
   return linhas.map((l) => lfParseLine(l, sep));
 }
 
@@ -15554,148 +13900,40 @@ const lfVlNormCab = (h) =>
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '');
 // [papel, rótulo, nomes exatos (por prioridade), teste aproximado]
-const lfVlTemLib = (n) =>
-  n.includes('lib') ||
-  n.includes('data') ||
-  n.includes('hora') ||
-  n.startsWith('dt') ||
-  n.startsWith('hr');
+const lfVlTemLib = (n) => n.includes('lib') || n.includes('data') || n.includes('hora') || n.startsWith('dt') || n.startsWith('hr');
 const LF_VL_PAPEIS = [
-  [
-    'pedido',
-    'Pedido',
-    [
-      'pedido',
-      'numeropedido',
-      'numpedido',
-      'npedido',
-      'nopedido',
-      'nrpedido',
-      'pedidovenda',
-      'order',
-    ],
-  ],
-  [
-    'filial',
-    'Filial',
-    ['filial', 'codfilial', 'codigofilial', 'empresa', 'unidade', 'loja'],
-  ],
-  [
-    'qtdTotal',
-    'Qtd total do pedido',
-    [
-      'totalqtd',
-      'qtdtotal',
-      'quantidadetotal',
-      'qtdtotalpedido',
-      'totalquantidade',
-      'totalunidades',
-    ],
-  ],
-  [
-    'qtd',
-    'Quantidade',
-    [
-      'qtliberada',
-      'qtdliberada',
-      'qtdlib',
-      'qtlib',
-      'quantidadeliberada',
-      'qtdliberado',
-      'qtd',
-      'qt',
-      'quantidade',
-      'quant',
-      'qtde',
-      'unidades',
-    ],
-  ],
+  ['pedido', 'Pedido', ['pedido', 'numeropedido', 'numpedido', 'npedido', 'nopedido', 'nrpedido', 'pedidovenda', 'order']],
+  ['filial', 'Filial', ['filial', 'codfilial', 'codigofilial', 'empresa', 'unidade', 'loja']],
+  ['qtdTotal', 'Qtd total do pedido', ['totalqtd', 'qtdtotal', 'quantidadetotal', 'qtdtotalpedido', 'totalquantidade', 'totalunidades']],
+  ['qtd', 'Quantidade', ['qtliberada', 'qtdliberada', 'qtdlib', 'qtlib', 'quantidadeliberada', 'qtdliberado', 'qtd', 'qt', 'quantidade', 'quant', 'qtde', 'unidades']],
   [
     'libEstData',
     'Data lib. estoque',
-    [
-      'dtlibest',
-      'datalibest',
-      'dtlibestoque',
-      'datalibestoque',
-      'dataliberacaoestoque',
-    ],
+    ['dtlibest', 'datalibest', 'dtlibestoque', 'datalibestoque', 'dataliberacaoestoque'],
     (n) => /^(dt|data)/.test(n) && n.includes('lib') && /est(oque)?$/.test(n),
   ],
   [
     'libEstHora',
     'Hora lib. estoque',
-    [
-      'hrlibest',
-      'horalibest',
-      'hrlibestoque',
-      'horalibestoque',
-      'horaliberacaoestoque',
-    ],
+    ['hrlibest', 'horalibest', 'hrlibestoque', 'horalibestoque', 'horaliberacaoestoque'],
     (n) => /^(hr|hora)/.test(n) && n.includes('lib') && /est(oque)?$/.test(n),
   ],
-  [
-    'libEst',
-    'Liberação do estoque (data e hora)',
-    [
-      'datahoraliberacaoestoque',
-      'datahoralibestoque',
-      'dtlibestoque',
-      'libestoque',
-    ],
-    (n) => n.includes('estoque') && lfVlTemLib(n),
-  ],
+  ['libEst', 'Liberação do estoque (data e hora)', ['datahoraliberacaoestoque', 'datahoralibestoque', 'dtlibestoque', 'libestoque'], (n) => n.includes('estoque') && lfVlTemLib(n)],
   [
     'libFinData',
     'Data lib. financeiro',
-    [
-      'dtlibfin',
-      'datalibfin',
-      'dtlibfinanceiro',
-      'datalibfinanceiro',
-      'dataliberacaofinanceiro',
-    ],
-    (n) =>
-      /^(dt|data)/.test(n) && n.includes('lib') && /fin(anceiro)?$/.test(n),
+    ['dtlibfin', 'datalibfin', 'dtlibfinanceiro', 'datalibfinanceiro', 'dataliberacaofinanceiro'],
+    (n) => /^(dt|data)/.test(n) && n.includes('lib') && /fin(anceiro)?$/.test(n),
   ],
   [
     'libFinHora',
     'Hora lib. financeiro',
-    [
-      'hrlibfin',
-      'horalibfin',
-      'hrlibfinanceiro',
-      'horalibfinanceiro',
-      'horaliberacaofinanceiro',
-    ],
-    (n) =>
-      /^(hr|hora)/.test(n) && n.includes('lib') && /fin(anceiro)?$/.test(n),
+    ['hrlibfin', 'horalibfin', 'hrlibfinanceiro', 'horalibfinanceiro', 'horaliberacaofinanceiro'],
+    (n) => /^(hr|hora)/.test(n) && n.includes('lib') && /fin(anceiro)?$/.test(n),
   ],
-  [
-    'libFin',
-    'Liberação do financeiro (data e hora)',
-    ['datahoraliberacaofinanceiro', 'datahoralibfinanceiro'],
-    (n) => n.includes('financ') && lfVlTemLib(n),
-  ],
-  [
-    'transp',
-    'Transportadora',
-    ['transportadora', 'transporte', 'transp', 'nometransportadora', 'carrier'],
-  ],
-  [
-    'produto',
-    'Produto',
-    [
-      'produto',
-      'modelo',
-      'produtomodelo',
-      'descricaoproduto',
-      'descricao',
-      'sku',
-      'codigoproduto',
-      'codproduto',
-    ],
-  ],
+  ['libFin', 'Liberação do financeiro (data e hora)', ['datahoraliberacaofinanceiro', 'datahoralibfinanceiro'], (n) => n.includes('financ') && lfVlTemLib(n)],
+  ['transp', 'Transportadora', ['transportadora', 'transporte', 'transp', 'nometransportadora', 'carrier']],
+  ['produto', 'Produto', ['produto', 'modelo', 'produtomodelo', 'descricaoproduto', 'descricao', 'sku', 'codigoproduto', 'codproduto']],
 ];
 function lfVlMapear(matriz) {
   for (let r = 0; r < Math.min(matriz.length, 25); r++) {
@@ -15737,22 +13975,17 @@ const lfVlFilialNorm = (v) => {
 };
 // Descobre se as datas escritas como 10/29/2026 são mês/dia (padrão americano) ou dia/mês, olhando a coluna inteira.
 function lfVlFormatoDatas(matriz, mapa) {
-  const cols = ['libEstData', 'libEst', 'libFinData', 'libFin']
-    .map((p) => mapa.col[p])
-    .filter((i) => i !== undefined);
+  const cols = ['libEstData', 'libEst', 'libFinData', 'libFin'].map((p) => mapa.col[p]).filter((i) => i !== undefined);
   let dmy = false;
   let mdy = false;
   let visto = false;
   let pertoDmy = 0;
   let pertoMdy = 0;
   const hoje = Date.now() + 3 * 3600000 * -1;
-  const perto = (ano, mes, dia) =>
-    Math.abs(Date.UTC(ano, mes - 1, dia) - hoje) < 45 * LF_VL_DIA;
+  const perto = (ano, mes, dia) => Math.abs(Date.UTC(ano, mes - 1, dia) - hoje) < 45 * LF_VL_DIA;
   matriz.slice(mapa.linhaCab + 1).forEach((l) => {
     cols.forEach((i) => {
-      const m =
-        typeof l[i] === 'string' &&
-        l[i].match(/^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      const m = typeof l[i] === 'string' && l[i].match(/^\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/);
       if (m) {
         visto = true;
         if (+m[1] <= 12 && +m[2] <= 12) {
@@ -15767,10 +14000,7 @@ function lfVlFormatoDatas(matriz, mapa) {
   });
   if (mdy && !dmy) return { fmt: 'mdy', ambiguo: false };
   if (dmy && !mdy) return { fmt: 'dmy', ambiguo: false };
-  return {
-    fmt: pertoMdy > pertoDmy ? 'mdy' : 'dmy',
-    ambiguo: visto && pertoMdy === pertoDmy,
-  };
+  return { fmt: pertoMdy > pertoDmy ? 'mdy' : 'dmy', ambiguo: visto && pertoMdy === pertoDmy };
 }
 // Junta as linhas do relatório em UM registro por pedido (soma quantidades, lista os produtos), como o agente faz.
 function lfVlAgrupar(matriz, mapa, filialPadrao) {
@@ -15781,67 +14011,34 @@ function lfVlAgrupar(matriz, mapa, filialPadrao) {
   const vazio = (v) => v === '' || v == null;
   matriz.slice(mapa.linhaCab + 1).forEach((l) => {
     let ped = c.pedido !== undefined ? l[c.pedido] : '';
-    ped =
-      typeof ped === 'number'
-        ? String(Math.round(ped))
-        : String(ped == null ? '' : ped)
-            .replace(/^'/, '')
-            .replace(/\.0+$/, '')
-            .trim();
+    ped = typeof ped === 'number' ? String(Math.round(ped)) : String(ped == null ? '' : ped).replace(/^'/, '').replace(/\.0+$/, '').trim();
     if (!ped || !/^[A-Za-z0-9._-]+$/.test(ped)) {
       if (l.some((x) => String(x).trim())) ign.semPedido++;
       return;
     }
-    const filial =
-      (c.filial !== undefined ? lfVlFilialNorm(l[c.filial]) : '') ||
-      filialPadrao;
+    const filial = (c.filial !== undefined ? lfVlFilialNorm(l[c.filial]) : '') || filialPadrao;
     const chave = filial + '|' + ped;
     let p = por.get(chave);
     if (!p) {
-      p = {
-        filial,
-        pedido: ped,
-        soma: 0,
-        total: null,
-        transp: '',
-        est: null,
-        fin: null,
-        itens: [],
-      };
+      p = { filial, pedido: ped, soma: 0, total: null, transp: '', est: null, fin: null, itens: [] };
       por.set(chave, p);
     }
     const q = c.qtd !== undefined ? lfVlNumero(l[c.qtd]) : 0;
     p.soma += q;
-    if (c.qtdTotal !== undefined && p.total == null)
-      p.total = lfVlNumero(l[c.qtdTotal]);
-    if (c.transp !== undefined && !p.transp)
-      p.transp = String(l[c.transp] == null ? '' : l[c.transp]).trim();
+    if (c.qtdTotal !== undefined && p.total == null) p.total = lfVlNumero(l[c.qtdTotal]);
+    if (c.transp !== undefined && !p.transp) p.transp = String(l[c.transp] == null ? '' : l[c.transp]).trim();
     if (p.est == null) {
-      if (c.libEstData !== undefined)
-        p.est = lfVlDataHora(
-          l[c.libEstData],
-          c.libEstHora !== undefined ? l[c.libEstHora] : null,
-          fmt
-        );
-      else if (c.libEst !== undefined && !vazio(l[c.libEst]))
-        p.est = lfVlData(l[c.libEst], fmt);
+      if (c.libEstData !== undefined) p.est = lfVlDataHora(l[c.libEstData], c.libEstHora !== undefined ? l[c.libEstHora] : null, fmt);
+      else if (c.libEst !== undefined && !vazio(l[c.libEst])) p.est = lfVlData(l[c.libEst], fmt);
     }
     if (p.fin == null) {
-      if (c.libFinData !== undefined)
-        p.fin = lfVlDataHora(
-          l[c.libFinData],
-          c.libFinHora !== undefined ? l[c.libFinHora] : null,
-          fmt
-        );
-      else if (c.libFin !== undefined && !vazio(l[c.libFin]))
-        p.fin = lfVlData(l[c.libFin], fmt);
+      if (c.libFinData !== undefined) p.fin = lfVlDataHora(l[c.libFinData], c.libFinHora !== undefined ? l[c.libFinHora] : null, fmt);
+      else if (c.libFin !== undefined && !vazio(l[c.libFin])) p.fin = lfVlData(l[c.libFin], fmt);
     }
     if (c.produto !== undefined) {
       const nome = String(l[c.produto] == null ? '' : l[c.produto]).trim();
       if (nome) {
-        const ex = p.itens.find(
-          (i) => i.produto.toLowerCase() === nome.toLowerCase()
-        );
+        const ex = p.itens.find((i) => i.produto.toLowerCase() === nome.toLowerCase());
         if (ex) ex.qtd += q;
         else p.itens.push({ produto: nome, qtd: q });
       }
@@ -15897,14 +14094,8 @@ function LfViaLeitorUpload({ existentes, agenteHa, onFechar, onFeito }) {
     }
   };
   const mapa = useMemo(() => (matriz ? lfVlMapear(matriz) : null), [matriz]);
-  const res = useMemo(
-    () => (matriz && mapa ? lfVlAgrupar(matriz, mapa, filialPadrao) : null),
-    [matriz, mapa, filialPadrao]
-  );
-  const filiais = useMemo(
-    () => (res ? [...new Set(res.lista.map((p) => p.filial))].sort() : []),
-    [res]
-  );
+  const res = useMemo(() => (matriz && mapa ? lfVlAgrupar(matriz, mapa, filialPadrao) : null), [matriz, mapa, filialPadrao]);
+  const filiais = useMemo(() => (res ? [...new Set(res.lista.map((p) => p.filial))].sort() : []), [res]);
   const atuais = (f) => (existentes || []).filter((r) => r.filial === f).length;
   const semData = res ? res.lista.filter((p) => !p.lib_estoque).length : 0;
 
@@ -15914,11 +14105,7 @@ function LfViaLeitorUpload({ existentes, agenteHa, onFechar, onFeito }) {
     setErro('');
     try {
       const ciclo = new Date().toISOString();
-      const linhas = res.lista.map((p) => ({
-        ...p,
-        ciclo,
-        atualizado_em: ciclo,
-      }));
+      const linhas = res.lista.map((p) => ({ ...p, ciclo, atualizado_em: ciclo }));
       const enviar = async (corpo) => {
         for (const lote of lfChunk(corpo, 300)) {
           await lfApi('/via_leitor_agente?on_conflict=filial,pedido', {
@@ -15937,37 +14124,21 @@ function LfViaLeitorUpload({ existentes, agenteHa, onFechar, onFeito }) {
       }
       // Tira os pedidos da filial que não estão no arquivo (já saíram do Via Leitor).
       for (const f of filiais) {
-        await lfApi(
-          '/via_leitor_agente?filial=eq.' +
-            encodeURIComponent(f) +
-            '&ciclo=lt.' +
-            encodeURIComponent(ciclo),
-          {
-            method: 'DELETE',
-            headers: { Prefer: 'return=minimal' },
-          }
-        );
+        await lfApi('/via_leitor_agente?filial=eq.' + encodeURIComponent(f) + '&ciclo=lt.' + encodeURIComponent(ciclo), {
+          method: 'DELETE',
+          headers: { Prefer: 'return=minimal' },
+        });
       }
       try {
         await lfApi('/via_leitor_atualizacoes?on_conflict=origem', {
           method: 'POST',
-          body: JSON.stringify([
-            {
-              origem: 'manual',
-              atualizado_em: ciclo,
-              detalhe: `${nome} · ${linhas.length} pedidos`,
-            },
-          ]),
+          body: JSON.stringify([{ origem: 'manual', atualizado_em: ciclo, detalhe: `${nome} · ${linhas.length} pedidos` }]),
           headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
         });
       } catch (e2) {
         /* tabela de horários ainda não criada: a importação já foi feita */
       }
-      onFeito(
-        `Relatório "${nome}" importado: ${
-          linhas.length
-        } pedidos (${filiais.join(' + ')}).`
-      );
+      onFeito(`Relatório "${nome}" importado: ${linhas.length} pedidos (${filiais.join(' + ')}).`);
     } catch (e) {
       const msg = String(e.message || e);
       setErro(
@@ -15979,76 +14150,26 @@ function LfViaLeitorUpload({ existentes, agenteHa, onFechar, onFeito }) {
     }
   };
 
-  const th = {
-    background: LF_VL_VERDE,
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 800,
-    padding: '7px 9px',
-    textAlign: 'left',
-    whiteSpace: 'nowrap',
-  };
-  const td = {
-    padding: '6px 9px',
-    fontSize: 12.5,
-    borderBottom: `1px solid ${C.bdLight}`,
-    color: C.txtPri,
-    whiteSpace: 'nowrap',
-  };
-  const temEst =
-    mapa &&
-    (mapa.col.libEst !== undefined || mapa.col.libEstData !== undefined);
+  const th = { background: LF_VL_VERDE, color: '#fff', fontSize: 12, fontWeight: 800, padding: '7px 9px', textAlign: 'left', whiteSpace: 'nowrap' };
+  const td = { padding: '6px 9px', fontSize: 12.5, borderBottom: `1px solid ${C.bdLight}`, color: C.txtPri, whiteSpace: 'nowrap' };
+  const temEst = mapa && (mapa.col.libEst !== undefined || mapa.col.libEstData !== undefined);
   const faltam = mapa
-    ? [
-        ['pedido', 'Pedido'],
-        ['qtd', 'Quantidade'],
-        ['transp', 'Transportadora'],
-        ...(temEst ? [] : [['libEstData', 'Data/Hora lib. estoque']]),
-      ].filter(([p]) => mapa.col[p] === undefined)
+    ? [['pedido', 'Pedido'], ['qtd', 'Quantidade'], ['transp', 'Transportadora'], ...(temEst ? [] : [['libEstData', 'Data/Hora lib. estoque']])].filter(([p]) => mapa.col[p] === undefined)
     : [];
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(15,23,42,0.55)',
-        backdropFilter: 'blur(2px)',
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(2px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={() => !importando && onFechar()}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
-          background: C.bgCard,
-          borderRadius: C.radius.xl,
-          padding: 22,
-          width: 860,
-          maxWidth: '95vw',
-          maxHeight: '90vh',
-          overflow: 'auto',
-          boxShadow: C.shadowXl,
-          border: `1px solid ${C.bdMid}`,
-        }}
+        style={{ background: C.bgCard, borderRadius: C.radius.xl, padding: 22, width: 860, maxWidth: '95vw', maxHeight: '90vh', overflow: 'auto', boxShadow: C.shadowXl, border: `1px solid ${C.bdMid}` }}
       >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: 12,
-            marginBottom: 8,
-          }}
-        >
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: C.txtPri }}>
-              Subir relatório do Via Leitor
-            </div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: C.txtPri }}>Subir relatório do Via Leitor</div>
             <div style={{ fontSize: 12.5, color: C.txtMuted, marginTop: 3 }}>
-              Use quando o agente estiver desligado. Arquivo .ods, .xlsx ou
-              .csv; as colunas são achadas pelo título, em qualquer ordem.
+              Use quando o agente estiver desligado. Arquivo .ods, .xlsx ou .csv; as colunas são achadas pelo título, em qualquer ordem.
             </div>
           </div>
           <LfBtn pequeno onClick={onFechar} disabled={importando}>
@@ -16057,100 +14178,42 @@ function LfViaLeitorUpload({ existentes, agenteHa, onFechar, onFeito }) {
         </div>
         {agenteHa != null && agenteHa < LF_VL_AGENTE_PARADO_MS && (
           <LfAviso tipo="warn">
-            O agente atualizou há {sepHoras(agenteHa)}. Se ele está rodando, não
-            precisa subir relatório: os dados do arquivo ficam no lugar dos do
-            agente até o próximo ciclo dele.
+            O agente atualizou há {sepHoras(agenteHa)}. Se ele está rodando, não precisa subir relatório: os dados do arquivo ficam no lugar dos do agente até o próximo ciclo dele.
           </LfAviso>
         )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".csv,.txt,.xlsx,.ods"
-          style={{ display: 'none' }}
-          onChange={escolher}
-        />
-        <div
-          style={{
-            display: 'flex',
-            gap: 10,
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            margin: '10px 0',
-          }}
-        >
-          <LfBtn
-            tipo="primario"
-            onClick={() => inputRef.current && inputRef.current.click()}
-            disabled={importando}
-          >
+        <input ref={inputRef} type="file" accept=".csv,.txt,.xlsx,.ods" style={{ display: 'none' }} onChange={escolher} />
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', margin: '10px 0' }}>
+          <LfBtn tipo="primario" onClick={() => inputRef.current && inputRef.current.click()} disabled={importando}>
             📂 Escolher arquivo
           </LfBtn>
-          <span style={{ fontSize: 13, color: C.txtSec }}>
-            {nome || 'Nenhum arquivo escolhido'}
-          </span>
+          <span style={{ fontSize: 13, color: C.txtSec }}>{nome || 'Nenhum arquivo escolhido'}</span>
         </div>
         {erro && <LfAviso tipo="erro">{erro}</LfAviso>}
         {matriz && !mapa && (
           <LfAviso tipo="erro">
-            Não achei a coluna do pedido. Títulos que o site reconhece: Pedido,
-            Filial, Quantidade, Transportadora, Produto, Data/Hora Lib. Estoque,
-            Data/Hora Lib. Financeiro.
+            Não achei a coluna do pedido. Títulos que o site reconhece: Pedido, Filial, Quantidade, Transportadora, Produto, Data/Hora Lib. Estoque, Data/Hora Lib. Financeiro.
           </LfAviso>
         )}
         {mapa && res && (
           <>
-            <div
-              style={{
-                fontSize: 12.5,
-                color: C.txtSec,
-                margin: '6px 0 8px',
-                lineHeight: 1.7,
-              }}
-            >
+            <div style={{ fontSize: 12.5, color: C.txtSec, margin: '6px 0 8px', lineHeight: 1.7 }}>
               <b>Colunas encontradas:</b>{' '}
-              {LF_VL_PAPEIS.filter(([p]) => mapa.col[p] !== undefined).map(
-                ([p, rot]) => (
-                  <span
-                    key={p}
-                    style={{
-                      display: 'inline-block',
-                      background: C.bgStripe,
-                      border: `1px solid ${C.bdLight}`,
-                      borderRadius: 999,
-                      padding: '1px 9px',
-                      marginRight: 6,
-                    }}
-                  >
-                    {rot} ← “{mapa.rotulos[p]}”
-                  </span>
-                )
-              )}
+              {LF_VL_PAPEIS.filter(([p]) => mapa.col[p] !== undefined).map(([p, rot]) => (
+                <span key={p} style={{ display: 'inline-block', background: C.bgStripe, border: `1px solid ${C.bdLight}`, borderRadius: 999, padding: '1px 9px', marginRight: 6 }}>
+                  {rot} ← “{mapa.rotulos[p]}”
+                </span>
+              ))}
             </div>
             {faltam.length > 0 && (
               <LfAviso tipo="warn">
                 Não encontrei: {faltam.map(([, rot]) => rot).join(', ')}.
-                {!temEst
-                  ? ' Sem a liberação do estoque os pedidos ficam sem data limite.'
-                  : ''}
+                {!temEst ? ' Sem a liberação do estoque os pedidos ficam sem data limite.' : ''}
               </LfAviso>
             )}
             {mapa.col.filial === undefined && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  margin: '8px 0',
-                  fontSize: 13,
-                }}
-              >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0', fontSize: 13 }}>
                 O arquivo não tem coluna Filial. Filial deste arquivo:
-                <select
-                  className="lf-input"
-                  style={lfInputStyle}
-                  value={filialPadrao}
-                  onChange={(e) => setFilialPadrao(e.target.value)}
-                >
+                <select className="lf-input" style={lfInputStyle} value={filialPadrao} onChange={(e) => setFilialPadrao(e.target.value)}>
                   <option value="0101">0101</option>
                   <option value="0102">0102</option>
                 </select>
@@ -16158,60 +14221,19 @@ function LfViaLeitorUpload({ existentes, agenteHa, onFechar, onFeito }) {
             )}
             <LfAviso tipo="info">
               {res.lista.length} pedidos no arquivo
-              {filiais.length
-                ? ' — ' +
-                  filiais
-                    .map(
-                      (f) =>
-                        `filial ${f}: ${
-                          res.lista.filter((p) => p.filial === f).length
-                        } (hoje ${atuais(f)} no site)`
-                    )
-                    .join(' · ')
-                : ''}
-              .
-              {semData
-                ? ` ${semData} sem data de liberação do estoque (ficam sem data limite).`
-                : ''}
-              {res.ign.semPedido
-                ? ` ${res.ign.semPedido} linha(s) sem número de pedido foram ignoradas.`
-                : ''}
-              {res.ign.ambiguo
-                ? ' Atenção às datas: todas têm dia e mês ≤ 12, então assumi dia/mês — confira na prévia abaixo.'
-                : ''}
+              {filiais.length ? ' — ' + filiais.map((f) => `filial ${f}: ${res.lista.filter((p) => p.filial === f).length} (hoje ${atuais(f)} no site)`).join(' · ') : ''}.
+              {semData ? ` ${semData} sem data de liberação do estoque (ficam sem data limite).` : ''}
+              {res.ign.semPedido ? ` ${res.ign.semPedido} linha(s) sem número de pedido foram ignoradas.` : ''}
+              {res.ign.ambiguo ? ' Atenção às datas: todas têm dia e mês ≤ 12, então assumi dia/mês — confira na prévia abaixo.' : ''}
               <br />
-              Ao importar, os pedidos atuais da(s) filial(is) acima são{' '}
-              <b>substituídos</b> pelos do arquivo.
+              Ao importar, os pedidos atuais da(s) filial(is) acima são <b>substituídos</b> pelos do arquivo.
             </LfAviso>
             {res.lista.length > 0 && (
-              <div
-                style={{
-                  overflow: 'auto',
-                  maxHeight: 230,
-                  border: `1px solid ${C.bdLight}`,
-                  borderRadius: C.radius.lg,
-                  margin: '8px 0',
-                }}
-              >
-                <table
-                  style={{
-                    width: '100%',
-                    borderCollapse: 'collapse',
-                    fontFamily: C.font,
-                  }}
-                >
+              <div style={{ overflow: 'auto', maxHeight: 230, border: `1px solid ${C.bdLight}`, borderRadius: C.radius.lg, margin: '8px 0' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: C.font }}>
                   <thead>
                     <tr>
-                      {[
-                        'Filial',
-                        'Pedido',
-                        'Quant',
-                        'Transporte',
-                        'Produto',
-                        'Lib. estoque',
-                        'Prazo',
-                        'Data limite',
-                      ].map((c) => (
+                      {['Filial', 'Pedido', 'Quant', 'Transporte', 'Produto', 'Lib. estoque', 'Prazo', 'Data limite'].map((c) => (
                         <th key={c} style={th}>
                           {c}
                         </th>
@@ -16225,48 +14247,22 @@ function LfViaLeitorUpload({ existentes, agenteHa, onFechar, onFeito }) {
                         <td style={{ ...td, fontWeight: 700 }}>{p.pedido}</td>
                         <td style={td}>{p.qtd_total}</td>
                         <td style={td}>{p.transportadora || '—'}</td>
-                        <td
-                          style={{
-                            ...td,
-                            maxWidth: 200,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {p.produtos || '—'}
-                        </td>
+                        <td style={{ ...td, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.produtos || '—'}</td>
                         <td style={td}>{p.lib_estoque_txt || '—'}</td>
                         <td style={td}>{p.tempo_pedido_horas}h</td>
-                        <td style={td}>
-                          {p.data_limite
-                            ? lfVlTxtData(lfVlData(p.data_limite.slice(0, 19)))
-                            : '—'}
-                        </td>
+                        <td style={td}>{p.data_limite ? lfVlTxtData(lfVlData(p.data_limite.slice(0, 19))) : '—'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             )}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: 8,
-                marginTop: 10,
-              }}
-            >
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
               <LfBtn onClick={onFechar} disabled={importando}>
                 Cancelar
               </LfBtn>
-              <LfBtn
-                tipo="verde"
-                onClick={importar}
-                disabled={importando || !res.lista.length}
-              >
-                {importando
-                  ? 'Importando...'
-                  : `✓ Importar ${res.lista.length} pedidos`}
+              <LfBtn tipo="verde" onClick={importar} disabled={importando || !res.lista.length}>
+                {importando ? 'Importando...' : `✓ Importar ${res.lista.length} pedidos`}
               </LfBtn>
             </div>
           </>
@@ -16284,16 +14280,9 @@ function LfViaLeitorDetalhe({ r, onFechar }) {
     let vivo = true;
     setPainel(null);
     setErro('');
-    lfApi(
-      '/painel_estoque?select=*&pedido=eq.' +
-        encodeURIComponent(r.pedido) +
-        '&order=linha_planilha.asc&limit=500'
-    )
+    lfApi('/painel_estoque?select=*&pedido=eq.' + encodeURIComponent(r.pedido) + '&order=linha_planilha.asc&limit=500')
       .then((d) => vivo && setPainel(Array.isArray(d) ? d : []))
-      .catch(
-        (e) =>
-          vivo && (setErro(String(e.message || e).slice(0, 140)), setPainel([]))
-      );
+      .catch((e) => vivo && (setErro(String(e.message || e).slice(0, 140)), setPainel([])));
     return () => {
       vivo = false;
     };
@@ -16309,169 +14298,70 @@ function LfViaLeitorDetalhe({ r, onFechar }) {
   const usados = new Set();
   // Cada item do pedido junto com a(s) linha(s) do painel do estoque do mesmo produto.
   const linhas = itens.map((it) => {
-    const achadas = (painel || []).filter(
-      (x, i) => norm(x.produto) === norm(it.produto) && (usados.add(i), true)
-    );
+    const achadas = (painel || []).filter((x, i) => norm(x.produto) === norm(it.produto) && (usados.add(i), true));
     // Sem quantidade vinda do agente (ainda não atualizado): usa a do painel (maior valor, para não somar linha duplicada).
-    const qPainel = achadas
-      .map((x) => Number(x.quantidade))
-      .filter((n) => !Number.isNaN(n));
-    return {
-      ...it,
-      qtd:
-        it.qtd != null ? it.qtd : qPainel.length ? Math.max(...qPainel) : null,
-      est: achadas,
-    };
+    const qPainel = achadas.map((x) => Number(x.quantidade)).filter((n) => !Number.isNaN(n));
+    return { ...it, qtd: it.qtd != null ? it.qtd : qPainel.length ? Math.max(...qPainel) : null, est: achadas };
   });
   // Linhas do painel que não bateram com nenhum item (ou pedido sem itens do agente).
   (painel || []).forEach((x, i) => {
-    if (!usados.has(i))
-      linhas.push({
-        produto: String(x.produto || ''),
-        qtd: x.quantidade != null ? Number(x.quantidade) : null,
-        est: [x],
-      });
+    if (!usados.has(i)) linhas.push({ produto: String(x.produto || ''), qtd: x.quantidade != null ? Number(x.quantidade) : null, est: [x] });
   });
   // Situação pela coluna status_original do painel_estoque: "Entregue" = entregue; vazio/EMPTY = aguardando separação.
   // Se o mesmo produto tem mais de uma linha, só é entregue quando todas estão entregues.
   const codSt = (linhasEst) => {
-    const cods = linhasEst.map((x) =>
-      String(x.status_original == null ? '' : x.status_original)
-        .trim()
-        .toUpperCase()
-    );
+    const cods = linhasEst.map((x) => String(x.status_original == null ? '' : x.status_original).trim().toUpperCase());
     if (cods.every((c) => c === 'ENTREGUE')) return 'E';
-    return cods.some((c) => c !== '' && c !== 'EMPTY' && c !== 'ENTREGUE')
-      ? 'S'
-      : 'A';
+    return cods.some((c) => c !== '' && c !== 'EMPTY' && c !== 'ENTREGUE') ? 'S' : 'A';
   };
-  const stTxt = (c) =>
-    c === 'E'
-      ? 'Entregue'
-      : c === 'S'
-      ? 'Em separação'
-      : 'Aguardando separação';
-  const stCor = (c) =>
-    c === 'E' ? LF_VL_ST_OK : c === 'S' ? LF_VL_ST_ANDA : LF_VL_ST_NAO;
-  const th = {
-    background: LF_VL_VERDE,
-    color: '#fff',
-    fontSize: 12.5,
-    fontWeight: 800,
-    padding: '9px 10px',
-    textAlign: 'left',
-    whiteSpace: 'nowrap',
-  };
-  const td = {
-    padding: '8px 10px',
-    fontSize: 13,
-    borderBottom: `1px solid ${C.bdLight}`,
-    color: C.txtPri,
-    verticalAlign: 'top',
-  };
+  const stTxt = (c) => (c === 'E' ? 'Entregue' : c === 'S' ? 'Em separação' : 'Aguardando separação');
+  const stCor = (c) => (c === 'E' ? LF_VL_ST_OK : c === 'S' ? LF_VL_ST_ANDA : LF_VL_ST_NAO);
+  const th = { background: LF_VL_VERDE, color: '#fff', fontSize: 12.5, fontWeight: 800, padding: '9px 10px', textAlign: 'left', whiteSpace: 'nowrap' };
+  const td = { padding: '8px 10px', fontSize: 13, borderBottom: `1px solid ${C.bdLight}`, color: C.txtPri, verticalAlign: 'top' };
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(15,23,42,0.55)',
-        backdropFilter: 'blur(2px)',
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(2px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       onClick={onFechar}
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
-          background: C.bgCard,
-          borderRadius: C.radius.xl,
-          padding: 22,
-          width: 820,
-          maxWidth: '95vw',
-          maxHeight: '88vh',
-          overflow: 'auto',
-          boxShadow: C.shadowXl,
-          border: `1px solid ${C.bdMid}`,
-        }}
+        style={{ background: C.bgCard, borderRadius: C.radius.xl, padding: 22, width: 820, maxWidth: '95vw', maxHeight: '88vh', overflow: 'auto', boxShadow: C.shadowXl, border: `1px solid ${C.bdMid}` }}
       >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            gap: 12,
-            marginBottom: 6,
-          }}
-        >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 6 }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: C.txtPri }}>
-              Pedido {r.pedido}
-            </div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: C.txtPri }}>Pedido {r.pedido}</div>
             <div style={{ fontSize: 12.5, color: C.txtMuted, marginTop: 3 }}>
               {[
                 `Filial ${r.filial}`,
                 r.transportadora,
                 `${sepNum(r.qtd_total)} un`,
                 r.lista_status,
-                r.restante == null
-                  ? ''
-                  : r.restante < 0
-                  ? `Atrasado ${lfRestante(-r.restante)}`
-                  : `Restam ${lfRestante(r.restante)}`,
+                r.restante == null ? '' : r.restante < 0 ? `Atrasado ${lfRestante(-r.restante)}` : `Restam ${lfRestante(r.restante)}`,
               ]
                 .filter(Boolean)
                 .join(' · ')}
             </div>
             {r.faturador && (
-              <div style={{ fontSize: 12.5, color: C.txtMuted, marginTop: 2 }}>
-                Faturador: {r.faturador}
-              </div>
+              <div style={{ fontSize: 12.5, color: C.txtMuted, marginTop: 2 }}>Faturador: {r.faturador}</div>
             )}
           </div>
           <LfBtn pequeno onClick={onFechar}>
             Fechar ✕
           </LfBtn>
         </div>
-        {erro && (
-          <LfAviso tipo="warn">
-            Não consegui ler o painel do estoque: {erro}
-          </LfAviso>
-        )}
+        {erro && <LfAviso tipo="warn">Não consegui ler o painel do estoque: {erro}</LfAviso>}
         {painel === null ? (
           <LfVazio>Carregando itens...</LfVazio>
         ) : linhas.length === 0 ? (
           <LfVazio>Nenhum item encontrado para este pedido.</LfVazio>
         ) : (
-          <div
-            style={{
-              overflow: 'auto',
-              border: `1px solid ${C.bdLight}`,
-              borderRadius: C.radius.lg,
-              marginTop: 10,
-            }}
-          >
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontFamily: C.font,
-              }}
-            >
+          <div style={{ overflow: 'auto', border: `1px solid ${C.bdLight}`, borderRadius: C.radius.lg, marginTop: 10 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: C.font }}>
               <thead>
                 <tr>
                   {['Produto', 'Qtd', 'Estoque', 'Entregue'].map((c) => (
-                    <th
-                      key={c}
-                      style={{
-                        ...th,
-                        textAlign:
-                          c === 'Qtd' || c === 'Entregue' ? 'center' : 'left',
-                      }}
-                    >
+                    <th key={c} style={{ ...th, textAlign: c === 'Qtd' || c === 'Entregue' ? 'center' : 'left' }}>
                       {c}
                     </th>
                   ))}
@@ -16484,37 +14374,17 @@ function LfViaLeitorDetalhe({ r, onFechar }) {
                   return (
                     <tr key={x.produto + i}>
                       <td style={{ ...td, fontWeight: 700 }}>{x.produto}</td>
-                      <td style={{ ...td, textAlign: 'center' }}>
-                        {x.qtd == null ? '—' : x.qtd}
-                      </td>
+                      <td style={{ ...td, textAlign: 'center' }}>{x.qtd == null ? '—' : x.qtd}</td>
                       <td style={td}>
                         {e ? (
-                          <span
-                            style={{
-                              background: stCor(cod),
-                              color: cod === 'S' ? '#000' : '#fff',
-                              fontWeight: 700,
-                              fontSize: 12,
-                              padding: '3px 8px',
-                              borderRadius: 999,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
+                          <span style={{ background: stCor(cod), color: cod === 'S' ? '#000' : '#fff', fontWeight: 700, fontSize: 12, padding: '3px 8px', borderRadius: 999, whiteSpace: 'nowrap' }}>
                             {stTxt(cod)}
                           </span>
                         ) : (
-                          <span style={{ color: C.txtMuted }}>
-                            Fora do painel
-                          </span>
+                          <span style={{ color: C.txtMuted }}>Fora do painel</span>
                         )}
                       </td>
-                      <td style={{ ...td, textAlign: 'center' }}>
-                        {e
-                          ? e.qtd_entregue != null && e.qtd_entregue !== ''
-                            ? e.qtd_entregue
-                            : '—'
-                          : ''}
-                      </td>
+                      <td style={{ ...td, textAlign: 'center' }}>{e ? (e.qtd_entregue != null && e.qtd_entregue !== '' ? e.qtd_entregue : '—') : ''}</td>
                     </tr>
                   );
                 })}
@@ -16559,25 +14429,18 @@ function LfViaLeitor({ ativo }) {
       ];
       for (let k = 0; k < tentativas.length; k++) {
         try {
-          dados = await sepBuscarTudo(
-            `/v_via_leitor_lista?select=${tentativas[k][0]}${ordem}`
-          );
+          dados = await sepBuscarTudo(`/v_via_leitor_lista?select=${tentativas[k][0]}${ordem}`);
           setSemFat(tentativas[k][1]);
           break;
         } catch (e1) {
-          const colunaFalta =
-            /itens|est_itens|est_entregues|est_separando|separador|separacao_status|faturador|42703|column/i.test(
-              String(e1.message || e1)
-            );
+          const colunaFalta = /itens|est_itens|est_entregues|est_separando|separador|separacao_status|faturador|42703|column/i.test(String(e1.message || e1));
           if (!colunaFalta || k === tentativas.length - 1) throw e1;
         }
       }
       setRows(dados);
       setErro('');
       try {
-        const at = await lfApi(
-          '/via_leitor_atualizacoes?select=origem,atualizado_em,detalhe'
-        );
+        const at = await lfApi('/via_leitor_atualizacoes?select=origem,atualizado_em,detalhe');
         const mapa = {};
         (Array.isArray(at) ? at : []).forEach((x) => {
           mapa[x.origem] = x;
@@ -16627,12 +14490,7 @@ function LfViaLeitor({ ativo }) {
           aplica: lfVlAplica(r),
           // Status da separação: 1º o andamento no estoque (painel_estoque, com %); 2º o da tela Separação de Lista.
           // nao | andamento | concluida
-          estPct:
-            Number(r.est_itens) > 0
-              ? Math.round(
-                  (Number(r.est_entregues || 0) / Number(r.est_itens)) * 100
-                )
-              : null,
+          estPct: Number(r.est_itens) > 0 ? Math.round((Number(r.est_entregues || 0) / Number(r.est_itens)) * 100) : null,
           sepSt: !lfVlAplica(r)
             ? null
             : Number(r.est_itens) > 0
@@ -16675,17 +14533,11 @@ function LfViaLeitor({ ativo }) {
     setAvisoFat(null);
     try {
       if (r.separacao_id) {
-        await lfApi(
-          '/separacao_listas?id=eq.' + encodeURIComponent(r.separacao_id),
-          {
-            method: 'PATCH',
-            body: JSON.stringify({
-              faturador: valor || null,
-              faturou_lista: valor ? valor === r.separador : null,
-            }),
-            headers: { Prefer: 'return=minimal' },
-          }
-        );
+        await lfApi('/separacao_listas?id=eq.' + encodeURIComponent(r.separacao_id), {
+          method: 'PATCH',
+          body: JSON.stringify({ faturador: valor || null, faturou_lista: valor ? valor === r.separador : null }),
+          headers: { Prefer: 'return=minimal' },
+        });
       } else if (valor) {
         await lfApi('/pedido_faturador?on_conflict=pedido', {
           method: 'POST',
@@ -16693,38 +14545,22 @@ function LfViaLeitor({ ativo }) {
           headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
         });
       } else {
-        await lfApi(
-          '/pedido_faturador?pedido=eq.' + encodeURIComponent(r.pedido),
-          {
-            method: 'DELETE',
-            headers: { Prefer: 'return=minimal' },
-          }
-        );
+        await lfApi('/pedido_faturador?pedido=eq.' + encodeURIComponent(r.pedido), {
+          method: 'DELETE',
+          headers: { Prefer: 'return=minimal' },
+        });
       }
       // Atualiza a tela na hora (sem esperar os 30 s).
       setRows((atual) =>
         (atual || []).map((x) =>
-          (
-            r.separacao_id
-              ? x.separacao_id === r.separacao_id
-              : x.pedido === r.pedido
-          )
-            ? {
-                ...x,
-                faturador: valor || null,
-                faturador_manual: !r.separacao_id && !!valor,
-              }
+          (r.separacao_id ? x.separacao_id === r.separacao_id : x.pedido === r.pedido)
+            ? { ...x, faturador: valor || null, faturador_manual: !r.separacao_id && !!valor }
             : x
         )
       );
       carregar(true);
     } catch (e) {
-      setAvisoFat({
-        tipo: 'erro',
-        texto:
-          'Não foi possível gravar o faturador: ' +
-          String(e.message || e).slice(0, 160),
-      });
+      setAvisoFat({ tipo: 'erro', texto: 'Não foi possível gravar o faturador: ' + String(e.message || e).slice(0, 160) });
     } finally {
       setGravandoFat('');
     }
@@ -16738,46 +14574,27 @@ function LfViaLeitor({ ativo }) {
       estoque: lista.filter((r) => r.tipo === 'estoque').length,
       emLista: lista.filter((r) => r.tipo === 'lista').length,
       atraso: lista.filter((r) => r.restante != null && r.restante < 0).length,
-      semFat: lista.filter(
-        (r) =>
-          (r.sepSt === 'concluida' || (r.tipo === 'estoque' && r.aplica)) &&
-          !r.faturador
-      ).length,
+      semFat: lista.filter((r) => (r.sepSt === 'concluida' || (r.tipo === 'estoque' && r.aplica)) && !r.faturador).length,
       naoIniciada: lista.filter((r) => r.sepSt === 'nao').length,
     }),
     [lista]
   );
-  const filiais = useMemo(
-    () => [...new Set(lista.map((r) => r.filial))].filter(Boolean).sort(),
-    [lista]
-  );
+  const filiais = useMemo(() => [...new Set(lista.map((r) => r.filial))].filter(Boolean).sort(), [lista]);
   const filtrados = useMemo(() => {
     const termo = sepNorm(busca);
     return lista.filter((r) => {
       if (fFilial && r.filial !== fFilial) return false;
       if (fLista && r.tipo !== fLista) return false;
-      if (fPrazo === 'atraso' && !(r.restante != null && r.restante < 0))
-        return false;
+      if (fPrazo === 'atraso' && !(r.restante != null && r.restante < 0)) return false;
       if (fPrazo === 'vermelho' && lfVlCor(r) !== 'vermelho') return false;
       if (fPrazo === 'azul' && lfVlCor(r) !== 'azul') return false;
-      if (fPrazo === 'prazo' && !(r.restante != null && r.restante >= 0))
-        return false;
+      if (fPrazo === 'prazo' && !(r.restante != null && r.restante >= 0)) return false;
       if (fSep === 'sem_faturador') {
-        if (
-          !(
-            (r.sepSt === 'concluida' || (r.tipo === 'estoque' && r.aplica)) &&
-            !r.faturador
-          )
-        )
-          return false;
+        if (!((r.sepSt === 'concluida' || (r.tipo === 'estoque' && r.aplica)) && !r.faturador)) return false;
       } else if (fSep && r.sepSt !== fSep) return false;
       if (
         termo &&
-        !sepNorm(
-          `${r.pedido} ${r.transportadora} ${r.produtos || ''} ${
-            r.lista_status
-          } ${r.separador || ''} ${r.faturador || ''}`
-        ).includes(termo)
+        !sepNorm(`${r.pedido} ${r.transportadora} ${r.produtos || ''} ${r.lista_status} ${r.separador || ''} ${r.faturador || ''}`).includes(termo)
       )
         return false;
       return true;
@@ -16786,98 +14603,39 @@ function LfViaLeitor({ ativo }) {
   useEffect(() => setLimiteTela(200), [busca, fFilial, fLista, fPrazo, fSep]);
 
   const ultimaAtualizacao = useMemo(
-    () =>
-      rows && rows.length
-        ? Math.max(...rows.map((r) => new Date(r.atualizado_em).getTime() || 0))
-        : 0,
+    () => (rows && rows.length ? Math.max(...rows.map((r) => new Date(r.atualizado_em).getTime() || 0)) : 0),
     [rows]
   );
-  const tAgente = atualizacoes.agente
-    ? new Date(atualizacoes.agente.atualizado_em).getTime()
-    : 0;
-  const tManual = atualizacoes.manual
-    ? new Date(atualizacoes.manual.atualizado_em).getTime()
-    : 0;
+  const tAgente = atualizacoes.agente ? new Date(atualizacoes.agente.atualizado_em).getTime() : 0;
+  const tManual = atualizacoes.manual ? new Date(atualizacoes.manual.atualizado_em).getTime() : 0;
   // Parado = nem o agente nem um relatório manual atualizaram há mais de 15 min.
   const ultimoDado = Math.max(tAgente, tManual) || ultimaAtualizacao;
-  const agenteParado =
-    ultimoDado && agora - ultimoDado > LF_VL_AGENTE_PARADO_MS;
+  const agenteParado = ultimoDado && agora - ultimoDado > LF_VL_AGENTE_PARADO_MS;
 
   return (
     <>
       <LfKpis>
-        <LfKpi
-          rotulo="Pedidos no Via Leitor"
-          valor={cont.total}
-          detalhe="Filiais 0101 e 0102"
-          tipo="info"
-        />
-        <LfKpi
-          rotulo="Gerar lista"
-          valor={cont.gerar}
-          detalhe="Sem lista e fora do estoque"
-          tipo={cont.gerar ? 'erro' : 'ok'}
-        />
-        <LfKpi
-          rotulo="Em lista"
-          valor={cont.emLista}
-          detalhe="Já têm lista gerada"
-          tipo="ok"
-        />
-        <LfKpi
-          rotulo="Estoque - separação"
-          valor={cont.estoque}
-          detalhe="Lançados para o estoque"
-          tipo="warn"
-        />
-        <LfKpi
-          rotulo="Em vermelho"
-          valor={cont.alerta}
-          detalhe="Falta 1h ou menos, ou já atrasou"
-          tipo={cont.alerta ? 'erro' : 'ok'}
-        />
-        <LfKpi
-          rotulo="Em azul"
-          valor={cont.azul}
-          detalhe="Mais de 50 un, faltam 3h ou menos"
-          tipo="info"
-        />
-        <LfKpi
-          rotulo="Em atraso"
-          valor={cont.atraso}
-          detalhe="Passou da data limite"
-          tipo={cont.atraso ? 'erro' : 'ok'}
-        />
+        <LfKpi rotulo="Pedidos no Via Leitor" valor={cont.total} detalhe="Filiais 0101 e 0102" tipo="info" />
+        <LfKpi rotulo="Gerar lista" valor={cont.gerar} detalhe="Sem lista e fora do estoque" tipo={cont.gerar ? 'erro' : 'ok'} />
+        <LfKpi rotulo="Em lista" valor={cont.emLista} detalhe="Já têm lista gerada" tipo="ok" />
+        <LfKpi rotulo="Estoque - separação" valor={cont.estoque} detalhe="Lançados para o estoque" tipo="warn" />
+        <LfKpi rotulo="Em vermelho" valor={cont.alerta} detalhe="Falta 1h ou menos, ou já atrasou" tipo={cont.alerta ? 'erro' : 'ok'} />
+        <LfKpi rotulo="Em azul" valor={cont.azul} detalhe="Mais de 50 un, faltam 3h ou menos" tipo="info" />
+        <LfKpi rotulo="Em atraso" valor={cont.atraso} detalhe="Passou da data limite" tipo={cont.atraso ? 'erro' : 'ok'} />
         {!semFat && (
-          <LfKpi
-            rotulo="Separação não iniciada"
-            valor={cont.naoIniciada}
-            detalhe="Sem nenhum item iniciado"
-            tipo={cont.naoIniciada ? 'warn' : 'ok'}
-          />
+          <LfKpi rotulo="Separação não iniciada" valor={cont.naoIniciada} detalhe="Sem nenhum item iniciado" tipo={cont.naoIniciada ? 'warn' : 'ok'} />
         )}
         {!semFat && (
-          <LfKpi
-            rotulo="Sem faturador"
-            valor={cont.semFat}
-            detalhe="Concluída ou estoque, sem nome"
-            tipo={cont.semFat ? 'warn' : 'ok'}
-          />
+          <LfKpi rotulo="Sem faturador" valor={cont.semFat} detalhe="Concluída ou estoque, sem nome" tipo={cont.semFat ? 'warn' : 'ok'} />
         )}
       </LfKpis>
       <LfCard
         titulo="Via Leitor × Listas"
         subtitulo={
           ultimaAtualizacao || tAgente || tManual
-            ? `Agente: ${
-                tAgente
-                  ? sepQuandoSeg(tAgente)
-                  : ultimaAtualizacao && !tManual
-                  ? sepQuandoSeg(ultimaAtualizacao)
-                  : '—'
-              } · Manual: ${tManual ? sepQuandoSeg(tManual) : '—'} · ${
-                filtrados.length
-              } de ${lista.length} pedidos`
+            ? `Agente: ${tAgente ? sepQuandoSeg(tAgente) : ultimaAtualizacao && !tManual ? sepQuandoSeg(ultimaAtualizacao) : '—'} · Manual: ${
+                tManual ? sepQuandoSeg(tManual) : '—'
+              } · ${filtrados.length} de ${lista.length} pedidos`
             : 'Pedidos do Via Leitor e a lista de cada um'
         }
         acoes={
@@ -16893,14 +14651,12 @@ function LfViaLeitor({ ativo }) {
         {avisoFat && <LfAviso tipo={avisoFat.tipo}>{avisoFat.texto}</LfAviso>}
         {semFat && !erro && (
           <LfAviso tipo="warn">
-            As colunas Separador, Faturador e Status da separação aparecem
-            depois de rodar o SQL criar_faturador_separacao.sql no Supabase.
+            As colunas Separador, Faturador e Status da separação aparecem depois de rodar o SQL criar_faturador_separacao.sql no Supabase.
           </LfAviso>
         )}
         {agenteParado && (
           <LfAviso tipo="erro">
-            O Via Leitor não é atualizado há {sepHoras(agora - ultimoDado)}.
-            Confira se o agente está rodando ou suba o relatório manualmente.
+            O Via Leitor não é atualizado há {sepHoras(agora - ultimoDado)}. Confira se o agente está rodando ou suba o relatório manualmente.
           </LfAviso>
         )}
         <div
@@ -16922,12 +14678,7 @@ function LfViaLeitor({ ativo }) {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
-          <select
-            className="lf-input"
-            style={lfInputStyle}
-            value={fFilial}
-            onChange={(e) => setFFilial(e.target.value)}
-          >
+          <select className="lf-input" style={lfInputStyle} value={fFilial} onChange={(e) => setFFilial(e.target.value)}>
             <option value="">Filial: todas</option>
             {filiais.map((f) => (
               <option key={f} value={f}>
@@ -16935,23 +14686,13 @@ function LfViaLeitor({ ativo }) {
               </option>
             ))}
           </select>
-          <select
-            className="lf-input"
-            style={lfInputStyle}
-            value={fLista}
-            onChange={(e) => setFLista(e.target.value)}
-          >
+          <select className="lf-input" style={lfInputStyle} value={fLista} onChange={(e) => setFLista(e.target.value)}>
             <option value="">Lista: todas</option>
             <option value="gerar">Gerar Lista</option>
             <option value="estoque">Estoque - separação</option>
             <option value="lista">Em lista</option>
           </select>
-          <select
-            className="lf-input"
-            style={lfInputStyle}
-            value={fPrazo}
-            onChange={(e) => setFPrazo(e.target.value)}
-          >
+          <select className="lf-input" style={lfInputStyle} value={fPrazo} onChange={(e) => setFPrazo(e.target.value)}>
             <option value="">Prazo: todos</option>
             <option value="vermelho">Em vermelho (≤ 1h)</option>
             <option value="azul">Em azul (mais de 50 un, até 3h)</option>
@@ -16959,12 +14700,7 @@ function LfViaLeitor({ ativo }) {
             <option value="prazo">No prazo</option>
           </select>
           {!semFat && (
-            <select
-              className="lf-input"
-              style={lfInputStyle}
-              value={fSep}
-              onChange={(e) => setFSep(e.target.value)}
-            >
+            <select className="lf-input" style={lfInputStyle} value={fSep} onChange={(e) => setFSep(e.target.value)}>
               <option value="">Separação: todas</option>
               <option value="nao">Não iniciada</option>
               <option value="andamento">Em separação</option>
@@ -16976,72 +14712,35 @@ function LfViaLeitor({ ativo }) {
         {rows === null && !erro ? (
           <LfVazio>Carregando pedidos do Via Leitor...</LfVazio>
         ) : filtrados.length === 0 ? (
-          <LfVazio>
-            {lista.length
-              ? 'Nenhum pedido encontrado neste filtro.'
-              : 'Nenhum pedido no Via Leitor.'}
-          </LfVazio>
+          <LfVazio>{lista.length ? 'Nenhum pedido encontrado neste filtro.' : 'Nenhum pedido no Via Leitor.'}</LfVazio>
         ) : (
           <>
-            <div
-              style={{
-                overflow: 'auto',
-                maxHeight: '70vh',
-                border: `1px solid ${C.bdLight}`,
-                borderRadius: C.radius.lg,
-              }}
-            >
-              <table
-                style={{
-                  width: '100%',
-                  borderCollapse: 'collapse',
-                  fontFamily: C.font,
-                  fontVariantNumeric: 'tabular-nums',
-                }}
-              >
+            <div style={{ overflow: 'auto', maxHeight: '70vh', border: `1px solid ${C.bdLight}`, borderRadius: C.radius.lg }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: C.font, fontVariantNumeric: 'tabular-nums' }}>
                 <thead>
                   <tr>
-                    {[
-                      'Filial',
-                      'Pedido',
-                      'Data Liberação',
-                      'Quant',
-                      'Transporte',
-                      'Produto',
-                      'Status',
-                      'Tempo Pedido',
-                      'Data limite',
-                      'Tempo Restante',
-                      'Lista',
-                    ]
-                      .concat(
-                        semFat
-                          ? []
-                          : ['Separador', 'Faturador', 'Status separação']
-                      )
+                    {['Filial', 'Pedido', 'Data Liberação', 'Quant', 'Transporte', 'Produto', 'Status', 'Tempo Pedido', 'Data limite', 'Tempo Restante', 'Lista']
+                      .concat(semFat ? [] : ['Separador', 'Faturador', 'Status separação'])
                       .map((c) => (
-                        <th
-                          key={c}
-                          style={{
-                            position: 'sticky',
-                            top: 0,
-                            zIndex: 1,
-                            background: LF_VL_VERDE,
-                            color: '#fff',
-                            fontSize: 12.5,
-                            fontWeight: 800,
-                            padding: '11px 8px',
-                            textAlign:
-                              c === 'Transporte' || c === 'Produto'
-                                ? 'left'
-                                : 'center',
-                            whiteSpace: 'nowrap',
-                            letterSpacing: '0.02em',
-                          }}
-                        >
-                          {c}
-                        </th>
-                      ))}
+                      <th
+                        key={c}
+                        style={{
+                          position: 'sticky',
+                          top: 0,
+                          zIndex: 1,
+                          background: LF_VL_VERDE,
+                          color: '#fff',
+                          fontSize: 12.5,
+                          fontWeight: 800,
+                          padding: '11px 8px',
+                          textAlign: c === 'Transporte' || c === 'Produto' ? 'left' : 'center',
+                          whiteSpace: 'nowrap',
+                          letterSpacing: '0.02em',
+                        }}
+                      >
+                        {c}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -17055,14 +14754,8 @@ function LfViaLeitor({ ativo }) {
                       fontSize: 13,
                       textAlign: 'center',
                       whiteSpace: 'nowrap',
-                      borderBottom: `1px solid ${
-                        colorida ? 'rgba(255,255,255,0.35)' : C.bdLight
-                      }`,
-                      background: vermelho
-                        ? LF_VL_VERMELHO
-                        : cor === 'azul'
-                        ? LF_VL_AZUL
-                        : 'transparent',
+                      borderBottom: `1px solid ${colorida ? 'rgba(255,255,255,0.35)' : C.bdLight}`,
+                      background: vermelho ? LF_VL_VERMELHO : cor === 'azul' ? LF_VL_AZUL : 'transparent',
                       color: colorida ? '#fff' : C.txtPri,
                       fontWeight: colorida ? 700 : 500,
                     };
@@ -17072,95 +14765,43 @@ function LfViaLeitor({ ativo }) {
                         <td style={td}>{r.filial}</td>
                         <td style={{ ...td, fontWeight: 800 }}>
                           <span
-                            onClick={() =>
-                              setDetalhe(`${r.filial}-${r.pedido}`)
-                            }
+                            onClick={() => setDetalhe(`${r.filial}-${r.pedido}`)}
                             title="Ver itens do pedido"
-                            style={{
-                              cursor: 'pointer',
-                              textDecoration: 'underline dotted',
-                              textUnderlineOffset: 3,
-                            }}
+                            style={{ cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
                           >
                             {r.pedido}
                           </span>
                         </td>
-                        <td style={td}>
-                          {r.lib_estoque
-                            ? sepQuandoSeg(new Date(r.lib_estoque).getTime())
-                            : '—'}
-                        </td>
+                        <td style={td}>{r.lib_estoque ? sepQuandoSeg(new Date(r.lib_estoque).getTime()) : '—'}</td>
                         <td style={td}>{sepNum(r.qtd_total)}</td>
-                        <td style={{ ...td, textAlign: 'left' }}>
-                          {r.transportadora || '—'}
-                        </td>
-                        <td
-                          style={{
-                            ...td,
-                            textAlign: 'left',
-                            whiteSpace: 'normal',
-                            minWidth: 130,
-                            maxWidth: 240,
-                            wordBreak: 'break-word',
-                          }}
-                        >
+                        <td style={{ ...td, textAlign: 'left' }}>{r.transportadora || '—'}</td>
+                        <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal', minWidth: 130, maxWidth: 240, wordBreak: 'break-word' }}>
                           {(() => {
                             const its = lfVlItens(r);
                             if (!its.length) return '';
-                            if (its.length <= LF_VL_MAX_MODELOS)
-                              return its.map((i) => i.produto).join(' , ');
+                            if (its.length <= LF_VL_MAX_MODELOS) return its.map((i) => i.produto).join(' , ');
                             return (
                               <button
                                 type="button"
-                                onClick={() =>
-                                  setDetalhe(`${r.filial}-${r.pedido}`)
-                                }
-                                style={{
-                                  fontFamily: C.font,
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  padding: '3px 9px',
-                                  borderRadius: 999,
-                                  border: '1px solid rgba(0,0,0,0.25)',
-                                  background: '#fff',
-                                  color: '#111',
-                                  cursor: 'pointer',
-                                }}
+                                onClick={() => setDetalhe(`${r.filial}-${r.pedido}`)}
+                                style={{ fontFamily: C.font, fontSize: 12, fontWeight: 700, padding: '3px 9px', borderRadius: 999, border: '1px solid rgba(0,0,0,0.25)', background: '#fff', color: '#111', cursor: 'pointer' }}
                               >
                                 🔍 Ver {its.length} itens
                               </button>
                             );
                           })()}
                         </td>
-                        <td style={td}>
-                          {r.restante == null
-                            ? '—'
-                            : atrasado
-                            ? 'Atraso'
-                            : 'No Prazo'}
-                        </td>
+                        <td style={td}>{r.restante == null ? '—' : atrasado ? 'Atraso' : 'No Prazo'}</td>
                         <td style={td}>{horas ? `${horas}:00:00` : '—'}</td>
                         <td style={td}>{r.lim ? sepQuandoSeg(r.lim) : '—'}</td>
-                        <td style={{ ...td, fontWeight: 800 }}>
-                          {r.restante == null ? '—' : lfRestante(r.restante)}
-                        </td>
+                        <td style={{ ...td, fontWeight: 800 }}>{r.restante == null ? '—' : lfRestante(r.restante)}</td>
                         <td
                           style={{
                             ...td,
                             ...(r.tipo === 'estoque'
-                              ? {
-                                  background: LF_VL_LARANJA,
-                                  color: '#000',
-                                  fontStyle: 'italic',
-                                  fontWeight: 600,
-                                }
+                              ? { background: LF_VL_LARANJA, color: '#000', fontStyle: 'italic', fontWeight: 600 }
                               : r.tipo === 'gerar'
-                              ? {
-                                  background: LF_VL_VERMELHO,
-                                  color: '#fff',
-                                  fontStyle: 'italic',
-                                  fontWeight: 700,
-                                }
+                              ? { background: LF_VL_VERMELHO, color: '#fff', fontStyle: 'italic', fontWeight: 700 }
                               : null),
                           }}
                         >
@@ -17168,40 +14809,22 @@ function LfViaLeitor({ ativo }) {
                         </td>
                         {!semFat && (
                           <>
-                            <td style={td}>
-                              {r.aplica ? r.separador || '—' : ''}
-                            </td>
+                            <td style={td}>{r.aplica ? r.separador || '—' : ''}</td>
                             <td style={{ ...td, padding: '5px 8px' }}>
-                              {!r.aplica ? null : r.sepSt === 'concluida' ||
-                                r.tipo === 'estoque' ? (
+                              {!r.aplica ? null : r.sepSt === 'concluida' || r.tipo === 'estoque' ? (
                                 <select
                                   value={r.faturador || ''}
-                                  disabled={
-                                    gravandoFat ===
-                                    (r.separacao_id
-                                      ? 'l' + r.separacao_id
-                                      : 'p' + r.pedido)
-                                  }
-                                  onChange={(e) =>
-                                    escolherFaturador(r, e.target.value)
-                                  }
-                                  title={
-                                    r.separacao_id
-                                      ? 'Vale para a lista inteira'
-                                      : 'Vale só para este pedido'
-                                  }
+                                  disabled={gravandoFat === (r.separacao_id ? 'l' + r.separacao_id : 'p' + r.pedido)}
+                                  onChange={(e) => escolherFaturador(r, e.target.value)}
+                                  title={r.separacao_id ? 'Vale para a lista inteira' : 'Vale só para este pedido'}
                                   style={{
                                     fontFamily: C.font,
                                     fontSize: 12.5,
                                     fontWeight: 700,
                                     padding: '4px 6px',
                                     borderRadius: 6,
-                                    border: `1px solid ${
-                                      r.faturador ? C.bdMid : LF_VL_ST_ANDA
-                                    }`,
-                                    background: r.faturador
-                                      ? '#fff'
-                                      : '#fff7e0',
+                                    border: `1px solid ${r.faturador ? C.bdMid : LF_VL_ST_ANDA}`,
+                                    background: r.faturador ? '#fff' : '#fff7e0',
                                     color: '#111',
                                     maxWidth: 150,
                                   }}
@@ -17222,23 +14845,11 @@ function LfViaLeitor({ ativo }) {
                               style={{
                                 ...td,
                                 ...(r.sepSt === 'nao'
-                                  ? {
-                                      background: LF_VL_ST_NAO,
-                                      color: '#fff',
-                                      fontWeight: 700,
-                                    }
+                                  ? { background: LF_VL_ST_NAO, color: '#fff', fontWeight: 700 }
                                   : r.sepSt === 'andamento'
-                                  ? {
-                                      background: LF_VL_ST_ANDA,
-                                      color: '#000',
-                                      fontWeight: 700,
-                                    }
+                                  ? { background: LF_VL_ST_ANDA, color: '#000', fontWeight: 700 }
                                   : r.sepSt === 'concluida'
-                                  ? {
-                                      background: LF_VL_ST_OK,
-                                      color: '#fff',
-                                      fontWeight: 700,
-                                    }
+                                  ? { background: LF_VL_ST_OK, color: '#fff', fontWeight: 700 }
                                   : null),
                               }}
                             >
@@ -17248,13 +14859,8 @@ function LfViaLeitor({ ativo }) {
                                   : 'Não iniciada'
                                 : r.sepSt === 'andamento'
                                 ? r.estPct != null
-                                  ? `Em separação · ${r.estPct}% (${
-                                      r.est_entregues || 0
-                                    }/${r.est_itens})`
-                                  : `Em separação · ${sepHms(
-                                      agora -
-                                        new Date(r.separacao_inicio).getTime()
-                                    )}`
+                                  ? `Em separação · ${r.estPct}% (${r.est_entregues || 0}/${r.est_itens})`
+                                  : `Em separação · ${sepHms(agora - new Date(r.separacao_inicio).getTime())}`
                                 : r.sepSt === 'concluida'
                                 ? r.estPct != null
                                   ? 'Concluída · 100%'
@@ -17292,10 +14898,7 @@ function LfViaLeitor({ ativo }) {
         />
       )}
       {detalhe && lista.find((x) => `${x.filial}-${x.pedido}` === detalhe) && (
-        <LfViaLeitorDetalhe
-          r={lista.find((x) => `${x.filial}-${x.pedido}` === detalhe)}
-          onFechar={() => setDetalhe(null)}
-        />
+        <LfViaLeitorDetalhe r={lista.find((x) => `${x.filial}-${x.pedido}` === detalhe)} onFechar={() => setDetalhe(null)} />
       )}
     </>
   );
@@ -17305,7 +14908,11 @@ function TelaListaFaturamento({ ativo }) {
   const [aba, setAba] = useState('importar');
   // Pergunta "quem está fazendo?" no momento da ação (gerar listas, excluir, lançar Picking Poluído).
   const [quem, setQuem] = useState(null); // { titulo, aoEscolher }
-  const pedirQuem = (titulo, aoEscolher) => setQuem({ titulo, aoEscolher });
+  const [outroNome, setOutroNome] = useState('');
+  const pedirQuem = (titulo, aoEscolher) => {
+    setOutroNome('');
+    setQuem({ titulo, aoEscolher });
+  };
 
   // Importação
   const [arquivo, setArquivo] = useState(null); // {nome, headers, rows, idx}
@@ -17324,13 +14931,7 @@ function TelaListaFaturamento({ ativo }) {
   const [historico, setHistorico] = useState([]);
   const [carregandoHist, setCarregandoHist] = useState(false);
   const [msgHist, setMsgHist] = useState(null);
-  const [filtros, setFiltros] = useState({
-    busca: '',
-    filial: '',
-    transp: '',
-    impresso: '',
-    status: '',
-  });
+  const [filtros, setFiltros] = useState({ busca: '', filial: '', transp: '', impresso: '', status: '' });
   const [selecionadas, setSelecionadas] = useState(() => new Set());
   const [expandida, setExpandida] = useState('');
   const [itensExpandida, setItensExpandida] = useState(null);
@@ -17362,20 +14963,11 @@ function TelaListaFaturamento({ ativo }) {
       const texto = await lfLerTextoCsv(f);
       const lido = lfLerCsv(texto);
       if (lido.faltando.length) {
-        setMsgArquivo({
-          tipo: 'erro',
-          texto: 'Cabeçalho inválido. Faltando: ' + lido.faltando.join(', '),
-        });
+        setMsgArquivo({ tipo: 'erro', texto: 'Cabeçalho inválido. Faltando: ' + lido.faltando.join(', ') });
         return;
       }
       setArquivo({ nome: f.name, ...lido });
-      setMsgArquivo({
-        tipo: 'ok',
-        texto:
-          'Arquivo carregado com sucesso. ' +
-          lido.rows.length +
-          ' linhas encontradas.',
-      });
+      setMsgArquivo({ tipo: 'ok', texto: 'Arquivo carregado com sucesso. ' + lido.rows.length + ' linhas encontradas.' });
       setCarregandoPreview(true);
       try {
         setPreview(await lfPreview(lido.rows, lido.idx));
@@ -17384,10 +14976,7 @@ function TelaListaFaturamento({ ativo }) {
       }
     } catch (err) {
       setCarregandoPreview(false);
-      setMsgArquivo({
-        tipo: 'erro',
-        texto: 'Erro ao ler o arquivo: ' + err.message,
-      });
+      setMsgArquivo({ tipo: 'erro', texto: 'Erro ao ler o arquivo: ' + err.message });
     }
   };
 
@@ -17443,16 +15032,10 @@ function TelaListaFaturamento({ ativo }) {
       await lfMarcarImpressas([lista]);
       setSessao((s) => ({
         ...s,
-        listas: s.listas.map((l) =>
-          l.lista === lista ? { ...l, impresso: 'SIM' } : l
-        ),
+        listas: s.listas.map((l) => (l.lista === lista ? { ...l, impresso: 'SIM' } : l)),
       }));
-      setHistorico((h) =>
-        h.map((x) => (x.lista === lista ? { ...x, impresso: 'SIM' } : x))
-      );
-      imprimirBlocos([
-        { lista, info, registros: sessao.registros[lista] || [] },
-      ]);
+      setHistorico((h) => h.map((x) => (x.lista === lista ? { ...x, impresso: 'SIM' } : x)));
+      imprimirBlocos([{ lista, info, registros: sessao.registros[lista] || [] }]);
     } catch (err) {
       alert('Erro ao marcar ' + lista + ' como impressa: ' + err.message);
     } finally {
@@ -17465,9 +15048,7 @@ function TelaListaFaturamento({ ativo }) {
     setCarregandoHist(true);
     setMsgHist(null);
     try {
-      const filtroBusca = busca
-        ? '&lista=ilike.' + encodeURIComponent('*' + busca + '*')
-        : '';
+      const filtroBusca = busca ? '&lista=ilike.' + encodeURIComponent('*' + busca + '*') : '';
       const h = await lfApi(
         '/historico_listas?select=id,lista,data_hora,usuario,filial,transportadora,pedidos,unidades,impresso,status,motivo_ajuste,ajustada_por,ajustada_em' +
           filtroBusca +
@@ -17477,45 +15058,24 @@ function TelaListaFaturamento({ ativo }) {
       setHistorico(Array.isArray(h) ? h : []);
       setLimiteTela(150);
     } catch (err) {
-      setMsgHist({
-        tipo: 'erro',
-        texto: 'Erro ao carregar histórico: ' + err.message,
-      });
+      setMsgHist({ tipo: 'erro', texto: 'Erro ao carregar histórico: ' + err.message });
     } finally {
       setCarregandoHist(false);
     }
   }, []);
 
   useEffect(() => {
-    if (
-      ativo &&
-      aba === 'historico' &&
-      historico.length === 0 &&
-      !carregandoHist
-    ) {
+    if (ativo && aba === 'historico' && historico.length === 0 && !carregandoHist) {
       carregarHistorico('');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ativo, aba]);
 
   const filiais = useMemo(
-    () =>
-      [
-        ...new Set(
-          historico.map((x) => String(x.filial || '').trim()).filter(Boolean)
-        ),
-      ].sort(),
+    () => [...new Set(historico.map((x) => String(x.filial || '').trim()).filter(Boolean))].sort(),
     [historico]
   );
   const transps = useMemo(
-    () =>
-      [
-        ...new Set(
-          historico
-            .map((x) => String(x.transportadora || '').trim())
-            .filter(Boolean)
-        ),
-      ].sort(),
+    () => [...new Set(historico.map((x) => String(x.transportadora || '').trim()).filter(Boolean))].sort(),
     [historico]
   );
   const filtrado = useMemo(
@@ -17523,18 +15083,11 @@ function TelaListaFaturamento({ ativo }) {
       historico.filter((x) => {
         const b = filtros.busca.trim().toLowerCase();
         return (
-          (!b ||
-            String(x.lista || '')
-              .toLowerCase()
-              .includes(b)) &&
-          (!filtros.filial ||
-            String(x.filial || '').trim() === filtros.filial) &&
-          (!filtros.transp ||
-            String(x.transportadora || '').trim() === filtros.transp) &&
-          (!filtros.impresso ||
-            String(x.impresso || 'NÃO').toUpperCase() === filtros.impresso) &&
-          (!filtros.status ||
-            String(x.status || 'ATIVA').toUpperCase() === filtros.status)
+          (!b || String(x.lista || '').toLowerCase().includes(b)) &&
+          (!filtros.filial || String(x.filial || '').trim() === filtros.filial) &&
+          (!filtros.transp || String(x.transportadora || '').trim() === filtros.transp) &&
+          (!filtros.impresso || String(x.impresso || 'NÃO').toUpperCase() === filtros.impresso) &&
+          (!filtros.status || String(x.status || 'ATIVA').toUpperCase() === filtros.status)
         );
       }),
     [historico, filtros]
@@ -17569,16 +15122,9 @@ function TelaListaFaturamento({ ativo }) {
           imprimidas.push(lista);
         }
       }
-      if (!novos.length)
-        throw new Error(
-          'Nenhuma das listas selecionadas está disponível para impressão.'
-        );
+      if (!novos.length) throw new Error('Nenhuma das listas selecionadas está disponível para impressão.');
       await lfMarcarImpressas(imprimidas);
-      setHistorico((h) =>
-        h.map((x) =>
-          imprimidas.includes(x.lista) ? { ...x, impresso: 'SIM' } : x
-        )
-      );
+      setHistorico((h) => h.map((x) => (imprimidas.includes(x.lista) ? { ...x, impresso: 'SIM' } : x)));
       setSelecionadas((s) => {
         const n = new Set(s);
         imprimidas.forEach((l) => n.delete(l));
@@ -17587,9 +15133,7 @@ function TelaListaFaturamento({ ativo }) {
       if (semPedidos.length) {
         setMsgHist({
           tipo: 'warn',
-          texto:
-            'Não incluídas (sem pedidos e não canceladas): ' +
-            semPedidos.join(', '),
+          texto: 'Não incluídas (sem pedidos e não canceladas): ' + semPedidos.join(', '),
         });
       }
       imprimirBlocos(novos);
@@ -17616,10 +15160,7 @@ function TelaListaFaturamento({ ativo }) {
       setItensExpandida(Array.isArray(itens) ? itens : []);
     } catch (err) {
       setItensExpandida([]);
-      setMsgHist({
-        tipo: 'erro',
-        texto: 'Erro ao carregar pedidos: ' + err.message,
-      });
+      setMsgHist({ tipo: 'erro', texto: 'Erro ao carregar pedidos: ' + err.message });
     }
   };
 
@@ -17635,21 +15176,14 @@ function TelaListaFaturamento({ ativo }) {
   const executarExclusao = async (usuario, motivo) => {
     setExcluindo(true);
     try {
-      const aviso = await lfExcluir({
-        ...modal,
-        motivo,
-        usuario: usuario.nome,
-        email: usuario.email,
-      });
+      const aviso = await lfExcluir({ ...modal, motivo, usuario: usuario.nome, email: usuario.email });
       setModal(null);
       setMotivoExclusao('');
       setExpandida('');
       await carregarHistorico('');
       setMsgHist({
         tipo: aviso ? 'warn' : 'ok',
-        texto:
-          aviso ||
-          'Exclusão registrada com sucesso. O motivo ficou salvo na auditoria.',
+        texto: aviso || 'Exclusão registrada com sucesso. O motivo ficou salvo na auditoria.',
       });
     } catch (err) {
       alert('Não foi possível excluir: ' + err.message);
@@ -17665,22 +15199,13 @@ function TelaListaFaturamento({ ativo }) {
       setMsgPoluido({ tipo: 'warn', texto: 'Informe o número do pedido.' });
       return;
     }
-    pedirQuem('Quem está lançando o pedido?', (u) =>
-      executarPoluido(u, pedido)
-    );
+    pedirQuem('Quem está lançando o pedido?', (u) => executarPoluido(u, pedido));
   };
   const executarPoluido = async (usuario, pedido) => {
     setLancandoPoluido(true);
-    setMsgPoluido({
-      tipo: 'info',
-      texto: 'Buscando todos os produtos e enviando ao estoque...',
-    });
+    setMsgPoluido({ tipo: 'info', texto: 'Buscando todos os produtos e enviando ao estoque...' });
     try {
-      const r = await lfLancarPoluido({
-        pedido,
-        usuario: usuario.nome,
-        email: usuario.email,
-      });
+      const r = await lfLancarPoluido({ pedido, usuario: usuario.nome, email: usuario.email });
       setMsgPoluido({ tipo: r.tipo, texto: r.mensagem });
       setPedidoPoluido('');
     } catch (err) {
@@ -17697,9 +15222,7 @@ function TelaListaFaturamento({ ativo }) {
     ['poluido', 'Picking Poluído'],
     ['vialeitor', 'Via Leitor'],
   ];
-  const registrosAbertos = listaAberta
-    ? sessao.registros[listaAberta] || []
-    : [];
+  const registrosAbertos = listaAberta ? sessao.registros[listaAberta] || [] : [];
   const rankingAberto = lfCalcularRanking(registrosAbertos);
 
   return (
@@ -17712,13 +15235,7 @@ function TelaListaFaturamento({ ativo }) {
 
       <div
         role="tablist"
-        style={{
-          display: 'flex',
-          gap: 4,
-          marginBottom: 20,
-          flexWrap: 'wrap',
-          borderBottom: `1px solid ${C.bdMid}`,
-        }}
+        style={{ display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap', borderBottom: `1px solid ${C.bdMid}` }}
       >
         {abas.map(([id, nome]) => {
           const ativa = aba === id;
@@ -17768,10 +15285,7 @@ function TelaListaFaturamento({ ativo }) {
 
       {aba === 'importar' && (
         <>
-          <LfCard
-            titulo="Importar CSV do Tableau"
-            subtitulo="Exportação do Tableau com as colunas de faturamento"
-          >
+          <LfCard titulo="Importar CSV do Tableau" subtitulo="Exportação do Tableau com as colunas de faturamento">
             <input
               ref={inputArquivoRef}
               className="lf-file"
@@ -17779,134 +15293,99 @@ function TelaListaFaturamento({ ativo }) {
               accept=".csv,.txt,.tsv"
               onChange={aoEscolherArquivo}
             />
-            {msgArquivo && (
-              <LfAviso tipo={msgArquivo.tipo}>{msgArquivo.texto}</LfAviso>
-            )}
-            {!msgArquivo && (
-              <LfAviso>
-                Selecione o CSV exportado do Tableau para ver a prévia.
-              </LfAviso>
-            )}
+            {msgArquivo && <LfAviso tipo={msgArquivo.tipo}>{msgArquivo.texto}</LfAviso>}
+            {!msgArquivo && <LfAviso>Selecione o CSV exportado do Tableau para ver a prévia.</LfAviso>}
           </LfCard>
 
           {carregandoPreview && <LfAviso>Analisando o arquivo...</LfAviso>}
 
-          {preview &&
-            preview.novosParaLista === 0 &&
-            preview.paraEstoque === 0 && (
-              <>
-                <LfAviso tipo="warn">
-                  Atenção: não há pedidos para geração de lista neste arquivo.
-                  {preview.repetidos.length + preview.bloqueadosEstoque > 0 &&
-                    ` (${preview.repetidos.length} já estavam em listas · ${preview.bloqueadosEstoque} já enviados ao estoque)`}
-                </LfAviso>
-                {preview.aviso && (
-                  <LfAviso tipo="warn">{preview.aviso}</LfAviso>
-                )}
-              </>
-            )}
+          {preview && preview.novosParaLista === 0 && preview.paraEstoque === 0 && (
+            <>
+              <LfAviso tipo="warn">
+                Atenção: não há pedidos para geração de lista neste arquivo.
+                {preview.repetidos.length + preview.bloqueadosEstoque > 0 &&
+                  ` (${preview.repetidos.length} já estavam em listas · ${preview.bloqueadosEstoque} já enviados ao estoque)`}
+              </LfAviso>
+              {preview.aviso && <LfAviso tipo="warn">{preview.aviso}</LfAviso>}
+            </>
+          )}
 
-          {preview &&
-            (preview.novosParaLista > 0 || preview.paraEstoque > 0) && (
-              <LfCard
-                titulo="Prévia da geração"
-                subtitulo="Confira antes de gerar as listas"
-                acoes={
-                  <LfBtn
-                    tipo="primario"
-                    disabled={gerando || !arquivo}
-                    onClick={gerar}
-                  >
-                    {gerando ? 'Gerando...' : 'Gerar listas automáticas'}
-                  </LfBtn>
-                }
-              >
-                <LfKpis>
-                  <LfKpi
-                    rotulo="Novos para lista"
-                    valor={preview.novosParaLista}
-                    tipo="ok"
-                    detalhe="pedidos que entram nas listas"
-                  />
-                  <LfKpi
-                    rotulo="Para o estoque"
-                    valor={preview.paraEstoque}
-                    tipo="info"
-                    detalhe={`Caixa: ${preview.caixa} · Picking Insuficiente: ${preview.insuf}`}
-                  />
-                  <LfKpi
-                    rotulo="Já enviados ao estoque"
-                    valor={preview.bloqueadosEstoque}
-                    tipo={preview.bloqueadosEstoque ? 'warn' : 'neutro'}
-                    detalhe="bloqueados"
-                  />
-                  <LfKpi
-                    rotulo="Já gerados"
-                    valor={preview.repetidos.length}
-                    tipo={preview.repetidos.length ? 'warn' : 'neutro'}
-                    detalhe="bloqueados"
-                  />
-                  <LfKpi
-                    rotulo="Linhas inválidas"
-                    valor={preview.linhasInvalidas}
-                    tipo={preview.linhasInvalidas ? 'erro' : 'neutro'}
-                  />
-                </LfKpis>
-                {preview.aviso && (
-                  <LfAviso tipo="warn">{preview.aviso}</LfAviso>
-                )}
-                <div style={{ marginTop: 14 }}>
-                  <LfTabela
-                    colunas={[
-                      'Filial',
-                      'Transportadora',
-                      'Pedidos novos',
-                      'Unidades',
-                    ]}
-                    numericas={['Pedidos novos', 'Unidades']}
-                  >
-                    {preview.grupos.length ? (
-                      preview.grupos.map((g, i) => (
-                        <tr key={i}>
-                          <td style={lfTdStyle}>{g.filial}</td>
-                          <td style={lfTdStyle}>{g.transportadora}</td>
-                          <td style={lfTdNum}>{g.pedidos}</td>
-                          <td style={lfTdNum}>{g.unidades}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td style={lfTdStyle} colSpan={4}>
-                          <LfVazio>Sem pedidos novos para lista.</LfVazio>
-                        </td>
+          {preview && (preview.novosParaLista > 0 || preview.paraEstoque > 0) && (
+            <LfCard
+              titulo="Prévia da geração"
+              subtitulo="Confira antes de gerar as listas"
+              acoes={
+                <LfBtn tipo="primario" disabled={gerando || !arquivo} onClick={gerar}>
+                  {gerando ? 'Gerando...' : 'Gerar listas automáticas'}
+                </LfBtn>
+              }
+            >
+              <LfKpis>
+                <LfKpi rotulo="Novos para lista" valor={preview.novosParaLista} tipo="ok" detalhe="pedidos que entram nas listas" />
+                <LfKpi
+                  rotulo="Para o estoque"
+                  valor={preview.paraEstoque}
+                  tipo="info"
+                  detalhe={`Caixa: ${preview.caixa} · Picking Insuficiente: ${preview.insuf}`}
+                />
+                <LfKpi
+                  rotulo="Já enviados ao estoque"
+                  valor={preview.bloqueadosEstoque}
+                  tipo={preview.bloqueadosEstoque ? 'warn' : 'neutro'}
+                  detalhe="bloqueados"
+                />
+                <LfKpi
+                  rotulo="Já gerados"
+                  valor={preview.repetidos.length}
+                  tipo={preview.repetidos.length ? 'warn' : 'neutro'}
+                  detalhe="bloqueados"
+                />
+                <LfKpi
+                  rotulo="Linhas inválidas"
+                  valor={preview.linhasInvalidas}
+                  tipo={preview.linhasInvalidas ? 'erro' : 'neutro'}
+                />
+              </LfKpis>
+              {preview.aviso && <LfAviso tipo="warn">{preview.aviso}</LfAviso>}
+              <div style={{ marginTop: 14 }}>
+                <LfTabela colunas={['Filial', 'Transportadora', 'Pedidos novos', 'Unidades']} numericas={['Pedidos novos', 'Unidades']}>
+                  {preview.grupos.length ? (
+                    preview.grupos.map((g, i) => (
+                      <tr key={i}>
+                        <td style={lfTdStyle}>{g.filial}</td>
+                        <td style={lfTdStyle}>{g.transportadora}</td>
+                        <td style={lfTdNum}>{g.pedidos}</td>
+                        <td style={lfTdNum}>{g.unidades}</td>
                       </tr>
-                    )}
-                  </LfTabela>
-                </div>
-                {preview.repetidos.length > 0 && (
-                  <div style={{ marginTop: 12 }}>
-                    <LfAviso tipo="warn">
-                      {preview.repetidos.length} pedido(s) já estavam em listas
-                      e não serão gerados de novo.
-                    </LfAviso>
-                    <div style={{ marginTop: 8 }}>
-                      <LfTabela
-                        colunas={['Pedido', 'Lista', 'Usuário', 'Data']}
-                      >
-                        {preview.repetidos.slice(0, 200).map((r) => (
-                          <tr key={r.pedido}>
-                            <td style={lfTdStyle}>{r.pedido}</td>
-                            <td style={lfTdStyle}>{r.lista}</td>
-                            <td style={lfTdStyle}>{r.usuario}</td>
-                            <td style={lfTdStyle}>{lfFmtData(r.data_hora)}</td>
-                          </tr>
-                        ))}
-                      </LfTabela>
-                    </div>
+                    ))
+                  ) : (
+                    <tr>
+                      <td style={lfTdStyle} colSpan={4}>
+                        <LfVazio>Sem pedidos novos para lista.</LfVazio>
+                      </td>
+                    </tr>
+                  )}
+                </LfTabela>
+              </div>
+              {preview.repetidos.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <LfAviso tipo="warn">{preview.repetidos.length} pedido(s) já estavam em listas e não serão gerados de novo.</LfAviso>
+                  <div style={{ marginTop: 8 }}>
+                    <LfTabela colunas={['Pedido', 'Lista', 'Usuário', 'Data']}>
+                      {preview.repetidos.slice(0, 200).map((r) => (
+                        <tr key={r.pedido}>
+                          <td style={lfTdStyle}>{r.pedido}</td>
+                          <td style={lfTdStyle}>{r.lista}</td>
+                          <td style={lfTdStyle}>{r.usuario}</td>
+                          <td style={lfTdStyle}>{lfFmtData(r.data_hora)}</td>
+                        </tr>
+                      ))}
+                    </LfTabela>
                   </div>
-                )}
-              </LfCard>
-            )}
+                </div>
+              )}
+            </LfCard>
+          )}
           {msgGerar && <LfAviso tipo={msgGerar.tipo}>{msgGerar.texto}</LfAviso>}
         </>
       )}
@@ -17920,64 +15399,30 @@ function TelaListaFaturamento({ ativo }) {
           )}
           {sessao.listas.length > 0 && (
             <LfKpis>
-              <LfKpi
-                rotulo="Listas geradas"
-                valor={sessao.listas.length}
-                tipo="info"
-              />
+              <LfKpi rotulo="Listas geradas" valor={sessao.listas.length} tipo="info" />
               <LfKpi
                 rotulo="Pedidos"
-                valor={sessao.listas.reduce(
-                  (t, l) => t + (Number(l.pedidos) || 0),
-                  0
-                )}
+                valor={sessao.listas.reduce((t, l) => t + (Number(l.pedidos) || 0), 0)}
                 tipo="neutro"
               />
               <LfKpi
                 rotulo="Unidades"
-                valor={sessao.listas.reduce(
-                  (t, l) => t + (Number(l.unidades) || 0),
-                  0
-                )}
+                valor={sessao.listas.reduce((t, l) => t + (Number(l.unidades) || 0), 0)}
                 tipo="neutro"
               />
               <LfKpi
                 rotulo="Pendentes de impressão"
-                valor={
-                  sessao.listas.filter(
-                    (l) => String(l.impresso).toUpperCase() !== 'SIM'
-                  ).length
-                }
-                tipo={
-                  sessao.listas.some(
-                    (l) => String(l.impresso).toUpperCase() !== 'SIM'
-                  )
-                    ? 'warn'
-                    : 'ok'
-                }
+                valor={sessao.listas.filter((l) => String(l.impresso).toUpperCase() !== 'SIM').length}
+                tipo={sessao.listas.some((l) => String(l.impresso).toUpperCase() !== 'SIM') ? 'warn' : 'ok'}
               />
             </LfKpis>
           )}
-          <LfCard
-            titulo="Listas geradas para impressão"
-            subtitulo="Listas criadas nesta sessão"
-          >
+          <LfCard titulo="Listas geradas para impressão" subtitulo="Listas criadas nesta sessão">
             {sessao.listas.length === 0 ? (
-              <LfVazio>
-                Nenhuma lista gerada nesta sessão. Use "Histórico de listas"
-                para listas de outros dias.
-              </LfVazio>
+              <LfVazio>Nenhuma lista gerada nesta sessão. Use "Histórico de listas" para listas de outros dias.</LfVazio>
             ) : (
               <LfTabela
-                colunas={[
-                  'Lista',
-                  'Filial',
-                  'Transportadora',
-                  'Pedidos',
-                  'Unidades',
-                  'Impresso',
-                  'Ações',
-                ]}
+                colunas={['Lista', 'Filial', 'Transportadora', 'Pedidos', 'Unidades', 'Impresso', 'Ações']}
                 numericas={['Pedidos', 'Unidades']}
               >
                 {sessao.listas.map((l) => (
@@ -17988,36 +15433,16 @@ function TelaListaFaturamento({ ativo }) {
                     <td style={lfTdNum}>{l.pedidos}</td>
                     <td style={lfTdNum}>{l.unidades}</td>
                     <td style={lfTdStyle}>
-                      <LfBadge
-                        tipo={
-                          String(l.impresso).toUpperCase() === 'SIM'
-                            ? 'ok'
-                            : 'neutro'
-                        }
-                      >
-                        {String(l.impresso).toUpperCase() === 'SIM'
-                          ? 'Impresso'
-                          : 'Pendente'}
+                      <LfBadge tipo={String(l.impresso).toUpperCase() === 'SIM' ? 'ok' : 'neutro'}>
+                        {String(l.impresso).toUpperCase() === 'SIM' ? 'Impresso' : 'Pendente'}
                       </LfBadge>
                     </td>
                     <td style={lfTdStyle}>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <LfBtn
-                          pequeno
-                          onClick={() =>
-                            setListaAberta(
-                              listaAberta === l.lista ? '' : l.lista
-                            )
-                          }
-                        >
+                        <LfBtn pequeno onClick={() => setListaAberta(listaAberta === l.lista ? '' : l.lista)}>
                           {listaAberta === l.lista ? 'Fechar' : 'Ver'}
                         </LfBtn>
-                        <LfBtn
-                          pequeno
-                          tipo="verde"
-                          disabled={imprimindo}
-                          onClick={() => imprimirSessao(l.lista)}
-                        >
+                        <LfBtn pequeno tipo="verde" disabled={imprimindo} onClick={() => imprimirSessao(l.lista)}>
                           🖨 Imprimir
                         </LfBtn>
                       </div>
@@ -18031,48 +15456,22 @@ function TelaListaFaturamento({ ativo }) {
             <LfCard
               titulo={`${listaAberta} — ${registrosAbertos.length} linha(s)`}
               acoes={
-                <LfBtn
-                  tipo="verde"
-                  disabled={imprimindo}
-                  onClick={() => imprimirSessao(listaAberta)}
-                >
+                <LfBtn tipo="verde" disabled={imprimindo} onClick={() => imprimirSessao(listaAberta)}>
                   🖨 Imprimir
                 </LfBtn>
               }
             >
-              <LfTabela
-                colunas={[
-                  'Ranking',
-                  'C9 Produto',
-                  'Qtd',
-                  'Localização',
-                  'C9 Pedido',
-                  'Unidade',
-                  'Tipo de faturamento',
-                  'FILTRO V.1',
-                ]}
-                numericas={['Qtd']}
-              >
+              <LfTabela colunas={['Ranking', 'C9 Produto', 'Qtd', 'Localização', 'C9 Pedido', 'Unidade', 'Tipo de faturamento', 'FILTRO V.1']} numericas={['Qtd']}>
                 {registrosAbertos.map((r, i) => (
                   <tr key={i}>
                     <td style={lfTdStyle}>{rankingAberto[i]}</td>
                     <td style={lfTdStyle}>{r.produto}</td>
                     <td style={lfTdNum}>{r.quantidade}</td>
-                    <td style={lfTdStyle}>
-                      {lfLocalizacaoHistorico(r.produto, r.localizacao) ||
-                        'SEM ENDEREÇO'}
-                    </td>
+                    <td style={lfTdStyle}>{lfLocalizacaoHistorico(r.produto, r.localizacao) || 'SEM ENDEREÇO'}</td>
                     <td style={lfTdStyle}>{r.pedido}</td>
                     <td style={lfTdStyle}>{r.unidade_faturamento}</td>
-                    <td style={lfTdStyle}>
-                      {lfValorCsv(r, [
-                        'Tipo de faturamento',
-                        'Tipo Faturamento',
-                      ])}
-                    </td>
-                    <td style={lfTdStyle}>
-                      {lfValorCsv(r, ['FILTRO V.1', 'FILTRO V1'])}
-                    </td>
+                    <td style={lfTdStyle}>{lfValorCsv(r, ['Tipo de faturamento', 'Tipo Faturamento'])}</td>
+                    <td style={lfTdStyle}>{lfValorCsv(r, ['FILTRO V.1', 'FILTRO V1'])}</td>
                   </tr>
                 ))}
               </LfTabela>
@@ -18087,47 +15486,26 @@ function TelaListaFaturamento({ ativo }) {
           subtitulo="Consulte, reimprima ou cancele listas já geradas"
           acoes={
             <>
-              <LfBtn
-                onClick={() => carregarHistorico('')}
-                disabled={carregandoHist}
-              >
+              <LfBtn onClick={() => carregarHistorico('')} disabled={carregandoHist}>
                 🔄 Atualizar
               </LfBtn>
-              <LfBtn
-                onClick={() =>
-                  setSelecionadas(
+              <LfBtn onClick={() => setSelecionadas(
                     new Set(
                       filtrado
                         .slice(0, limiteTela)
-                        .filter(
-                          (x) =>
-                            String(x.status || 'ATIVA').toUpperCase() !==
-                            'CANCELADA'
-                        )
+                        .filter((x) => String(x.status || 'ATIVA').toUpperCase() !== 'CANCELADA')
                         .map((x) => x.lista)
                     )
-                  )
-                }
-              >
+                  )}>
                 ☑ Selecionar visíveis
               </LfBtn>
-              <LfBtn onClick={() => setSelecionadas(new Set())}>
-                Limpar seleção
-              </LfBtn>
+              <LfBtn onClick={() => setSelecionadas(new Set())}>Limpar seleção</LfBtn>
               <LfBtn
                 tipo="verde"
                 disabled={!selecionadas.size || imprimindo}
-                onClick={() =>
-                  imprimirListasHistorico(
-                    filtrado
-                      .map((x) => x.lista)
-                      .filter((l) => selecionadas.has(l))
-                  )
-                }
+                onClick={() => imprimirListasHistorico(filtrado.map((x) => x.lista).filter((l) => selecionadas.has(l)))}
               >
-                {imprimindo
-                  ? 'Preparando...'
-                  : `🖨 Imprimir selecionadas (${selecionadas.size})`}
+                {imprimindo ? 'Preparando...' : `🖨 Imprimir selecionadas (${selecionadas.size})`}
               </LfBtn>
             </>
           }
@@ -18149,62 +15527,29 @@ function TelaListaFaturamento({ ativo }) {
               style={{ ...lfInputStyle, width: 220 }}
               placeholder="🔍 Buscar lista (ex.: 240) e Enter"
               value={filtros.busca}
-              onChange={(e) =>
-                setFiltros({ ...filtros, busca: e.target.value })
-              }
+              onChange={(e) => setFiltros({ ...filtros, busca: e.target.value })}
               onKeyDown={(e) => {
-                if (e.key === 'Enter')
-                  carregarHistorico(
-                    filtros.busca.replace(/^lista\s*/i, '').trim()
-                  );
+                if (e.key === 'Enter') carregarHistorico(filtros.busca.replace(/^lista\s*/i, '').trim());
               }}
             />
-            <select
-              className="lf-input"
-              style={lfInputStyle}
-              value={filtros.filial}
-              onChange={(e) =>
-                setFiltros({ ...filtros, filial: e.target.value })
-              }
-            >
+            <select className="lf-input" style={lfInputStyle} value={filtros.filial} onChange={(e) => setFiltros({ ...filtros, filial: e.target.value })}>
               <option value="">Filial: todas</option>
               {filiais.map((f) => (
                 <option key={f}>{f}</option>
               ))}
             </select>
-            <select
-              className="lf-input"
-              style={lfInputStyle}
-              value={filtros.transp}
-              onChange={(e) =>
-                setFiltros({ ...filtros, transp: e.target.value })
-              }
-            >
+            <select className="lf-input" style={lfInputStyle} value={filtros.transp} onChange={(e) => setFiltros({ ...filtros, transp: e.target.value })}>
               <option value="">Transportadora: todas</option>
               {transps.map((f) => (
                 <option key={f}>{f}</option>
               ))}
             </select>
-            <select
-              className="lf-input"
-              style={lfInputStyle}
-              value={filtros.impresso}
-              onChange={(e) =>
-                setFiltros({ ...filtros, impresso: e.target.value })
-              }
-            >
+            <select className="lf-input" style={lfInputStyle} value={filtros.impresso} onChange={(e) => setFiltros({ ...filtros, impresso: e.target.value })}>
               <option value="">Impresso: todos</option>
               <option value="NÃO">NÃO</option>
               <option value="SIM">SIM</option>
             </select>
-            <select
-              className="lf-input"
-              style={lfInputStyle}
-              value={filtros.status}
-              onChange={(e) =>
-                setFiltros({ ...filtros, status: e.target.value })
-              }
-            >
+            <select className="lf-input" style={lfInputStyle} value={filtros.status} onChange={(e) => setFiltros({ ...filtros, status: e.target.value })}>
               <option value="">Status: todos</option>
               <option value="ATIVA">ATIVA</option>
               <option value="AJUSTADA">AJUSTADA</option>
@@ -18212,9 +15557,8 @@ function TelaListaFaturamento({ ativo }) {
             </select>
           </div>
           <LfAviso>
-            Marque as listas e clique em imprimir. Listas canceladas ficam só
-            para consulta. Mostrando as listas mais recentes; para achar uma
-            lista antiga, digite o número e aperte Enter.
+            Marque as listas e clique em imprimir. Listas canceladas ficam só para consulta.
+            Mostrando as listas mais recentes; para achar uma lista antiga, digite o número e aperte Enter.
           </LfAviso>
           {msgHist && <LfAviso tipo={msgHist.tipo}>{msgHist.texto}</LfAviso>}
           <div style={{ marginTop: 12 }}>
@@ -18222,19 +15566,7 @@ function TelaListaFaturamento({ ativo }) {
               <LfAviso>Carregando histórico...</LfAviso>
             ) : (
               <LfTabela
-                colunas={[
-                  '',
-                  'Lista',
-                  'Data/Hora',
-                  'Usuário',
-                  'Filial',
-                  'Transportadora',
-                  'Pedidos',
-                  'Unidades',
-                  'Impresso',
-                  'Status',
-                  'Ações',
-                ]}
+                colunas={['', 'Lista', 'Data/Hora', 'Usuário', 'Filial', 'Transportadora', 'Pedidos', 'Unidades', 'Impresso', 'Status', 'Ações']}
                 numericas={['Pedidos', 'Unidades']}
               >
                 {filtrado.length === 0 && (
@@ -18249,29 +15581,17 @@ function TelaListaFaturamento({ ativo }) {
                   const cancelada = status === 'CANCELADA';
                   return (
                     <React.Fragment key={x.lista}>
-                      <tr
-                        style={{
-                          background: cancelada
-                            ? C.redBg
-                            : selecionadas.has(x.lista)
-                            ? C.primaryLight
-                            : 'transparent',
-                        }}
-                      >
+                      <tr style={{ background: cancelada ? C.redBg : selecionadas.has(x.lista) ? C.primaryLight : 'transparent' }}>
                         <td style={lfTdStyle}>
                           {!cancelada && (
                             <input
                               type="checkbox"
                               checked={selecionadas.has(x.lista)}
-                              onChange={(e) =>
-                                alternarSelecao(x.lista, e.target.checked)
-                              }
+                              onChange={(e) => alternarSelecao(x.lista, e.target.checked)}
                             />
                           )}
                         </td>
-                        <td style={{ ...lfTdStyle, fontWeight: 800 }}>
-                          {x.lista}
-                        </td>
+                        <td style={{ ...lfTdStyle, fontWeight: 800 }}>{x.lista}</td>
                         <td style={lfTdStyle}>{lfFmtData(x.data_hora)}</td>
                         <td style={lfTdStyle}>{x.usuario}</td>
                         <td style={lfTdStyle}>{x.filial}</td>
@@ -18279,76 +15599,29 @@ function TelaListaFaturamento({ ativo }) {
                         <td style={lfTdNum}>{x.pedidos || 0}</td>
                         <td style={lfTdNum}>{x.unidades || 0}</td>
                         <td style={lfTdStyle}>
-                          <LfBadge
-                            tipo={
-                              String(x.impresso || 'NÃO').toUpperCase() ===
-                              'SIM'
-                                ? 'ok'
-                                : 'neutro'
-                            }
-                          >
-                            {String(x.impresso || 'NÃO').toUpperCase() === 'SIM'
-                              ? 'Impresso'
-                              : 'Pendente'}
+                          <LfBadge tipo={String(x.impresso || 'NÃO').toUpperCase() === 'SIM' ? 'ok' : 'neutro'}>
+                            {String(x.impresso || 'NÃO').toUpperCase() === 'SIM' ? 'Impresso' : 'Pendente'}
                           </LfBadge>
                         </td>
                         <td style={lfTdStyle}>
-                          <LfBadge
-                            tipo={
-                              cancelada
-                                ? 'erro'
-                                : status === 'AJUSTADA'
-                                ? 'warn'
-                                : 'info'
-                            }
-                          >
+                          <LfBadge tipo={cancelada ? 'erro' : status === 'AJUSTADA' ? 'warn' : 'info'}>
                             {status.charAt(0) + status.slice(1).toLowerCase()}
                           </LfBadge>
                         </td>
                         <td style={lfTdStyle}>
                           {cancelada ? (
-                            <LfBtn
-                              pequeno
-                              title="Ver motivo do cancelamento"
-                              onClick={() =>
-                                setMotivoAberto(
-                                  motivoAberto === x.lista ? '' : x.lista
-                                )
-                              }
-                            >
+                            <LfBtn pequeno title="Ver motivo do cancelamento" onClick={() => setMotivoAberto(motivoAberto === x.lista ? '' : x.lista)}>
                               {motivoAberto === x.lista ? 'Fechar' : 'Motivo'}
                             </LfBtn>
                           ) : (
                             <div style={{ display: 'flex', gap: 6 }}>
-                              <LfBtn
-                                pequeno
-                                title="Ver pedidos da lista"
-                                onClick={() => verPedidos(x.lista)}
-                              >
+                              <LfBtn pequeno title="Ver pedidos da lista" onClick={() => verPedidos(x.lista)}>
                                 {expandida === x.lista ? 'Fechar' : 'Pedidos'}
                               </LfBtn>
-                              <LfBtn
-                                pequeno
-                                tipo="verde"
-                                title="Imprimir"
-                                disabled={imprimindo}
-                                onClick={() =>
-                                  imprimirListasHistorico([x.lista])
-                                }
-                              >
+                              <LfBtn pequeno tipo="verde" title="Imprimir" disabled={imprimindo} onClick={() => imprimirListasHistorico([x.lista])}>
                                 🖨
                               </LfBtn>
-                              <LfBtn
-                                pequeno
-                                tipo="perigo"
-                                onClick={() =>
-                                  setModal({
-                                    tipo: 'LISTA',
-                                    lista: x.lista,
-                                    pedido: '',
-                                  })
-                                }
-                              >
+                              <LfBtn pequeno tipo="perigo" onClick={() => setModal({ tipo: 'LISTA', lista: x.lista, pedido: '' })}>
                                 Excluir
                               </LfBtn>
                             </div>
@@ -18357,79 +15630,25 @@ function TelaListaFaturamento({ ativo }) {
                       </tr>
                       {cancelada && motivoAberto === x.lista && (
                         <tr style={{ background: C.redBg }}>
-                          <td
-                            colSpan={11}
-                            style={{
-                              ...lfTdStyle,
-                              whiteSpace: 'normal',
-                              padding: '12px 14px 14px 46px',
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: 'flex',
-                                gap: 28,
-                                flexWrap: 'wrap',
-                                alignItems: 'flex-start',
-                              }}
-                            >
+                          <td colSpan={11} style={{ ...lfTdStyle, whiteSpace: 'normal', padding: '12px 14px 14px 46px' }}>
+                            <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                               <div>
-                                <div
-                                  style={{
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    color: C.txtMuted,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.06em',
-                                  }}
-                                >
+                                <div style={{ fontSize: 11, fontWeight: 700, color: C.txtMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                   Cancelada por
                                 </div>
-                                <div style={{ fontWeight: 700, marginTop: 2 }}>
-                                  {x.ajustada_por ||
-                                    x.usuario ||
-                                    'não informado'}
-                                </div>
+                                <div style={{ fontWeight: 700, marginTop: 2 }}>{x.ajustada_por || x.usuario || 'não informado'}</div>
                               </div>
                               <div>
-                                <div
-                                  style={{
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    color: C.txtMuted,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.06em',
-                                  }}
-                                >
+                                <div style={{ fontSize: 11, fontWeight: 700, color: C.txtMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                   Data e horário
                                 </div>
-                                <div style={{ fontWeight: 700, marginTop: 2 }}>
-                                  {x.ajustada_em
-                                    ? lfFmtData(x.ajustada_em)
-                                    : 'não informado'}
-                                </div>
+                                <div style={{ fontWeight: 700, marginTop: 2 }}>{x.ajustada_em ? lfFmtData(x.ajustada_em) : 'não informado'}</div>
                               </div>
                               <div style={{ flex: '1 1 260px', minWidth: 220 }}>
-                                <div
-                                  style={{
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    color: C.txtMuted,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '0.06em',
-                                  }}
-                                >
+                                <div style={{ fontSize: 11, fontWeight: 700, color: C.txtMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                                   Motivo
                                 </div>
-                                <div
-                                  style={{
-                                    fontWeight: 600,
-                                    marginTop: 2,
-                                    lineHeight: 1.5,
-                                  }}
-                                >
-                                  {x.motivo_ajuste || 'não informado'}
-                                </div>
+                                <div style={{ fontWeight: 600, marginTop: 2, lineHeight: 1.5 }}>{x.motivo_ajuste || 'não informado'}</div>
                               </div>
                             </div>
                           </td>
@@ -18437,66 +15656,26 @@ function TelaListaFaturamento({ ativo }) {
                       )}
                       {expandida === x.lista && (
                         <tr>
-                          <td
-                            colSpan={11}
-                            style={{ padding: 10, background: C.bgStripe }}
-                          >
+                          <td colSpan={11} style={{ padding: 10, background: C.bgStripe }}>
                             {!itensExpandida || itensExpandida.length === 0 ? (
-                              <span
-                                style={{ fontSize: 12.5, color: C.txtMuted }}
-                              >
-                                {itensExpandida
-                                  ? 'Esta lista não tem pedidos registrados.'
-                                  : 'Carregando pedidos...'}
+                              <span style={{ fontSize: 12.5, color: C.txtMuted }}>
+                                {itensExpandida ? 'Esta lista não tem pedidos registrados.' : 'Carregando pedidos...'}
                               </span>
                             ) : (
-                              <LfTabela
-                                colunas={[
-                                  'C9 Pedido',
-                                  'C9 Produto',
-                                  'Qtd',
-                                  'Localização',
-                                  'Unidade',
-                                  '',
-                                ]}
-                                numericas={['Qtd']}
-                              >
+                              <LfTabela colunas={['C9 Pedido', 'C9 Produto', 'Qtd', 'Localização', 'Unidade', '']} numericas={['Qtd']}>
                                 {itensExpandida.map((it, i) => {
                                   const primeiro =
-                                    itensExpandida.findIndex(
-                                      (z) =>
-                                        String(z.pedido).trim() ===
-                                        String(it.pedido).trim()
-                                    ) === i;
+                                    itensExpandida.findIndex((z) => String(z.pedido).trim() === String(it.pedido).trim()) === i;
                                   return (
                                     <tr key={i}>
                                       <td style={lfTdStyle}>{it.pedido}</td>
                                       <td style={lfTdStyle}>{it.produto}</td>
                                       <td style={lfTdNum}>{it.quantidade}</td>
-                                      <td style={lfTdStyle}>
-                                        {lfLocalizacaoHistorico(
-                                          it.produto,
-                                          it.localizacao
-                                        ) || 'SEM ENDEREÇO'}
-                                      </td>
-                                      <td style={lfTdStyle}>
-                                        {it.unidade_faturamento}
-                                      </td>
+                                      <td style={lfTdStyle}>{lfLocalizacaoHistorico(it.produto, it.localizacao) || 'SEM ENDEREÇO'}</td>
+                                      <td style={lfTdStyle}>{it.unidade_faturamento}</td>
                                       <td style={lfTdStyle}>
                                         {primeiro && !cancelada && (
-                                          <LfBtn
-                                            pequeno
-                                            tipo="perigo"
-                                            onClick={() =>
-                                              setModal({
-                                                tipo: 'PEDIDO',
-                                                lista: x.lista,
-                                                pedido: String(
-                                                  it.pedido
-                                                ).trim(),
-                                              })
-                                            }
-                                          >
+                                          <LfBtn pequeno tipo="perigo" onClick={() => setModal({ tipo: 'PEDIDO', lista: x.lista, pedido: String(it.pedido).trim() })}>
                                             Excluir pedido
                                           </LfBtn>
                                         )}
@@ -18525,29 +15704,15 @@ function TelaListaFaturamento({ ativo }) {
         </LfCard>
       )}
 
-      {aba === 'vialeitor' && (
-        <LfViaLeitor ativo={ativo && aba === 'vialeitor'} />
-      )}
+      {aba === 'vialeitor' && <LfViaLeitor ativo={ativo && aba === 'vialeitor'} />}
 
       {aba === 'poluido' && (
-        <LfCard
-          titulo="Lançar Picking Poluído"
-          subtitulo="Envia o pedido inteiro para a planilha do estoque (aba Lançamentos)"
-        >
+        <LfCard titulo="Lançar Picking Poluído" subtitulo="Envia o pedido inteiro para a planilha do estoque (aba Lançamentos)">
           <LfAviso>
-            Digite o número do pedido e clique em Lançar pedido. Todos os
-            produtos serão enviados para a planilha do estoque (aba
-            Lançamentos). O mesmo pedido não pode ser lançado mais de uma vez.
+            Digite o número do pedido e clique em Lançar pedido. Todos os produtos serão enviados para a planilha do
+            estoque (aba Lançamentos). O mesmo pedido não pode ser lançado mais de uma vez.
           </LfAviso>
-          <div
-            style={{
-              display: 'flex',
-              gap: 10,
-              marginTop: 14,
-              flexWrap: 'wrap',
-              alignItems: 'center',
-            }}
-          >
+          <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
             <input
               className="lf-input"
               style={{ ...lfInputStyle, width: 240, height: 38 }}
@@ -18560,11 +15725,7 @@ function TelaListaFaturamento({ ativo }) {
                 if (e.key === 'Enter') lancarPoluido();
               }}
             />
-            <LfBtn
-              tipo="verde"
-              disabled={lancandoPoluido}
-              onClick={lancarPoluido}
-            >
+            <LfBtn tipo="verde" disabled={lancandoPoluido} onClick={lancarPoluido}>
               {lancandoPoluido ? 'Lançando...' : '📦 Lançar pedido'}
             </LfBtn>
             <LfBtn
@@ -18576,60 +15737,22 @@ function TelaListaFaturamento({ ativo }) {
               Limpar
             </LfBtn>
           </div>
-          {msgPoluido && (
-            <LfAviso tipo={msgPoluido.tipo}>{msgPoluido.texto}</LfAviso>
-          )}
+          {msgPoluido && <LfAviso tipo={msgPoluido.tipo}>{msgPoluido.texto}</LfAviso>}
         </LfCard>
       )}
 
       {quem && (
         <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15,23,42,0.55)',
-            backdropFilter: 'blur(2px)',
-            zIndex: 1100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(2px)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           onClick={() => setQuem(null)}
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            style={{
-              background: C.bgCard,
-              borderRadius: C.radius.xl,
-              padding: 24,
-              width: 460,
-              maxWidth: '92vw',
-              boxShadow: C.shadowXl,
-              border: `1px solid ${C.bdMid}`,
-            }}
+            style={{ background: C.bgCard, borderRadius: C.radius.xl, padding: 24, width: 460, maxWidth: '92vw', boxShadow: C.shadowXl, border: `1px solid ${C.bdMid}` }}
           >
-            <div
-              style={{
-                fontSize: 16,
-                fontWeight: 800,
-                color: C.txtPri,
-                marginBottom: 4,
-              }}
-            >
-              {quem.titulo}
-            </div>
-            <div
-              style={{ fontSize: 12.5, color: C.txtMuted, marginBottom: 14 }}
-            >
-              Escolha o seu nome para continuar.
-            </div>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: 8,
-              }}
-            >
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.txtPri, marginBottom: 4 }}>{quem.titulo}</div>
+            <div style={{ fontSize: 12.5, color: C.txtMuted, marginBottom: 14 }}>Escolha o seu nome para continuar.</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {LF_OPERADORES.map((u) => (
                 <LfBtn
                   key={u.nome}
@@ -18643,13 +15766,38 @@ function TelaListaFaturamento({ ativo }) {
                 </LfBtn>
               ))}
             </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                marginTop: 14,
-              }}
-            >
+            <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.bdLight}` }}>
+              <div style={{ fontSize: 12.5, color: C.txtSec, fontWeight: 700, marginBottom: 6 }}>Não está na lista? Informe outro nome:</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  className="lf-input"
+                  style={{ ...lfInputStyle, flex: 1 }}
+                  placeholder="Nome e sobrenome"
+                  maxLength={60}
+                  value={outroNome}
+                  onChange={(e) => setOutroNome(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && outroNome.trim().length >= 2) {
+                      const fn = quem.aoEscolher;
+                      setQuem(null);
+                      fn({ nome: outroNome.trim().replace(/\s+/g, ' '), email: '' });
+                    }
+                  }}
+                />
+                <LfBtn
+                  tipo="primario"
+                  disabled={outroNome.trim().length < 2}
+                  onClick={() => {
+                    const fn = quem.aoEscolher;
+                    setQuem(null);
+                    fn({ nome: outroNome.trim().replace(/\s+/g, ' '), email: '' });
+                  }}
+                >
+                  Continuar
+                </LfBtn>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
               <LfBtn pequeno onClick={() => setQuem(null)}>
                 Cancelar
               </LfBtn>
@@ -18682,26 +15830,10 @@ function TelaListaFaturamento({ ativo }) {
               border: `1px solid ${C.bdMid}`,
             }}
           >
-            <div
-              style={{
-                fontSize: 16,
-                fontWeight: 800,
-                color: C.txtPri,
-                marginBottom: 8,
-              }}
-            >
-              {modal.tipo === 'LISTA'
-                ? 'Excluir lista'
-                : 'Excluir pedido da lista'}
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.txtPri, marginBottom: 8 }}>
+              {modal.tipo === 'LISTA' ? 'Excluir lista' : 'Excluir pedido da lista'}
             </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: C.txtSec,
-                marginBottom: 10,
-                lineHeight: 1.5,
-              }}
-            >
+            <div style={{ fontSize: 13, color: C.txtSec, marginBottom: 10, lineHeight: 1.5 }}>
               {modal.tipo === 'LISTA'
                 ? `A lista ${modal.lista} será cancelada. Os pedidos dela poderão ser gerados novamente.`
                 : `O pedido ${modal.pedido} será removido somente da lista ${modal.lista}.`}
@@ -18712,23 +15844,9 @@ function TelaListaFaturamento({ ativo }) {
               onChange={(e) => setMotivoExclusao(e.target.value)}
               maxLength={500}
               placeholder="Explique por que precisa ser removido (mínimo 5 caracteres)..."
-              style={{
-                ...lfInputStyle,
-                width: '100%',
-                height: 90,
-                padding: 10,
-                boxSizing: 'border-box',
-                resize: 'vertical',
-              }}
+              style={{ ...lfInputStyle, width: '100%', height: 90, padding: 10, boxSizing: 'border-box', resize: 'vertical' }}
             />
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: 8,
-                marginTop: 12,
-              }}
-            >
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
               <LfBtn
                 onClick={() => {
                   setModal(null);
@@ -18737,11 +15855,7 @@ function TelaListaFaturamento({ ativo }) {
               >
                 Cancelar
               </LfBtn>
-              <LfBtn
-                tipo="perigo"
-                disabled={excluindo}
-                onClick={confirmarExclusao}
-              >
+              <LfBtn tipo="perigo" disabled={excluindo} onClick={confirmarExclusao}>
                 {excluindo ? 'Excluindo...' : 'Confirmar exclusão'}
               </LfBtn>
             </div>
@@ -18752,12 +15866,7 @@ function TelaListaFaturamento({ ativo }) {
       {createPortal(
         <div className="lf-print-root">
           {blocos.map((b) => (
-            <LfBlocoImpressao
-              key={b.lista}
-              lista={b.lista}
-              info={b.info}
-              registros={b.registros}
-            />
+            <LfBlocoImpressao key={b.lista} lista={b.lista} info={b.info} registros={b.registros} />
           ))}
         </div>,
         document.body
@@ -18773,10 +15882,8 @@ const SEP_META_MIN = 15;
 const SEP_META_MS = SEP_META_MIN * 60000;
 // Limite: no máximo 1h entre gerar e iniciar, e 1h entre iniciar e finalizar.
 const SEP_LIMITE_MS = 60 * 60000;
-const sepCorTempo = (ms) =>
-  ms > SEP_LIMITE_MS ? C.red : ms > SEP_META_MS ? C.amber : C.txtPri;
-const sepEspera = (r) =>
-  r.geradaEm && r.inicio ? Math.max(0, r.inicio - r.geradaEm) : null;
+const sepCorTempo = (ms) => (ms > SEP_LIMITE_MS ? C.red : ms > SEP_META_MS ? C.amber : C.txtPri);
+const sepEspera = (r) => (r.geradaEm && r.inicio ? Math.max(0, r.inicio - r.geradaEm) : null);
 const SEP_SEPARADORES = [
   'Camile Macedo',
   'Thayna Silva',
@@ -18787,56 +15894,33 @@ const SEP_SEPARADORES = [
   'Theo Aristimunho',
   'Eduarda',
 ];
-const SEP_CORES = [
-  'var(--accent)',
-  'var(--green)',
-  'var(--blue)',
-  'var(--amber)',
-  'var(--purple)',
-  'var(--red)',
-];
+const SEP_CORES = ['var(--accent)', 'var(--green)', 'var(--blue)', 'var(--amber)', 'var(--purple)', 'var(--red)'];
 
 const sepPad = (n) => String(n).padStart(2, '0');
 function sepHms(ms) {
   const t = Math.max(0, Math.floor(Number(ms || 0) / 1000));
-  return `${sepPad(Math.floor(t / 3600))}:${sepPad(
-    Math.floor((t % 3600) / 60)
-  )}:${sepPad(t % 60)}`;
+  return `${sepPad(Math.floor(t / 3600))}:${sepPad(Math.floor((t % 3600) / 60))}:${sepPad(t % 60)}`;
 }
 function sepCurto(ms) {
   const t = Math.max(0, Math.floor(Number(ms || 0) / 1000));
-  return t >= 3600
-    ? sepHms(ms)
-    : `${sepPad(Math.floor(t / 60))}:${sepPad(t % 60)}`;
+  return t >= 3600 ? sepHms(ms) : `${sepPad(Math.floor(t / 60))}:${sepPad(t % 60)}`;
 }
 function sepHoras(ms) {
   const m = Math.round(Number(ms || 0) / 60000);
   return m >= 60 ? `${Math.floor(m / 60)}h${sepPad(m % 60)}` : `${m}min`;
 }
-const sepHm = (ts) =>
-  new Date(ts).toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+const sepHm = (ts) => new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 // Data e hora completas: 28/10/2026 17:22
 const sepQuando = (ts) => (!ts ? '—' : `${sepDataBr(ts)} ${sepHm(ts)}`);
 const sepNum = (v) => (v == null || v === '' ? '—' : v);
-const sepHora = (ts) =>
-  new Date(ts).toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+const sepHora = (ts) => new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 const sepDataBr = (ts) => new Date(ts).toLocaleDateString('pt-BR');
 const sepDia0 = (d) => {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
   return x.getTime();
 };
-const sepNorm = (v) =>
-  String(v == null ? '' : v)
-    .trim()
-    .toLocaleLowerCase('pt-BR');
+const sepNorm = (v) => String(v == null ? '' : v).trim().toLocaleLowerCase('pt-BR');
 const sepPlural = (n, s, p) => (n === 1 ? s : p);
 const sepIniciais = (n) =>
   String(n || '')
@@ -18854,12 +15938,7 @@ function sepParse(r) {
     separador: String(r.separador || ''),
     inicio,
     fim,
-    duracao:
-      r.duracao_ms != null
-        ? Number(r.duracao_ms)
-        : fim && inicio
-        ? fim - inicio
-        : null,
+    duracao: r.duracao_ms != null ? Number(r.duracao_ms) : fim && inicio ? fim - inicio : null,
     status: r.status || (fim ? 'finalizada' : 'em_separacao'),
     oculto: !!r.oculto,
     filial: r.filial || '',
@@ -18873,9 +15952,7 @@ function sepParse(r) {
 async function sepBuscarTudo(path) {
   const out = [];
   for (let off = 0; off < 20000; off += 1000) {
-    const page = await lfApi(
-      `${path}${path.includes('?') ? '&' : '?'}limit=1000&offset=${off}`
-    );
+    const page = await lfApi(`${path}${path.includes('?') ? '&' : '?'}limit=1000&offset=${off}`);
     if (!Array.isArray(page)) break;
     out.push(...page);
     if (page.length < 1000) break;
@@ -18914,20 +15991,10 @@ function SepEsperaViva({ desde }) {
   }, []);
   const dur = Math.max(0, agora - desde);
   return (
-    <span
-      style={{
-        fontVariantNumeric: 'tabular-nums',
-        fontWeight: 800,
-        color: dur > SEP_LIMITE_MS ? C.red : C.txtPri,
-      }}
-    >
+    <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 800, color: dur > SEP_LIMITE_MS ? C.red : C.txtPri }}>
       {sepHms(dur)}
       {dur > SEP_LIMITE_MS && (
-        <span
-          style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, color: C.red }}
-        >
-          +1h
-        </span>
+        <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 800, color: C.red }}>+1h</span>
       )}
     </span>
   );
@@ -18939,13 +16006,7 @@ function SepGeradaCell({ r }) {
     <>
       {sepQuando(r.geradaEm)}
       {esp != null && (
-        <div
-          style={{
-            fontSize: 11.5,
-            fontWeight: 700,
-            color: esp > SEP_LIMITE_MS ? C.red : C.txtMuted,
-          }}
-        >
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: esp > SEP_LIMITE_MS ? C.red : C.txtMuted }}>
           espera {sepCurto(esp)}
           {esp > SEP_LIMITE_MS ? ' · acima de 1h' : ''}
         </div>
@@ -18958,13 +16019,7 @@ function SepAbas({ abas, aba, setAba, contagens = {} }) {
   return (
     <div
       role="tablist"
-      style={{
-        display: 'flex',
-        gap: 4,
-        marginBottom: 20,
-        flexWrap: 'wrap',
-        borderBottom: `1px solid ${C.bdMid}`,
-      }}
+      style={{ display: 'flex', gap: 4, marginBottom: 20, flexWrap: 'wrap', borderBottom: `1px solid ${C.bdMid}` }}
     >
       {abas.map(([id, nome]) => {
         const ativa = aba === id;
@@ -19017,16 +16072,7 @@ function SepAbas({ abas, aba, setAba, contagens = {} }) {
 function SepCampoRotulo({ rotulo, children }) {
   return (
     <label style={{ display: 'block', fontFamily: C.font }}>
-      <div
-        style={{
-          fontSize: 11.5,
-          fontWeight: 700,
-          color: C.txtMuted,
-          marginBottom: 5,
-        }}
-      >
-        {rotulo}
-      </div>
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: C.txtMuted, marginBottom: 5 }}>{rotulo}</div>
       {children}
     </label>
   );
@@ -19063,23 +16109,12 @@ function TelaSeparacaoLista({ ativo }) {
       try {
         const dias = periodo === 'tudo' ? 0 : periodo === '30d' ? 31 : 8;
         const janela = dias
-          ? '&inicio=gte.' +
-            encodeURIComponent(
-              new Date(sepDia0(Date.now()) - dias * 864e5).toISOString()
-            )
+          ? '&inicio=gte.' + encodeURIComponent(new Date(sepDia0(Date.now()) - dias * 864e5).toISOString())
           : '';
-        const desde = encodeURIComponent(
-          new Date(sepDia0(Date.now()) - 7 * 864e5).toISOString()
-        );
+        const desde = encodeURIComponent(new Date(sepDia0(Date.now()) - 7 * 864e5).toISOString());
         const [ativas, finalizadas, listas] = await Promise.all([
-          lfApi(
-            '/separacao_listas?select=*&status=eq.em_separacao&order=inicio.asc&limit=1000'
-          ),
-          sepBuscarTudo(
-            '/separacao_listas?select=*&status=eq.finalizada' +
-              janela +
-              '&order=id.desc'
-          ),
+          lfApi('/separacao_listas?select=*&status=eq.em_separacao&order=inicio.asc&limit=1000'),
+          sepBuscarTudo('/separacao_listas?select=*&status=eq.finalizada' + janela + '&order=id.desc'),
           lfApi(
             '/historico_listas?select=lista,data_hora,usuario,filial,transportadora,pedidos,unidades,impresso,status&data_hora=gte.' +
               desde +
@@ -19087,10 +16122,9 @@ function TelaSeparacaoLista({ ativo }) {
           ),
         ]);
         const mapa = new Map();
-        [
-          ...(Array.isArray(finalizadas) ? finalizadas : []),
-          ...(Array.isArray(ativas) ? ativas : []),
-        ].forEach((r) => mapa.set(String(r.id), sepParse(r)));
+        [...(Array.isArray(finalizadas) ? finalizadas : []), ...(Array.isArray(ativas) ? ativas : [])].forEach((r) =>
+          mapa.set(String(r.id), sepParse(r))
+        );
         setRows([...mapa.values()]);
         setGeradas(Array.isArray(listas) ? listas : []);
         setErroCarga('');
@@ -19122,8 +16156,7 @@ function TelaSeparacaoLista({ ativo }) {
       if (!g) return r;
       return {
         ...r,
-        geradaEm:
-          r.geradaEm || (g.data_hora ? new Date(g.data_hora).getTime() : null),
+        geradaEm: r.geradaEm || (g.data_hora ? new Date(g.data_hora).getTime() : null),
         transportadora: r.transportadora || g.transportadora || '',
         filial: r.filial || g.filial || '',
         pedidos: r.pedidos != null ? r.pedidos : g.pedidos,
@@ -19132,10 +16165,7 @@ function TelaSeparacaoLista({ ativo }) {
     });
   }, [rows, geradas]);
   const ativasTodas = useMemo(
-    () =>
-      rowsE
-        .filter((r) => r.status === 'em_separacao')
-        .sort((a, b) => a.inicio - b.inicio),
+    () => rowsE.filter((r) => r.status === 'em_separacao').sort((a, b) => a.inicio - b.inicio),
     [rowsE]
   );
   const hist = useMemo(
@@ -19155,16 +16185,10 @@ function TelaSeparacaoLista({ ativo }) {
           new Date(g.data_hora).getTime() >= corte &&
           !usadas.has(sepNorm(g.lista))
       )
-      .sort(
-        (a, b) =>
-          new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime()
-      );
+      .sort((a, b) => new Date(a.data_hora).getTime() - new Date(b.data_hora).getTime());
   }, [rows, geradas, filaDias]);
   const nomes = useMemo(
-    () =>
-      [...new Set([...SEP_SEPARADORES, ...rows.map((r) => r.separador)])]
-        .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    () => [...new Set([...SEP_SEPARADORES, ...rows.map((r) => r.separador)])].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR')),
     [rows]
   );
 
@@ -19201,27 +16225,19 @@ function TelaSeparacaoLista({ ativo }) {
           setAviso({ tipo: 'erro', texto: 'Informe o número da lista.' });
           return;
         }
-        const nome = /^\d+$/.test(t)
-          ? 'Lista ' + t
-          : t.replace(/^lista\s*/i, 'Lista ');
+        const nome = /^\d+$/.test(t) ? 'Lista ' + t : t.replace(/^lista\s*/i, 'Lista ');
         const achadas = await lfApi(
           '/historico_listas?select=lista,data_hora,filial,transportadora,pedidos,unidades,status&lista=ilike.' +
             encodeURIComponent(nome) +
             '&limit=1'
         );
         if (!Array.isArray(achadas) || !achadas.length) {
-          setAviso({
-            tipo: 'erro',
-            texto: `A lista "${nome}" não foi encontrada nas listas geradas.`,
-          });
+          setAviso({ tipo: 'erro', texto: `A lista "${nome}" não foi encontrada nas listas geradas.` });
           return;
         }
         info = achadas[0];
         if (String(info.status || 'ATIVA').toUpperCase() === 'CANCELADA') {
-          setAviso({
-            tipo: 'erro',
-            texto: `A ${info.lista} foi cancelada e não pode ser separada.`,
-          });
+          setAviso({ tipo: 'erro', texto: `A ${info.lista} foi cancelada e não pode ser separada.` });
           return;
         }
       }
@@ -19254,17 +16270,10 @@ function TelaSeparacaoLista({ ativo }) {
         }
       } catch (err) {
         if (/23505|duplicate|unique/i.test(err.message)) {
-          const ex = await lfApi(
-            '/separacao_listas?select=*&lista=eq.' +
-              encodeURIComponent(info.lista) +
-              '&limit=1'
-          );
+          const ex = await lfApi('/separacao_listas?select=*&lista=eq.' + encodeURIComponent(info.lista) + '&limit=1');
           setAviso({
             tipo: 'erro',
-            texto:
-              Array.isArray(ex) && ex.length
-                ? mensagemBloqueio(sepParse(ex[0]))
-                : `A ${info.lista} já foi iniciada.`,
+            texto: Array.isArray(ex) && ex.length ? mensagemBloqueio(sepParse(ex[0])) : `A ${info.lista} já foi iniciada.`,
           });
           await carregar(true);
           return;
@@ -19272,16 +16281,10 @@ function TelaSeparacaoLista({ ativo }) {
         throw err;
       }
       setNumero('');
-      setAviso({
-        tipo: 'ok',
-        texto: `${info.lista} iniciada por ${separador}.`,
-      });
+      setAviso({ tipo: 'ok', texto: `${info.lista} iniciada por ${separador}.` });
       await carregar(true);
     } catch (err) {
-      setAviso({
-        tipo: 'erro',
-        texto: 'Não foi possível iniciar a separação: ' + err.message,
-      });
+      setAviso({ tipo: 'erro', texto: 'Não foi possível iniciar a separação: ' + err.message });
     } finally {
       setOcupado('');
     }
@@ -19296,23 +16299,12 @@ function TelaSeparacaoLista({ ativo }) {
     setFinModal(null);
     setOcupado('fin:' + r.id);
     try {
-      const url =
-        '/separacao_listas?id=eq.' +
-        encodeURIComponent(r.id) +
-        '&status=eq.em_separacao';
+      const url = '/separacao_listas?id=eq.' + encodeURIComponent(r.id) + '&status=eq.em_separacao';
       const enviar = (corpo) =>
-        lfApi(url, {
-          method: 'PATCH',
-          body: JSON.stringify(corpo),
-          headers: { Prefer: 'return=representation' },
-        });
+        lfApi(url, { method: 'PATCH', body: JSON.stringify(corpo), headers: { Prefer: 'return=representation' } });
       let res;
       try {
-        res = await enviar({
-          status: 'finalizada',
-          faturou_lista: faturou,
-          faturador: faturou ? r.separador : null,
-        });
+        res = await enviar({ status: 'finalizada', faturou_lista: faturou, faturador: faturou ? r.separador : null });
       } catch (e1) {
         // SQL do faturador ainda não rodado: finaliza igual, só sem gravar o faturador.
         if (/faturou_lista|faturador/i.test(String(e1.message))) {
@@ -19322,18 +16314,13 @@ function TelaSeparacaoLista({ ativo }) {
         }
       }
       if (!Array.isArray(res) || !res.length) {
-        setAviso({
-          tipo: 'warn',
-          texto: `A ${r.lista} já tinha sido finalizada ou cancelada em outro lugar.`,
-        });
+        setAviso({ tipo: 'warn', texto: `A ${r.lista} já tinha sido finalizada ou cancelada em outro lugar.` });
       } else {
         const novo = sepParse(res[0]);
         setAviso({
           tipo: 'ok',
           texto:
-            `${r.lista} finalizada em ${sepHms(
-              novo.duracao != null ? novo.duracao : Date.now() - r.inicio
-            )}. ` +
+            `${r.lista} finalizada em ${sepHms(novo.duracao != null ? novo.duracao : Date.now() - r.inicio)}. ` +
             (faturou
               ? `Faturador: ${r.separador}. `
               : 'Escolha quem faturou na aba Lista Faturamento › Via Leitor. ') +
@@ -19357,19 +16344,11 @@ function TelaSeparacaoLista({ ativo }) {
       return;
     setOcupado('can:' + r.id);
     try {
-      await lfApi(
-        '/separacao_listas?id=eq.' +
-          encodeURIComponent(r.id) +
-          '&status=eq.em_separacao',
-        {
-          method: 'DELETE',
-          headers: { Prefer: 'return=minimal' },
-        }
-      );
-      setAviso({
-        tipo: 'info',
-        texto: `Separação da ${r.lista} cancelada. A lista voltou para a fila.`,
+      await lfApi('/separacao_listas?id=eq.' + encodeURIComponent(r.id) + '&status=eq.em_separacao', {
+        method: 'DELETE',
+        headers: { Prefer: 'return=minimal' },
       });
+      setAviso({ tipo: 'info', texto: `Separação da ${r.lista} cancelada. A lista voltou para a fila.` });
       await carregar(true);
     } catch (err) {
       setAviso({ tipo: 'erro', texto: 'Erro ao cancelar: ' + err.message });
@@ -19423,17 +16402,10 @@ function TelaSeparacaoLista({ ativo }) {
   const noPeriodo = useMemo(() => {
     if (periodo === 'tudo') return hist;
     const corte =
-      periodo === 'hoje'
-        ? sepDia0(Date.now())
-        : periodo === '7d'
-        ? sepDia0(Date.now()) - 6 * 864e5
-        : sepDia0(Date.now()) - 29 * 864e5;
+      periodo === 'hoje' ? sepDia0(Date.now()) : periodo === '7d' ? sepDia0(Date.now()) - 6 * 864e5 : sepDia0(Date.now()) - 29 * 864e5;
     return hist.filter((r) => r.inicio >= corte);
   }, [hist, periodo]);
-  const deHoje = useMemo(
-    () => hist.filter((r) => r.inicio >= sepDia0(Date.now())),
-    [hist]
-  );
+  const deHoje = useMemo(() => hist.filter((r) => r.inicio >= sepDia0(Date.now())), [hist]);
 
   const filtrados = useMemo(() => {
     const b = busca.trim().toLowerCase();
@@ -19463,21 +16435,7 @@ function TelaSeparacaoLista({ ativo }) {
       return;
     }
     const linhas = [
-      [
-        'Data',
-        'Lista',
-        'Separador',
-        'Transportadora',
-        'Gerada',
-        'Espera',
-        'Pedidos',
-        'Itens',
-        'Inicio',
-        'Fim',
-        'Tempo',
-        'Minutos',
-        'Situacao',
-      ],
+      ['Data', 'Lista', 'Separador', 'Transportadora', 'Gerada', 'Espera', 'Pedidos', 'Itens', 'Inicio', 'Fim', 'Tempo', 'Minutos', 'Situacao'],
       ...filtrados.map((r) => [
         sepDataBr(r.inicio),
         r.lista,
@@ -19491,23 +16449,11 @@ function TelaSeparacaoLista({ ativo }) {
         r.fim ? sepHora(r.fim) : '',
         sepHms(r.duracao),
         (Number(r.duracao || 0) / 60000).toFixed(2).replace('.', ','),
-        Number(r.duracao || 0) > SEP_LIMITE_MS
-          ? 'Acima de 1h'
-          : Number(r.duracao || 0) <= SEP_META_MS
-          ? 'Na meta'
-          : 'Acima da meta',
+        Number(r.duracao || 0) > SEP_LIMITE_MS ? 'Acima de 1h' : Number(r.duracao || 0) <= SEP_META_MS ? 'Na meta' : 'Acima da meta',
       ]),
     ];
-    const csv =
-      '﻿' +
-      linhas
-        .map((c) =>
-          c.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')
-        )
-        .join('\n');
-    const url = URL.createObjectURL(
-      new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    );
+    const csv = '﻿' + linhas.map((c) => c.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const a = document.createElement('a');
     a.href = url;
     a.download = `separacoes_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -19522,14 +16468,7 @@ function TelaSeparacaoLista({ ativo }) {
       extraInfo="As listas geradas aparecem na fila; o separador inicia e finaliza cada uma"
       actions={
         separador ? (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              flexWrap: 'wrap',
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <div
               style={{
                 display: 'flex',
@@ -19574,17 +16513,8 @@ function TelaSeparacaoLista({ ativo }) {
       <div style={{ fontFamily: C.font }}>
         <style>{LF_CSS}</style>
         {cabecalho}
-        <LfCard
-          titulo="Quem vai separar agora?"
-          subtitulo="Selecione seu nome. As listas iniciadas depois disso ficam registradas em seu nome."
-        >
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
-              gap: 12,
-            }}
-          >
+        <LfCard titulo="Quem vai separar agora?" subtitulo="Selecione seu nome. As listas iniciadas depois disso ficam registradas em seu nome.">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
             {SEP_SEPARADORES.map((n) => (
               <button
                 key={n}
@@ -19621,26 +16551,8 @@ function TelaSeparacaoLista({ ativo }) {
                   {sepIniciais(n)}
                 </span>
                 <span>
-                  <span
-                    style={{
-                      display: 'block',
-                      fontWeight: 800,
-                      fontSize: 14,
-                      color: C.txtPri,
-                    }}
-                  >
-                    {n}
-                  </span>
-                  <span
-                    style={{
-                      display: 'block',
-                      fontSize: 12,
-                      color: C.txtMuted,
-                      marginTop: 2,
-                    }}
-                  >
-                    Usar este separador
-                  </span>
+                  <span style={{ display: 'block', fontWeight: 800, fontSize: 14, color: C.txtPri }}>{n}</span>
+                  <span style={{ display: 'block', fontSize: 12, color: C.txtMuted, marginTop: 2 }}>Usar este separador</span>
                 </span>
               </button>
             ))}
@@ -19679,39 +16591,13 @@ function TelaSeparacaoLista({ ativo }) {
                 +
               </span>
               <span>
-                <span
-                  style={{
-                    display: 'block',
-                    fontWeight: 800,
-                    fontSize: 14,
-                    color: C.txtPri,
-                  }}
-                >
-                  Ajudante de outro setor
-                </span>
-                <span
-                  style={{
-                    display: 'block',
-                    fontSize: 12,
-                    color: C.txtMuted,
-                    marginTop: 2,
-                  }}
-                >
-                  Digitar nome manualmente
-                </span>
+                <span style={{ display: 'block', fontWeight: 800, fontSize: 14, color: C.txtPri }}>Ajudante de outro setor</span>
+                <span style={{ display: 'block', fontSize: 12, color: C.txtMuted, marginTop: 2 }}>Digitar nome manualmente</span>
               </span>
             </button>
           </div>
           {mostrarAjudante && (
-            <div
-              style={{
-                marginTop: 16,
-                display: 'flex',
-                gap: 10,
-                flexWrap: 'wrap',
-                alignItems: 'flex-end',
-              }}
-            >
+            <div style={{ marginTop: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <SepCampoRotulo rotulo="Nome do ajudante">
                 <input
                   className="lf-input"
@@ -19725,10 +16611,7 @@ function TelaSeparacaoLista({ ativo }) {
                   }}
                 />
               </SepCampoRotulo>
-              <LfBtn
-                tipo="primario"
-                onClick={() => escolherSeparador(nomeAjudante)}
-              >
+              <LfBtn tipo="primario" onClick={() => escolherSeparador(nomeAjudante)}>
                 Usar este nome
               </LfBtn>
               <LfBtn
@@ -19747,14 +16630,8 @@ function TelaSeparacaoLista({ ativo }) {
   }
 
   const regsTempo = (() => {
-    let regs =
-      visaoTempo === 'todas_ativas'
-        ? ativasTodas
-        : visaoTempo === 'finalizadas'
-        ? hist
-        : [...ativasTodas, ...hist];
-    if (sepTempo)
-      regs = regs.filter((r) => sepNorm(r.separador) === sepNorm(sepTempo));
+    let regs = visaoTempo === 'todas_ativas' ? ativasTodas : visaoTempo === 'finalizadas' ? hist : [...ativasTodas, ...hist];
+    if (sepTempo) regs = regs.filter((r) => sepNorm(r.separador) === sepNorm(sepTempo));
     return [...regs]
       .sort((a, b) => {
         if (a.status !== b.status) return a.status === 'em_separacao' ? -1 : 1;
@@ -19765,12 +16642,7 @@ function TelaSeparacaoLista({ ativo }) {
 
   const histOp = (() => {
     const b = buscaOp.trim().toLowerCase();
-    return hist.filter(
-      (r) =>
-        !b ||
-        String(r.lista).toLowerCase().includes(b) ||
-        String(r.separador).toLowerCase().includes(b)
-    );
+    return hist.filter((r) => !b || String(r.lista).toLowerCase().includes(b) || String(r.separador).toLowerCase().includes(b));
   })();
 
   const somaHoje = deHoje.reduce((s, r) => s + Number(r.duracao || 0), 0);
@@ -19784,506 +16656,307 @@ function TelaSeparacaoLista({ ativo }) {
       )}
       {erroCarga && (
         <div style={{ marginTop: -8, marginBottom: 16 }}>
-          <LfAviso tipo="erro">
-            Não foi possível carregar os dados: {erroCarga}
-          </LfAviso>
+          <LfAviso tipo="erro">Não foi possível carregar os dados: {erroCarga}</LfAviso>
         </div>
       )}
+
     </>
   );
 
-  const filaAtrasadas = fila.filter(
-    (g) => Date.now() - new Date(g.data_hora).getTime() > SEP_LIMITE_MS
-  ).length;
-  const andAtrasadas = ativasTodas.filter(
-    (r) => Date.now() - r.inicio > SEP_LIMITE_MS
-  ).length;
+  const filaAtrasadas = fila.filter((g) => Date.now() - new Date(g.data_hora).getTime() > SEP_LIMITE_MS).length;
+  const andAtrasadas = ativasTodas.filter((r) => Date.now() - r.inicio > SEP_LIMITE_MS).length;
   const cardFila = (
-    <LfCard
-      titulo="Fila de listas"
-      subtitulo="Listas geradas em Lista Faturamento que ainda não foram separadas"
-      acoes={
-        <>
-          <select
-            className="lf-input"
-            style={lfInputStyle}
-            value={filaDias}
-            onChange={(e) => setFilaDias(Number(e.target.value))}
-          >
-            <option value={1}>Hoje</option>
-            <option value={3}>Últimos 3 dias</option>
-            <option value={7}>Últimos 7 dias</option>
-          </select>
-          <LfBtn onClick={() => carregar(false)} disabled={carregando}>
-            {carregando ? 'Atualizando...' : '🔄 Atualizar'}
-          </LfBtn>
-        </>
-      }
-    >
-      <div
-        style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}
-      >
-        <input
-          className="lf-input"
-          style={{ ...lfInputStyle, flex: '1 1 200px' }}
-          inputMode="numeric"
-          autoComplete="off"
-          placeholder="Iniciar pelo número da lista (ex.: 14)"
-          value={numero}
-          onChange={(e) => setNumero(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') iniciar();
-          }}
-        />
-        <LfBtn
-          tipo="primario"
-          disabled={ocupado === 'ini'}
-          onClick={() => iniciar()}
-        >
-          ▶ Iniciar
+  <LfCard
+    titulo="Fila de listas"
+    subtitulo="Listas geradas em Lista Faturamento que ainda não foram separadas"
+    acoes={
+      <>
+        <select className="lf-input" style={lfInputStyle} value={filaDias} onChange={(e) => setFilaDias(Number(e.target.value))}>
+          <option value={1}>Hoje</option>
+          <option value={3}>Últimos 3 dias</option>
+          <option value={7}>Últimos 7 dias</option>
+        </select>
+        <LfBtn onClick={() => carregar(false)} disabled={carregando}>
+          {carregando ? 'Atualizando...' : '🔄 Atualizar'}
         </LfBtn>
+      </>
+    }
+  >
+    <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+      <input
+        className="lf-input"
+        style={{ ...lfInputStyle, flex: '1 1 200px' }}
+        inputMode="numeric"
+        autoComplete="off"
+        placeholder="Iniciar pelo número da lista (ex.: 14)"
+        value={numero}
+        onChange={(e) => setNumero(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') iniciar();
+        }}
+      />
+      <LfBtn tipo="primario" disabled={ocupado === 'ini'} onClick={() => iniciar()}>
+        ▶ Iniciar
+      </LfBtn>
+    </div>
+    {filaAtrasadas > 0 && (
+      <div style={{ marginBottom: 14, marginTop: -4 }}>
+        <LfAviso tipo="erro">
+          {filaAtrasadas} {sepPlural(filaAtrasadas, 'lista está esperando', 'listas estão esperando')} há mais de 1h para ser
+          iniciada.
+        </LfAviso>
       </div>
-      {filaAtrasadas > 0 && (
-        <div style={{ marginBottom: 14, marginTop: -4 }}>
-          <LfAviso tipo="erro">
-            {filaAtrasadas}{' '}
-            {sepPlural(
-              filaAtrasadas,
-              'lista está esperando',
-              'listas estão esperando'
-            )}{' '}
-            há mais de 1h para ser iniciada.
-          </LfAviso>
-        </div>
-      )}
-      {fila.length === 0 ? (
-        <LfVazio>
-          Nenhuma lista aguardando separação. Quando uma lista for gerada, ela
-          aparece aqui.
-        </LfVazio>
-      ) : (
-        <LfTabela
-          altura={420}
-          colunas={[
-            'Lista',
-            'Gerada',
-            'Espera',
-            'Filial / Transportadora',
-            'Pedidos',
-            'Itens',
-            'Impressa',
-            '',
-          ]}
-          numericas={['Pedidos', 'Itens']}
-        >
-          {fila.map((g) => (
-            <tr key={g.lista}>
-              <td style={{ ...lfTdStyle, fontWeight: 800 }}>{g.lista}</td>
-              <td style={lfTdStyle} title={lfFmtData(g.data_hora)}>
-                {sepQuando(g.data_hora)}
-              </td>
-              <td style={lfTdStyle}>
-                <SepEsperaViva desde={new Date(g.data_hora).getTime()} />
-              </td>
-              <td style={lfTdStyle}>
-                <b>{g.filial}</b>{' '}
-                <span style={{ color: C.txtSec }}>· {g.transportadora}</span>
-              </td>
-              <td style={lfTdNum}>{g.pedidos || 0}</td>
-              <td style={lfTdNum}>{g.unidades || 0}</td>
-              <td style={lfTdStyle}>
-                <LfBadge
-                  tipo={
-                    String(g.impresso || 'NÃO').toUpperCase() === 'SIM'
-                      ? 'ok'
-                      : 'neutro'
-                  }
-                >
-                  {String(g.impresso || 'NÃO').toUpperCase() === 'SIM'
-                    ? 'Sim'
-                    : 'Não'}
-                </LfBadge>
-              </td>
-              <td style={lfTdStyle}>
-                <LfBtn
-                  pequeno
-                  tipo="verde"
-                  disabled={ocupado === 'ini:' + g.lista}
-                  onClick={() => iniciar(g)}
-                >
-                  ▶ Iniciar
-                </LfBtn>
-              </td>
-            </tr>
-          ))}
-        </LfTabela>
-      )}
-    </LfCard>
+    )}
+    {fila.length === 0 ? (
+      <LfVazio>Nenhuma lista aguardando separação. Quando uma lista for gerada, ela aparece aqui.</LfVazio>
+    ) : (
+      <LfTabela
+        altura={420}
+        colunas={['Lista', 'Gerada', 'Espera', 'Filial / Transportadora', 'Pedidos', 'Itens', 'Impressa', '']}
+        numericas={['Pedidos', 'Itens']}
+      >
+        {fila.map((g) => (
+          <tr key={g.lista}>
+            <td style={{ ...lfTdStyle, fontWeight: 800 }}>{g.lista}</td>
+            <td style={lfTdStyle} title={lfFmtData(g.data_hora)}>
+              {sepQuando(g.data_hora)}
+            </td>
+            <td style={lfTdStyle}>
+              <SepEsperaViva desde={new Date(g.data_hora).getTime()} />
+            </td>
+            <td style={lfTdStyle}>
+              <b>{g.filial}</b> <span style={{ color: C.txtSec }}>· {g.transportadora}</span>
+            </td>
+            <td style={lfTdNum}>{g.pedidos || 0}</td>
+            <td style={lfTdNum}>{g.unidades || 0}</td>
+            <td style={lfTdStyle}>
+              <LfBadge tipo={String(g.impresso || 'NÃO').toUpperCase() === 'SIM' ? 'ok' : 'neutro'}>
+                {String(g.impresso || 'NÃO').toUpperCase() === 'SIM' ? 'Sim' : 'Não'}
+              </LfBadge>
+            </td>
+            <td style={lfTdStyle}>
+              <LfBtn pequeno tipo="verde" disabled={ocupado === 'ini:' + g.lista} onClick={() => iniciar(g)}>
+                ▶ Iniciar
+              </LfBtn>
+            </td>
+          </tr>
+        ))}
+      </LfTabela>
+    )}
+  </LfCard>
   );
 
   const cardAndamento = (
-    <LfCard
-      titulo="Em separação agora"
-      subtitulo="Cada lista iniciada tem seu cronômetro (meta de 15 min)"
-    >
-      <LfKpis>
-        <LfKpi rotulo="Em andamento" valor={ativasTodas.length} tipo="info" />
-        <LfKpi
-          rotulo="Acima de 1h"
-          valor={andAtrasadas}
-          tipo={andAtrasadas ? 'erro' : 'ok'}
-          detalhe="separação passou do limite"
-        />
-        <LfKpi rotulo="Finalizadas hoje" valor={deHoje.length} tipo="ok" />
-        <LfKpi
-          rotulo="Tempo médio hoje"
-          valor={deHoje.length ? sepCurto(somaHoje / deHoje.length) : '--:--'}
-          tipo="neutro"
-        />
-        <LfKpi
-          rotulo="Mais rápida hoje"
-          valor={
-            deHoje.length
-              ? sepCurto(Math.min(...deHoje.map((r) => Number(r.duracao || 0))))
-              : '--:--'
-          }
-          tipo="neutro"
-        />
-      </LfKpis>
-      {ativasTodas.length === 0 ? (
-        <LfVazio>Nenhuma lista em separação.</LfVazio>
-      ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))',
-            gap: 12,
-          }}
-        >
-          {ativasTodas.map((r) => (
-            <div
-              key={r.id}
-              data-lista={r.lista}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-                flexWrap: 'wrap',
-                padding: '12px 14px',
-                border: `1px solid ${C.bdLight}`,
-                borderLeft: `4px solid ${
-                  Date.now() - r.inicio > SEP_LIMITE_MS ? C.red : C.blue
-                }`,
-                borderRadius: C.radius.lg,
-                background: C.bgStripe,
-              }}
-            >
-              <div style={{ flex: '1 1 150px', minWidth: 130 }}>
-                <div
-                  style={{
-                    fontWeight: 800,
-                    fontSize: 14,
-                    color: C.txtPri,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
-                >
-                  {r.lista}
-                  {Date.now() - r.inicio > SEP_LIMITE_MS && (
-                    <LfBadge tipo="erro">Passou de 1h</LfBadge>
-                  )}
-                </div>
-                <div style={{ fontSize: 12, color: C.txtSec, marginTop: 2 }}>
-                  <b>{r.separador}</b> · início {sepQuando(r.inicio)}
-                </div>
-                <div
-                  style={{ fontSize: 11.5, color: C.txtMuted, marginTop: 2 }}
-                >
-                  {[
-                    r.filial,
-                    r.transportadora,
-                    r.geradaEm ? `gerada ${sepQuando(r.geradaEm)}` : '',
-                    sepEspera(r) != null
-                      ? `esperou ${sepCurto(sepEspera(r))} para iniciar`
-                      : '',
-                    r.pedidos != null
-                      ? `${r.pedidos} ${sepPlural(
-                          Number(r.pedidos),
-                          'pedido',
-                          'pedidos'
-                        )}`
-                      : '',
-                    r.unidades != null
-                      ? `${r.unidades} ${sepPlural(
-                          Number(r.unidades),
-                          'item',
-                          'itens'
-                        )}`
-                      : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </div>
+  <LfCard titulo="Em separação agora" subtitulo="Cada lista iniciada tem seu cronômetro (meta de 15 min)">
+    <LfKpis>
+      <LfKpi rotulo="Em andamento" valor={ativasTodas.length} tipo="info" />
+      <LfKpi
+        rotulo="Acima de 1h"
+        valor={andAtrasadas}
+        tipo={andAtrasadas ? 'erro' : 'ok'}
+        detalhe="separação passou do limite"
+      />
+      <LfKpi rotulo="Finalizadas hoje" valor={deHoje.length} tipo="ok" />
+      <LfKpi rotulo="Tempo médio hoje" valor={deHoje.length ? sepCurto(somaHoje / deHoje.length) : '--:--'} tipo="neutro" />
+      <LfKpi
+        rotulo="Mais rápida hoje"
+        valor={deHoje.length ? sepCurto(Math.min(...deHoje.map((r) => Number(r.duracao || 0)))) : '--:--'}
+        tipo="neutro"
+      />
+    </LfKpis>
+    {ativasTodas.length === 0 ? (
+      <LfVazio>Nenhuma lista em separação.</LfVazio>
+    ) : (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(420px, 1fr))', gap: 12 }}>
+        {ativasTodas.map((r) => (
+          <div
+            key={r.id}
+            data-lista={r.lista}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              flexWrap: 'wrap',
+              padding: '12px 14px',
+              border: `1px solid ${C.bdLight}`,
+              borderLeft: `4px solid ${Date.now() - r.inicio > SEP_LIMITE_MS ? C.red : C.blue}`,
+              borderRadius: C.radius.lg,
+              background: C.bgStripe,
+            }}
+          >
+            <div style={{ flex: '1 1 150px', minWidth: 130 }}>
+              <div style={{ fontWeight: 800, fontSize: 14, color: C.txtPri, display: 'flex', alignItems: 'center', gap: 8 }}>
+                {r.lista}
+                {Date.now() - r.inicio > SEP_LIMITE_MS && <LfBadge tipo="erro">Passou de 1h</LfBadge>}
               </div>
-              <SepTempoVivo inicio={r.inicio} />
-              <div style={{ display: 'flex', gap: 6 }}>
-                <LfBtn
-                  pequeno
-                  tipo="verde"
-                  disabled={ocupado === 'fin:' + r.id}
-                  onClick={() => finalizar(r)}
-                >
-                  ✓ Finalizar
-                </LfBtn>
-                <LfBtn
-                  pequeno
-                  tipo="perigo"
-                  disabled={ocupado === 'can:' + r.id}
-                  onClick={() => cancelar(r)}
-                >
-                  Cancelar
-                </LfBtn>
+              <div style={{ fontSize: 12, color: C.txtSec, marginTop: 2 }}>
+                <b>{r.separador}</b> · início {sepQuando(r.inicio)}
+              </div>
+              <div style={{ fontSize: 11.5, color: C.txtMuted, marginTop: 2 }}>
+                {[
+                  r.filial,
+                  r.transportadora,
+                  r.geradaEm ? `gerada ${sepQuando(r.geradaEm)}` : '',
+                  sepEspera(r) != null ? `esperou ${sepCurto(sepEspera(r))} para iniciar` : '',
+                  r.pedidos != null ? `${r.pedidos} ${sepPlural(Number(r.pedidos), 'pedido', 'pedidos')}` : '',
+                  r.unidades != null ? `${r.unidades} ${sepPlural(Number(r.unidades), 'item', 'itens')}` : '',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
               </div>
             </div>
-          ))}
-        </div>
-      )}
-    </LfCard>
+            <SepTempoVivo inicio={r.inicio} />
+            <div style={{ display: 'flex', gap: 6 }}>
+              <LfBtn pequeno tipo="verde" disabled={ocupado === 'fin:' + r.id} onClick={() => finalizar(r)}>
+                ✓ Finalizar
+              </LfBtn>
+              <LfBtn pequeno tipo="perigo" disabled={ocupado === 'can:' + r.id} onClick={() => cancelar(r)}>
+                Cancelar
+              </LfBtn>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </LfCard>
   );
 
   const cardTempo = (
-    <LfCard
-      titulo="Painel de tempo"
-      subtitulo="Filtre por status e por separador. Listas finalizadas permanecem bloqueadas para novo uso."
-      acoes={
-        <>
-          <select
-            className="lf-input"
-            style={lfInputStyle}
-            value={visaoTempo}
-            onChange={(e) => setVisaoTempo(e.target.value)}
+      <LfCard
+        titulo="Painel de tempo"
+        subtitulo="Filtre por status e por separador. Listas finalizadas permanecem bloqueadas para novo uso."
+        acoes={
+          <>
+            <select className="lf-input" style={lfInputStyle} value={visaoTempo} onChange={(e) => setVisaoTempo(e.target.value)}>
+              <option value="todas_ativas">Em separação</option>
+              <option value="finalizadas">Finalizadas</option>
+              <option value="todas">Todas</option>
+            </select>
+            <select className="lf-input" style={lfInputStyle} value={sepTempo} onChange={(e) => setSepTempo(e.target.value)}>
+              <option value="">Separador: todos</option>
+              {nomes.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </>
+        }
+      >
+        {regsTempo.length === 0 ? (
+          <LfVazio>Nenhuma lista para exibir neste filtro.</LfVazio>
+        ) : (
+          <LfTabela
+            colunas={['Lista', 'Separador', 'Transportadora', 'Gerada', 'Pedidos', 'Itens', 'Início', 'Fim', 'Status', 'Tempo']}
+            compacta
+            numericas={['Pedidos', 'Itens', 'Tempo']}
           >
-            <option value="todas_ativas">Em separação</option>
-            <option value="finalizadas">Finalizadas</option>
-            <option value="todas">Todas</option>
-          </select>
-          <select
-            className="lf-input"
-            style={lfInputStyle}
-            value={sepTempo}
-            onChange={(e) => setSepTempo(e.target.value)}
-          >
-            <option value="">Separador: todos</option>
-            {nomes.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </>
-      }
-    >
-      {regsTempo.length === 0 ? (
-        <LfVazio>Nenhuma lista para exibir neste filtro.</LfVazio>
-      ) : (
-        <LfTabela
-          colunas={[
-            'Lista',
-            'Separador',
-            'Transportadora',
-            'Gerada',
-            'Pedidos',
-            'Itens',
-            'Início',
-            'Fim',
-            'Status',
-            'Tempo',
-          ]}
-          compacta
-          numericas={['Pedidos', 'Itens', 'Tempo']}
-        >
-          {regsTempo.map((r) => {
-            const ativaRow = r.status === 'em_separacao';
-            const dur = ativaRow
-              ? Date.now() - r.inicio
-              : Number(r.duracao || 0);
-            return (
-              <tr key={r.id}>
-                <td style={{ ...lfTdStyle, fontWeight: 800 }}>{r.lista}</td>
-                <td style={lfTdStyle}>{r.separador}</td>
-                <td style={lfTdStyle}>{r.transportadora || '—'}</td>
-                <td style={lfTdStyle}>
-                  <SepGeradaCell r={r} />
-                </td>
-                <td style={lfTdNum}>{sepNum(r.pedidos)}</td>
-                <td style={lfTdNum}>{sepNum(r.unidades)}</td>
-                <td style={lfTdStyle}>{sepQuando(r.inicio)}</td>
-                <td style={lfTdStyle}>
-                  {!ativaRow && r.fim ? sepQuando(r.fim) : '—'}
-                </td>
-                <td style={lfTdStyle}>
-                  <LfBadge tipo={ativaRow ? 'info' : 'ok'}>
-                    {ativaRow ? 'Em separação' : 'Finalizada'}
-                  </LfBadge>
-                </td>
-                <td
-                  style={{
-                    ...lfTdNum,
-                    fontWeight: 800,
-                    color: sepCorTempo(dur),
-                  }}
-                >
-                  {ativaRow ? <SepTempoVivo inicio={r.inicio} /> : sepHms(dur)}
-                </td>
-              </tr>
-            );
-          })}
-        </LfTabela>
-      )}
-      <div style={{ fontSize: 11.5, color: C.txtMuted, marginTop: 10 }}>
-        {atualizadoEm
-          ? `Atualizado às ${sepHora(
-              atualizadoEm
-            )} · atualiza sozinho a cada 15 segundos`
-          : 'Carregando...'}
-      </div>
-    </LfCard>
+            {regsTempo.map((r) => {
+              const ativaRow = r.status === 'em_separacao';
+              const dur = ativaRow ? Date.now() - r.inicio : Number(r.duracao || 0);
+              return (
+                <tr key={r.id}>
+                  <td style={{ ...lfTdStyle, fontWeight: 800 }}>{r.lista}</td>
+                  <td style={lfTdStyle}>{r.separador}</td>
+                  <td style={lfTdStyle}>{r.transportadora || '—'}</td>
+                  <td style={lfTdStyle}>
+                    <SepGeradaCell r={r} />
+                  </td>
+                  <td style={lfTdNum}>{sepNum(r.pedidos)}</td>
+                  <td style={lfTdNum}>{sepNum(r.unidades)}</td>
+                  <td style={lfTdStyle}>{sepQuando(r.inicio)}</td>
+                  <td style={lfTdStyle}>{!ativaRow && r.fim ? sepQuando(r.fim) : '—'}</td>
+                  <td style={lfTdStyle}>
+                    <LfBadge tipo={ativaRow ? 'info' : 'ok'}>{ativaRow ? 'Em separação' : 'Finalizada'}</LfBadge>
+                  </td>
+                  <td style={{ ...lfTdNum, fontWeight: 800, color: sepCorTempo(dur) }}>
+                    {ativaRow ? <SepTempoVivo inicio={r.inicio} /> : sepHms(dur)}
+                  </td>
+                </tr>
+              );
+            })}
+          </LfTabela>
+        )}
+        <div style={{ fontSize: 11.5, color: C.txtMuted, marginTop: 10 }}>
+          {atualizadoEm ? `Atualizado às ${sepHora(atualizadoEm)} · atualiza sozinho a cada 15 segundos` : 'Carregando...'}
+        </div>
+      </LfCard>
   );
 
   const cardHist = (
-    <LfCard
-      titulo="Histórico de listas"
-      subtitulo={
-        deHoje.length
-          ? `${deHoje.length} ${sepPlural(
-              deHoje.length,
-              'lista',
-              'listas'
-            )} hoje · ${histOp.length} no total carregado`
-          : `${histOp.length} ${sepPlural(
-              histOp.length,
-              'registro',
-              'registros'
-            )}`
-      }
-      acoes={
-        <input
-          className="lf-input"
-          style={{ ...lfInputStyle, width: 260 }}
-          placeholder="🔍 Buscar lista ou separador"
-          value={buscaOp}
-          onChange={(e) => setBuscaOp(e.target.value)}
-        />
-      }
-    >
-      {histOp.length === 0 ? (
-        <LfVazio>
-          {buscaOp
-            ? 'Nenhuma lista encontrada.'
-            : 'Nenhuma separação registrada ainda.'}
-        </LfVazio>
-      ) : (
-        <LfTabela
-          colunas={[
-            'Lista',
-            'Separador',
-            'Transportadora',
-            'Gerada',
-            'Pedidos',
-            'Itens',
-            'Início',
-            'Fim',
-            'Tempo',
-            'Status',
-          ]}
-          numericas={['Pedidos', 'Itens', 'Tempo']}
-        >
-          {histOp.slice(0, 15).map((r) => {
-            const atrEsp = (sepEspera(r) || 0) > SEP_LIMITE_MS;
-            const atrSep = Number(r.duracao || 0) > SEP_LIMITE_MS;
-            const atraso = atrEsp || atrSep;
-            const motivoAtraso =
-              atrEsp && atrSep
-                ? 'espera e sep.'
-                : atrEsp
-                ? 'na espera'
-                : 'na separação';
-            return (
+      <LfCard
+        titulo="Histórico de listas"
+        subtitulo={
+          deHoje.length
+            ? `${deHoje.length} ${sepPlural(deHoje.length, 'lista', 'listas')} hoje · ${histOp.length} no total carregado`
+            : `${histOp.length} ${sepPlural(histOp.length, 'registro', 'registros')}`
+        }
+        acoes={
+          <input
+            className="lf-input"
+            style={{ ...lfInputStyle, width: 260 }}
+            placeholder="🔍 Buscar lista ou separador"
+            value={buscaOp}
+            onChange={(e) => setBuscaOp(e.target.value)}
+          />
+        }
+      >
+        {histOp.length === 0 ? (
+          <LfVazio>{buscaOp ? 'Nenhuma lista encontrada.' : 'Nenhuma separação registrada ainda.'}</LfVazio>
+        ) : (
+          <LfTabela
+            colunas={['Lista', 'Separador', 'Transportadora', 'Gerada', 'Pedidos', 'Itens', 'Início', 'Fim', 'Tempo', 'Status']}
+            numericas={['Pedidos', 'Itens', 'Tempo']}
+          >
+            {histOp.slice(0, 15).map((r) => {
+              const atrEsp = (sepEspera(r) || 0) > SEP_LIMITE_MS;
+              const atrSep = Number(r.duracao || 0) > SEP_LIMITE_MS;
+              const atraso = atrEsp || atrSep;
+              const motivoAtraso = atrEsp && atrSep ? 'espera e sep.' : atrEsp ? 'na espera' : 'na separação';
+              return (
               <tr key={r.id}>
                 <td style={{ ...lfTdStyle, fontWeight: 800 }}>{r.lista}</td>
                 <td style={lfTdStyle}>{r.separador}</td>
                 <td style={lfTdStyle}>{r.transportadora || '—'}</td>
                 <td style={lfTdStyle}>
-                  <SepGeradaCell r={r} />
-                </td>
+                    <SepGeradaCell r={r} />
+                  </td>
                 <td style={lfTdNum}>{sepNum(r.pedidos)}</td>
                 <td style={lfTdNum}>{sepNum(r.unidades)}</td>
                 <td style={lfTdStyle}>{sepQuando(r.inicio)}</td>
                 <td style={lfTdStyle}>{sepQuando(r.fim)}</td>
-                <td
-                  style={{
-                    ...lfTdNum,
-                    fontWeight: 800,
-                    color: sepCorTempo(Number(r.duracao || 0)),
-                  }}
-                >
+                <td style={{ ...lfTdNum, fontWeight: 800, color: sepCorTempo(Number(r.duracao || 0)) }}>
                   {sepHms(r.duracao)}
                 </td>
                 <td style={lfTdStyle}>
-                  <LfBadge tipo={atraso ? 'erro' : 'ok'}>
-                    {atraso ? 'Atraso' : 'No prazo'}
-                  </LfBadge>
+                  <LfBadge tipo={atraso ? 'erro' : 'ok'}>{atraso ? 'Atraso' : 'No prazo'}</LfBadge>
                   {atraso && (
-                    <div
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: C.red,
-                        marginTop: 2,
-                      }}
-                    >
-                      {motivoAtraso}
-                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: C.red, marginTop: 2 }}>{motivoAtraso}</div>
                   )}
                 </td>
               </tr>
-            );
-          })}
-        </LfTabela>
-      )}
-    </LfCard>
+              );
+            })}
+          </LfTabela>
+        )}
+      </LfCard>
   );
 
   // ── Gestão ──
   const soma = noPeriodo.reduce((s, r) => s + Number(r.duracao || 0), 0);
-  const dentro = noPeriodo.filter(
-    (r) => Number(r.duracao || 0) <= SEP_META_MS
-  ).length;
+  const dentro = noPeriodo.filter((r) => Number(r.duracao || 0) <= SEP_META_MS).length;
   const pessoas = new Set(noPeriodo.map((r) => r.separador));
   const diasPeriodo =
-    periodo === 'hoje'
-      ? 1
-      : periodo === '7d'
-      ? 7
-      : periodo === '30d'
-      ? 30
-      : Math.max(1, new Set(noPeriodo.map((r) => sepDia0(r.inicio))).size);
+    periodo === 'hoje' ? 1 : periodo === '7d' ? 7 : periodo === '30d' ? 30 : Math.max(1, new Set(noPeriodo.map((r) => sepDia0(r.inicio))).size);
   const rank = (() => {
     const mapa = new Map();
     noPeriodo.forEach((r) => {
-      const it = mapa.get(r.separador) || {
-        nome: r.separador,
-        qtd: 0,
-        soma: 0,
-      };
+      const it = mapa.get(r.separador) || { nome: r.separador, qtd: 0, soma: 0 };
       it.qtd += 1;
       it.soma += Number(r.duracao || 0);
       mapa.set(r.separador, it);
     });
-    return [...mapa.values()].sort(
-      (a, b) => b.qtd - a.qtd || a.soma / a.qtd - b.soma / b.qtd
-    );
+    return [...mapa.values()].sort((a, b) => b.qtd - a.qtd || a.soma / a.qtd - b.soma / b.qtd);
   })();
   const maiorRank = rank.length ? rank[0].qtd : 1;
   const dias7 = (() => {
@@ -20293,24 +16966,15 @@ function TelaSeparacaoLista({ ativo }) {
       const ini = base - i * 864e5;
       out.push({
         ini,
-        qtd: hist.filter((r) => r.inicio >= ini && r.inicio < ini + 864e5)
-          .length,
-        rot: new Date(ini)
-          .toLocaleDateString('pt-BR', { weekday: 'short' })
-          .replace('.', '')
-          .slice(0, 3),
+        qtd: hist.filter((r) => r.inicio >= ini && r.inicio < ini + 864e5).length,
+        rot: new Date(ini).toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '').slice(0, 3),
         hoje: i === 0,
       });
     }
     return out;
   })();
   const maiorDia = Math.max(1, ...dias7.map((d) => d.qtd));
-  const rotuloPeriodo = {
-    hoje: 'Hoje',
-    '7d': 'Últimos 7 dias',
-    '30d': 'Últimos 30 dias',
-    tudo: 'Todo o histórico',
-  }[periodo];
+  const rotuloPeriodo = { hoje: 'Hoje', '7d': 'Últimos 7 dias', '30d': 'Últimos 30 dias', tudo: 'Todo o histórico' }[periodo];
 
   const blocoGestao = (
     <>
@@ -20325,11 +16989,7 @@ function TelaSeparacaoLista({ ativo }) {
               ['30d', '30 dias'],
               ['tudo', 'Tudo'],
             ].map(([id, nome]) => (
-              <LfBtn
-                key={id}
-                tipo={periodo === id ? 'primario' : 'neutro'}
-                onClick={() => setPeriodo(id)}
-              >
+              <LfBtn key={id} tipo={periodo === id ? 'primario' : 'neutro'} onClick={() => setPeriodo(id)}>
                 {nome}
               </LfBtn>
             ))}
@@ -20341,142 +17001,59 @@ function TelaSeparacaoLista({ ativo }) {
             rotulo="Listas finalizadas"
             valor={noPeriodo.length}
             tipo="info"
-            detalhe={
-              periodo === 'hoje'
-                ? 'no dia de hoje'
-                : `${(noPeriodo.length / diasPeriodo)
-                    .toFixed(1)
-                    .replace('.', ',')} por dia`
-            }
+            detalhe={periodo === 'hoje' ? 'no dia de hoje' : `${(noPeriodo.length / diasPeriodo).toFixed(1).replace('.', ',')} por dia`}
           />
           <LfKpi
             rotulo="Tempo médio"
-            valor={
-              noPeriodo.length ? sepCurto(soma / noPeriodo.length) : '--:--'
-            }
+            valor={noPeriodo.length ? sepCurto(soma / noPeriodo.length) : '--:--'}
             tipo="neutro"
-            detalhe={
-              noPeriodo.length
-                ? `mais rápida ${sepCurto(
-                    Math.min(...noPeriodo.map((r) => Number(r.duracao || 0)))
-                  )}`
-                : 'sem registros'
-            }
+            detalhe={noPeriodo.length ? `mais rápida ${sepCurto(Math.min(...noPeriodo.map((r) => Number(r.duracao || 0))))}` : 'sem registros'}
           />
           <LfKpi
             rotulo="Dentro da meta"
-            valor={
-              noPeriodo.length
-                ? Math.round((dentro / noPeriodo.length) * 100) + '%'
-                : '—'
-            }
-            tipo={
-              noPeriodo.length && dentro / noPeriodo.length < 0.7
-                ? 'warn'
-                : 'ok'
-            }
-            detalhe={
-              noPeriodo.length
-                ? `${dentro} de ${noPeriodo.length} até ${SEP_META_MIN} min`
-                : `meta de ${SEP_META_MIN} min`
-            }
+            valor={noPeriodo.length ? Math.round((dentro / noPeriodo.length) * 100) + '%' : '—'}
+            tipo={noPeriodo.length && dentro / noPeriodo.length < 0.7 ? 'warn' : 'ok'}
+            detalhe={noPeriodo.length ? `${dentro} de ${noPeriodo.length} até ${SEP_META_MIN} min` : `meta de ${SEP_META_MIN} min`}
           />
           <LfKpi
             rotulo="Separação acima de 1h"
-            valor={
-              noPeriodo.filter((r) => Number(r.duracao || 0) > SEP_LIMITE_MS)
-                .length
-            }
-            tipo={
-              noPeriodo.some((r) => Number(r.duracao || 0) > SEP_LIMITE_MS)
-                ? 'erro'
-                : 'ok'
-            }
+            valor={noPeriodo.filter((r) => Number(r.duracao || 0) > SEP_LIMITE_MS).length}
+            tipo={noPeriodo.some((r) => Number(r.duracao || 0) > SEP_LIMITE_MS) ? 'erro' : 'ok'}
             detalhe="entre iniciar e finalizar"
           />
           <LfKpi
             rotulo="Espera acima de 1h"
-            valor={
-              noPeriodo.filter((r) => (sepEspera(r) || 0) > SEP_LIMITE_MS)
-                .length
-            }
-            tipo={
-              noPeriodo.some((r) => (sepEspera(r) || 0) > SEP_LIMITE_MS)
-                ? 'erro'
-                : 'ok'
-            }
+            valor={noPeriodo.filter((r) => (sepEspera(r) || 0) > SEP_LIMITE_MS).length}
+            tipo={noPeriodo.some((r) => (sepEspera(r) || 0) > SEP_LIMITE_MS) ? 'erro' : 'ok'}
             detalhe="entre gerar e iniciar"
           />
           <LfKpi
             rotulo="Tempo em separação"
             valor={sepHoras(soma)}
             tipo="neutro"
-            detalhe={
-              pessoas.size
-                ? `${pessoas.size} ${sepPlural(
-                    pessoas.size,
-                    'separador',
-                    'separadores'
-                  )}`
-                : 'sem registros'
-            }
+            detalhe={pessoas.size ? `${pessoas.size} ${sepPlural(pessoas.size, 'separador', 'separadores')}` : 'sem registros'}
           />
         </LfKpis>
       </LfCard>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
-          gap: 18,
-          alignItems: 'start',
-        }}
-      >
-        <LfCard
-          titulo="Por separador"
-          subtitulo="Volume e tempo médio no período"
-        >
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 18, alignItems: 'start' }}>
+        <LfCard titulo="Por separador" subtitulo="Volume e tempo médio no período">
           {rank.length === 0 ? (
             <LfVazio>Sem dados no período.</LfVazio>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {rank.map((l, i) => (
                 <div key={l.nome}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 10,
-                      fontSize: 13,
-                      color: C.txtPri,
-                      marginBottom: 5,
-                    }}
-                  >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13, color: C.txtPri, marginBottom: 5 }}>
                     <b>{l.nome}</b>
-                    <span
-                      style={{
-                        color: C.txtSec,
-                        fontVariantNumeric: 'tabular-nums',
-                      }}
-                    >
-                      <b>{l.qtd}</b> {sepPlural(l.qtd, 'lista', 'listas')} ·
-                      média {sepCurto(l.soma / l.qtd)}
+                    <span style={{ color: C.txtSec, fontVariantNumeric: 'tabular-nums' }}>
+                      <b>{l.qtd}</b> {sepPlural(l.qtd, 'lista', 'listas')} · média {sepCurto(l.soma / l.qtd)}
                     </span>
                   </div>
-                  <div
-                    style={{
-                      height: 8,
-                      borderRadius: 99,
-                      background: C.bgMuted,
-                      overflow: 'hidden',
-                    }}
-                  >
+                  <div style={{ height: 8, borderRadius: 99, background: C.bgMuted, overflow: 'hidden' }}>
                     <div
                       style={{
-                        width: `${Math.max(
-                          4,
-                          Math.round((l.qtd / maiorRank) * 100)
-                        )}%`,
+                        width: `${Math.max(4, Math.round((l.qtd / maiorRank) * 100))}%`,
                         height: '100%',
                         borderRadius: 99,
                         background: SEP_CORES[i % SEP_CORES.length],
@@ -20490,61 +17067,25 @@ function TelaSeparacaoLista({ ativo }) {
         </LfCard>
 
         <LfCard titulo="Listas por dia" subtitulo="Últimos 7 dias">
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'flex-end',
-              gap: 10,
-              height: 170,
-            }}
-          >
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 170 }}>
             {dias7.map((d, i) => (
               <div
                 key={d.ini}
                 title={`${sepDataBr(d.ini)}: ${d.qtd}`}
-                style={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'flex-end',
-                  height: '100%',
-                  gap: 6,
-                }}
+                style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', gap: 6 }}
               >
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 800,
-                    color: C.txtPri,
-                    fontVariantNumeric: 'tabular-nums',
-                  }}
-                >
-                  {d.qtd}
-                </span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: C.txtPri, fontVariantNumeric: 'tabular-nums' }}>{d.qtd}</span>
                 <div
                   style={{
                     width: '100%',
-                    height: `${Math.max(
-                      3,
-                      Math.round((d.qtd / maiorDia) * 100)
-                    )}px`,
+                    height: `${Math.max(3, Math.round((d.qtd / maiorDia) * 100))}px`,
                     maxHeight: 110,
                     borderRadius: 6,
-                    background: d.hoje
-                      ? C.primaryGrad
-                      : SEP_CORES[i % SEP_CORES.length],
+                    background: d.hoje ? C.primaryGrad : SEP_CORES[i % SEP_CORES.length],
                     opacity: d.hoje ? 1 : 0.5,
                   }}
                 />
-                <span
-                  style={{
-                    fontSize: 11.5,
-                    color: d.hoje ? C.primary : C.txtMuted,
-                    fontWeight: d.hoje ? 800 : 600,
-                    textTransform: 'capitalize',
-                  }}
-                >
+                <span style={{ fontSize: 11.5, color: d.hoje ? C.primary : C.txtMuted, fontWeight: d.hoje ? 800 : 600, textTransform: 'capitalize' }}>
                   {d.rot}
                 </span>
               </div>
@@ -20557,9 +17098,7 @@ function TelaSeparacaoLista({ ativo }) {
         titulo="Histórico de separações"
         subtitulo={
           filtrados.length
-            ? `${Math.min(50, filtrados.length)} de ${
-                filtrados.length
-              } ${sepPlural(filtrados.length, 'registro', 'registros')}`
+            ? `${Math.min(50, filtrados.length)} de ${filtrados.length} ${sepPlural(filtrados.length, 'registro', 'registros')}`
             : 'Nenhum registro'
         }
         acoes={
@@ -20590,12 +17129,7 @@ function TelaSeparacaoLista({ ativo }) {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
-          <select
-            className="lf-input"
-            style={lfInputStyle}
-            value={fSep}
-            onChange={(e) => setFSep(e.target.value)}
-          >
+          <select className="lf-input" style={lfInputStyle} value={fSep} onChange={(e) => setFSep(e.target.value)}>
             <option value="">Separador: todos</option>
             {nomes.map((n) => (
               <option key={n} value={n}>
@@ -20603,23 +17137,13 @@ function TelaSeparacaoLista({ ativo }) {
               </option>
             ))}
           </select>
-          <select
-            className="lf-input"
-            style={lfInputStyle}
-            value={fMeta}
-            onChange={(e) => setFMeta(e.target.value)}
-          >
+          <select className="lf-input" style={lfInputStyle} value={fMeta} onChange={(e) => setFMeta(e.target.value)}>
             <option value="">Situação: todas</option>
             <option value="ok">Dentro da meta</option>
             <option value="late">Acima da meta (15 min)</option>
             <option value="lim">Acima de 1h</option>
           </select>
-          <select
-            className="lf-input"
-            style={lfInputStyle}
-            value={fOrd}
-            onChange={(e) => setFOrd(e.target.value)}
-          >
+          <select className="lf-input" style={lfInputStyle} value={fOrd} onChange={(e) => setFOrd(e.target.value)}>
             <option value="recente">Mais recentes</option>
             <option value="antiga">Mais antigas</option>
             <option value="lenta">Maior tempo</option>
@@ -20630,18 +17154,7 @@ function TelaSeparacaoLista({ ativo }) {
           <LfVazio>Nenhum registro encontrado.</LfVazio>
         ) : (
           <LfTabela
-            colunas={[
-              'Lista',
-              'Separador',
-              'Transportadora',
-              'Gerada',
-              'Pedidos',
-              'Itens',
-              'Início',
-              'Fim',
-              'Tempo',
-              'Situação',
-            ]}
+            colunas={['Lista', 'Separador', 'Transportadora', 'Gerada', 'Pedidos', 'Itens', 'Início', 'Fim', 'Tempo', 'Situação']}
             compacta
             numericas={['Pedidos', 'Itens', 'Tempo']}
           >
@@ -20661,28 +17174,11 @@ function TelaSeparacaoLista({ ativo }) {
                   <td style={lfTdNum}>{sepNum(r.unidades)}</td>
                   <td style={lfTdStyle}>{sepQuando(r.inicio)}</td>
                   <td style={lfTdStyle}>{sepQuando(r.fim)}</td>
-                  <td
-                    style={{
-                      ...lfTdNum,
-                      fontWeight: 800,
-                      color: sepCorTempo(Number(r.duracao || 0)),
-                    }}
-                  >
-                    {sepHms(r.duracao)}
-                  </td>
+                  <td style={{ ...lfTdNum, fontWeight: 800, color: sepCorTempo(Number(r.duracao || 0)) }}>{sepHms(r.duracao)}</td>
                   <td style={lfTdStyle}>
-                    <div
-                      style={{ display: 'flex', alignItems: 'center', gap: 8 }}
-                    >
-                      <LfBadge tipo={estourou ? 'erro' : late ? 'warn' : 'ok'}>
-                        {estourou ? '> 1h' : late ? '> 15 min' : 'Na meta'}
-                      </LfBadge>
-                      <LfBtn
-                        pequeno
-                        tipo="perigo"
-                        title="Ocultar do histórico"
-                        onClick={() => ocultar(r)}
-                      >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <LfBadge tipo={estourou ? 'erro' : late ? 'warn' : 'ok'}>{estourou ? '> 1h' : late ? '> 15 min' : 'Na meta'}</LfBadge>
+                      <LfBtn pequeno tipo="perigo" title="Ocultar do histórico" onClick={() => ocultar(r)}>
                         ✕
                       </LfBtn>
                     </div>
@@ -20750,33 +17246,14 @@ function TelaSeparacaoLista({ ativo }) {
               border: `1px solid ${C.bdMid}`,
             }}
           >
-            <div
-              style={{
-                fontSize: 16,
-                fontWeight: 800,
-                color: C.txtPri,
-                marginBottom: 6,
-              }}
-            >
-              Finalizar {finModal.lista}
-            </div>
-            <div
-              style={{
-                fontSize: 13,
-                color: C.txtSec,
-                marginBottom: 16,
-                lineHeight: 1.5,
-              }}
-            >
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.txtPri, marginBottom: 6 }}>Finalizar {finModal.lista}</div>
+            <div style={{ fontSize: 13, color: C.txtSec, marginBottom: 16, lineHeight: 1.5 }}>
               Separador: <b>{finModal.separador}</b>
               <br />
               Você faturou essa lista?
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <LfBtn
-                tipo="verde"
-                onClick={() => confirmarFinalizacao(finModal, true)}
-              >
+              <LfBtn tipo="verde" onClick={() => confirmarFinalizacao(finModal, true)}>
                 ✓ Sim, eu faturei ({finModal.separador})
               </LfBtn>
               <LfBtn onClick={() => confirmarFinalizacao(finModal, false)}>
@@ -20787,8 +17264,7 @@ function TelaSeparacaoLista({ ativo }) {
               </LfBtn>
             </div>
             <div style={{ fontSize: 11.5, color: C.txtMuted, marginTop: 12 }}>
-              Se não foi você, quem faturou é escolhido depois na aba Via
-              Leitor.
+              Se não foi você, quem faturou é escolhido depois na aba Via Leitor.
             </div>
           </div>
         </div>
@@ -20817,12 +17293,8 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
     setCarregando(true);
     try {
       const [fin, listas] = await Promise.all([
-        sepBuscarTudo(
-          '/separacao_listas?select=*&status=eq.finalizada&order=id.desc'
-        ),
-        sepBuscarTudo(
-          '/historico_listas?select=lista,data_hora,transportadora,pedidos,unidades&order=id.desc'
-        ),
+        sepBuscarTudo('/separacao_listas?select=*&status=eq.finalizada&order=id.desc'),
+        sepBuscarTudo('/historico_listas?select=lista,data_hora,transportadora,pedidos,unidades&order=id.desc'),
       ]);
       setRows((Array.isArray(fin) ? fin : []).map(sepParse));
       setGeradas(Array.isArray(listas) ? listas : []);
@@ -20851,9 +17323,7 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
       .filter((r) => r.inicio)
       .map((r) => {
         const g = mapa.get(sepNorm(r.lista));
-        const geradaEm =
-          r.geradaEm ||
-          (g && g.data_hora ? new Date(g.data_hora).getTime() : null);
+        const geradaEm = r.geradaEm || (g && g.data_hora ? new Date(g.data_hora).getTime() : null);
         const espera = geradaEm ? Math.max(0, r.inicio - geradaEm) : null;
         const dur = Number(r.duracao || 0);
         return {
@@ -20869,31 +17339,15 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
       });
   }, [rows, geradas]);
 
-  const mesDe = (ts) =>
-    `${sepPad(new Date(ts).getMonth() + 1)}/${new Date(ts).getFullYear()}`;
+  const mesDe = (ts) => `${sepPad(new Date(ts).getMonth() + 1)}/${new Date(ts).getFullYear()}`;
   const mesAtual = mesDe(Date.now());
   const meses = useMemo(
-    () =>
-      [...new Set(base.map((r) => mesDe(r.dia)))].sort(
-        (a, b) => b.slice(3).localeCompare(a.slice(3)) || b.localeCompare(a)
-      ),
+    () => [...new Set(base.map((r) => mesDe(r.dia)))].sort((a, b) => b.slice(3).localeCompare(a.slice(3)) || b.localeCompare(a)),
     [base]
   );
   const anoAtual = String(new Date().getFullYear());
-  const anos = useMemo(
-    () =>
-      [...new Set(base.map((r) => String(new Date(r.dia).getFullYear())))].sort(
-        (a, b) => b.localeCompare(a)
-      ),
-    [base]
-  );
-  const nomes = useMemo(
-    () =>
-      [...new Set(base.map((r) => r.separador))]
-        .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b, 'pt-BR')),
-    [base]
-  );
+  const anos = useMemo(() => [...new Set(base.map((r) => String(new Date(r.dia).getFullYear())))].sort((a, b) => b.localeCompare(a)), [base]);
+  const nomes = useMemo(() => [...new Set(base.map((r) => r.separador))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR')), [base]);
 
   const filtradas = useMemo(() => {
     const hoje = sepDia0(Date.now());
@@ -20903,20 +17357,12 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
         const ano = String(new Date(r.dia).getFullYear());
         return af === 'atual' ? ano === anoAtual : !af || ano === af;
       }
-      if (
-        mf === 'atual' ? mesDe(r.dia) !== mesAtual : mf && mesDe(r.dia) !== mf
-      )
-        return false;
+      if (mf === 'atual' ? mesDe(r.dia) !== mesAtual : mf && mesDe(r.dia) !== mf) return false;
       if (pf === 'hoje' && r.dia !== hoje) return false;
       if (pf === 'ontem' && r.dia !== hoje - 864e5) return false;
-      if (
-        pf === 'ultimos' &&
-        r.dia < hoje - (Math.max(1, Number(dp) || 1) - 1) * 864e5
-      )
-        return false;
+      if (pf === 'ultimos' && r.dia < hoje - (Math.max(1, Number(dp) || 1) - 1) * 864e5) return false;
       return true;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base, mf, pf, dp, af, fSep, mensal]);
 
   // Resume um conjunto de listas em números do dia.
@@ -20924,8 +17370,7 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
     const comEsp = lista.filter((r) => r.espera != null);
     const noPrazo = lista.filter((r) => !r.atrEsp && !r.atrSep).length;
     const pct = (parte, total) => (total ? (parte / total) * 100 : null);
-    const media = (arr) =>
-      arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null;
+    const media = (arr) => (arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null);
     return {
       total: lista.length,
       noPrazo,
@@ -20933,10 +17378,7 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
       pctGeral: pct(noPrazo, lista.length),
       pctEsp: pct(comEsp.filter((r) => !r.atrEsp).length, comEsp.length),
       pctSep: pct(lista.filter((r) => !r.atrSep).length, lista.length),
-      pctMeta: pct(
-        lista.filter((r) => r.dur <= SEP_META_MS).length,
-        lista.length
-      ),
+      pctMeta: pct(lista.filter((r) => r.dur <= SEP_META_MS).length, lista.length),
       mediaEsp: media(comEsp.map((r) => r.espera)),
       mediaSep: media(lista.map((r) => r.dur)),
       pedidos: lista.reduce((s, r) => s + (Number(r.pedidos) || 0), 0),
@@ -20947,37 +17389,17 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
   const dias = useMemo(() => {
     const mapa = new Map();
     filtradas.forEach((r) => {
-      const k = mensal
-        ? new Date(
-            new Date(r.dia).getFullYear(),
-            new Date(r.dia).getMonth(),
-            1
-          ).getTime()
-        : r.dia;
+      const k = mensal ? new Date(new Date(r.dia).getFullYear(), new Date(r.dia).getMonth(), 1).getTime() : r.dia;
       if (!mapa.has(k)) mapa.set(k, []);
       mapa.get(k).push(r);
     });
     return [...mapa.entries()]
       .sort((a, b) => b[0] - a[0])
-      .map(([dia, lista]) => ({
-        dia,
-        diasComLista: new Set(lista.map((r) => r.dia)).size,
-        ...resumir(lista),
-      }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      .map(([dia, lista]) => ({ dia, diasComLista: new Set(lista.map((r) => r.dia)).size, ...resumir(lista) }));
   }, [filtradas, mensal]);
-  const geral = useMemo(
-    () => ({
-      ...resumir(filtradas),
-      diasTotal: new Set(filtradas.map((r) => r.dia)).size,
-    }),
-    [filtradas]
-  );
+  const geral = useMemo(() => ({ ...resumir(filtradas), diasTotal: new Set(filtradas.map((r) => r.dia)).size }), [filtradas]);
   const pior = useMemo(
-    () =>
-      dias
-        .filter((d) => d.pctGeral != null)
-        .sort((a, b) => a.pctGeral - b.pctGeral)[0] || null,
+    () => dias.filter((d) => d.pctGeral != null).sort((a, b) => a.pctGeral - b.pctGeral)[0] || null,
     [dias]
   );
 
@@ -21003,12 +17425,7 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
     ...extra,
   });
   const SEPARA = '4px solid #f0f3ff';
-  const tdBase = {
-    padding: '5px 8px',
-    textAlign: 'center',
-    fontSize: 10,
-    borderBottom: `1px solid ${C.bdLight}`,
-  };
+  const tdBase = { padding: '5px 8px', textAlign: 'center', fontSize: 10, borderBottom: `1px solid ${C.bdLight}` };
   const tdPct = (valor, sep) => {
     const cor = corPct(valor);
     return (
@@ -21046,41 +17463,18 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
     const dt = d.dia != null ? new Date(d.dia) : null;
     const negrito = rotulo ? { fontWeight: 800, background: C.bgMuted } : null;
     return (
-      <tr
-        key={chave}
-        style={{ background: idx % 2 === 0 ? C.bgCard : C.bgStripe }}
-      >
+      <tr key={chave} style={{ background: idx % 2 === 0 ? C.bgCard : C.bgStripe }}>
         {mensal ? (
           <>
-            <td
-              style={{
-                ...tdBase,
-                fontWeight: 800,
-                fontFamily: C.fontMono,
-                color: C.txtPri,
-                ...negrito,
-              }}
-            >
+            <td style={{ ...tdBase, fontWeight: 800, fontFamily: C.fontMono, color: C.txtPri, ...negrito }}>
               {rotulo || mesDe(d.dia)}
             </td>
-            <td style={{ ...tdBase, color: C.txtSec, ...negrito }}>
-              {rotulo ? d.diasTotal : d.diasComLista}
-            </td>
+            <td style={{ ...tdBase, color: C.txtSec, ...negrito }}>{rotulo ? d.diasTotal : d.diasComLista}</td>
           </>
         ) : (
           <>
-            <td style={{ ...tdBase, color: C.txtSec, ...negrito }}>
-              {dt ? mesDe(d.dia) : ''}
-            </td>
-            <td
-              style={{
-                ...tdBase,
-                fontWeight: 800,
-                fontFamily: C.fontMono,
-                color: C.txtPri,
-                ...negrito,
-              }}
-            >
+            <td style={{ ...tdBase, color: C.txtSec, ...negrito }}>{dt ? mesDe(d.dia) : ''}</td>
+            <td style={{ ...tdBase, fontWeight: 800, fontFamily: C.fontMono, color: C.txtPri, ...negrito }}>
               {rotulo || dt.toLocaleDateString('pt-BR')}
             </td>
             <td style={{ ...tdBase, color: C.txtSec, ...negrito }}>
@@ -21093,20 +17487,9 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
         {tdPct(d.pctGeral, false)}
         {tdNum(d.total, true, { fontWeight: 800 })}
         {tdNum(d.noPrazo, false, { color: C.green, fontWeight: 800 })}
-        {tdNum(d.atraso, false, {
-          color: d.atraso ? C.red : C.txtMuted,
-          fontWeight: 800,
-        })}
-        {tdNum(
-          tempo(d.mediaEsp),
-          true,
-          d.mediaEsp > SEP_LIMITE_MS ? { color: C.red, fontWeight: 800 } : null
-        )}
-        {tdNum(
-          tempo(d.mediaSep),
-          false,
-          d.mediaSep > SEP_LIMITE_MS ? { color: C.red, fontWeight: 800 } : null
-        )}
+        {tdNum(d.atraso, false, { color: d.atraso ? C.red : C.txtMuted, fontWeight: 800 })}
+        {tdNum(tempo(d.mediaEsp), true, d.mediaEsp > SEP_LIMITE_MS ? { color: C.red, fontWeight: 800 } : null)}
+        {tdNum(tempo(d.mediaSep), false, d.mediaSep > SEP_LIMITE_MS ? { color: C.red, fontWeight: 800 } : null)}
         {tdNum(d.pedidos || '—', true)}
         {tdNum(d.unidades || '—', false)}
       </tr>
@@ -21120,17 +17503,12 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
         atualizadoEm={atualizadoEm || '—'}
         extraInfo={
           <span>
-            No prazo: até <strong style={{ color: C.txtSec }}>1h</strong> para
-            iniciar e até <strong style={{ color: C.txtSec }}>1h</strong> para
-            finalizar
+            No prazo: até <strong style={{ color: C.txtSec }}>1h</strong> para iniciar e até{' '}
+            <strong style={{ color: C.txtSec }}>1h</strong> para finalizar
           </span>
         }
         actions={
-          <button
-            onClick={carregar}
-            disabled={carregando}
-            style={btnAtualizar(carregando)}
-          >
+          <button onClick={carregar} disabled={carregando} style={btnAtualizar(carregando)}>
             {carregando ? 'Atualizando…' : 'Atualizar'}
           </button>
         }
@@ -21151,11 +17529,7 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
         }}
       >
         {mensal ? (
-          <select
-            value={af}
-            onChange={(e) => setAf(e.target.value)}
-            style={selectEl}
-          >
+          <select value={af} onChange={(e) => setAf(e.target.value)} style={selectEl}>
             <option value="atual">Ano atual</option>
             <option value="">Todos os anos</option>
             {anos.map((a) => (
@@ -21166,45 +17540,27 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
           </select>
         ) : (
           <>
-            <select
-              value={pf}
-              onChange={(e) => setPf(e.target.value)}
-              style={selectEl}
-            >
-              <option value="todos">Todos os dias</option>
-              <option value="hoje">Hoje</option>
-              <option value="ontem">Ontem</option>
-              <option value="ultimos">Últimos X dias</option>
-            </select>
-            {pf === 'ultimos' && (
-              <input
-                type="number"
-                min="1"
-                value={dp}
-                onChange={(e) => setDp(e.target.value)}
-                style={{ ...selectEl, width: 64 }}
-              />
-            )}
-            <select
-              value={mf}
-              onChange={(e) => setMf(e.target.value)}
-              style={selectEl}
-            >
-              <option value="atual">Mês atual</option>
-              <option value="">Todos os meses</option>
-              {meses.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+        <select value={pf} onChange={(e) => setPf(e.target.value)} style={selectEl}>
+          <option value="todos">Todos os dias</option>
+          <option value="hoje">Hoje</option>
+          <option value="ontem">Ontem</option>
+          <option value="ultimos">Últimos X dias</option>
+        </select>
+        {pf === 'ultimos' && (
+          <input type="number" min="1" value={dp} onChange={(e) => setDp(e.target.value)} style={{ ...selectEl, width: 64 }} />
+        )}
+        <select value={mf} onChange={(e) => setMf(e.target.value)} style={selectEl}>
+          <option value="atual">Mês atual</option>
+          <option value="">Todos os meses</option>
+          {meses.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
           </>
         )}
-        <select
-          value={fSep}
-          onChange={(e) => setFSep(e.target.value)}
-          style={selectEl}
-        >
+        <select value={fSep} onChange={(e) => setFSep(e.target.value)} style={selectEl}>
           <option value="">Separador: todos</option>
           {nomes.map((n) => (
             <option key={n} value={n}>
@@ -21226,54 +17582,16 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
         </button>
       </section>
       <section
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-          gap: 12,
-          marginBottom: 16,
-        }}
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12, marginBottom: 16 }}
       >
-        <ICard
-          titulo="Listas separadas"
-          valor={geral.total}
-          grad={C.grad2}
-          detalhe={
-            mensal
-              ? `${dias.length} ${sepPlural(
-                  dias.length,
-                  'mês',
-                  'meses'
-                )} no filtro`
-              : `${dias.length} ${sepPlural(
-                  dias.length,
-                  'dia',
-                  'dias'
-                )} no filtro`
-          }
-        />
-        <ICard
-          titulo="% no prazo"
-          valor={geral.pctGeral == null ? '—' : fmtPct(geral.pctGeral)}
-          grad={C.grad3}
-          detalhe={`${geral.noPrazo} de ${geral.total} listas`}
-        />
-        <ICard
-          titulo="Em atraso"
-          valor={geral.atraso}
-          grad={C.grad6}
-          detalhe="Passou de 1h para iniciar ou finalizar"
-        />
+        <ICard titulo="Listas separadas" valor={geral.total} grad={C.grad2} detalhe={mensal ? `${dias.length} ${sepPlural(dias.length, 'mês', 'meses')} no filtro` : `${dias.length} ${sepPlural(dias.length, 'dia', 'dias')} no filtro`} />
+        <ICard titulo="% no prazo" valor={geral.pctGeral == null ? '—' : fmtPct(geral.pctGeral)} grad={C.grad3} detalhe={`${geral.noPrazo} de ${geral.total} listas`} />
+        <ICard titulo="Em atraso" valor={geral.atraso} grad={C.grad6} detalhe="Passou de 1h para iniciar ou finalizar" />
         <ICard
           titulo={mensal ? 'Pior mês' : 'Pior dia'}
           valor={pior ? fmtPct(pior.pctGeral) : '—'}
           grad={C.grad5}
-          detalhe={
-            pior
-              ? mensal
-                ? mesDe(pior.dia)
-                : new Date(pior.dia).toLocaleDateString('pt-BR')
-              : 'Sem dados'
-          }
+          detalhe={pior ? (mensal ? mesDe(pior.dia) : new Date(pior.dia).toLocaleDateString('pt-BR')) : 'Sem dados'}
         />
       </section>
       <section
@@ -21295,126 +17613,57 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
             background: C.bgStripe,
           }}
         >
-          <span
-            style={{
-              fontWeight: 800,
-              color: C.txtPri,
-              fontSize: 14,
-              fontFamily: C.font,
-              letterSpacing: '-0.02em',
-            }}
-          >
-            {mensal
-              ? 'Desempenho Mensal da Separação'
-              : 'Desempenho Diário da Separação'}
+          <span style={{ fontWeight: 800, color: C.txtPri, fontSize: 14, fontFamily: C.font, letterSpacing: '-0.02em' }}>
+            {mensal ? 'Desempenho Mensal da Separação' : 'Desempenho Diário da Separação'}
           </span>
           <ContadorRegistros
             filtrados={dias.length}
-            total={
-              mensal
-                ? new Set(base.map((r) => mesDe(r.dia))).size
-                : new Set(base.map((r) => r.dia)).size
-            }
+            total={mensal ? new Set(base.map((r) => mesDe(r.dia))).size : new Set(base.map((r) => r.dia)).size}
           />
         </div>
         <div style={{ overflowX: 'auto' }}>
-          <table
-            style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontSize: 11,
-              fontFamily: C.font,
-            }}
-          >
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, fontFamily: C.font }}>
             <thead>
               <tr>
-                <th
-                  colSpan={mensal ? 2 : 3}
-                  style={grupo(
-                    'linear-gradient(135deg,#302b63,#24243e)',
-                    '#c4b5fd'
-                  )}
-                >
+                <th colSpan={mensal ? 2 : 3} style={grupo('linear-gradient(135deg,#302b63,#24243e)', '#c4b5fd')}>
                   {mensal ? 'Dados do Mês' : 'Dados do Dia'}
                 </th>
-                <th
-                  colSpan="3"
-                  style={grupo(
-                    'linear-gradient(135deg,#064e3b,#065f46)',
-                    '#a7f3d0',
-                    { borderLeft: SEPARA }
-                  )}
-                >
+                <th colSpan="3" style={grupo('linear-gradient(135deg,#064e3b,#065f46)', '#a7f3d0', { borderLeft: SEPARA })}>
                   Prazo (%)
                 </th>
-                <th
-                  colSpan="3"
-                  style={grupo(
-                    'linear-gradient(135deg,#1a1f6e,#2d3282)',
-                    '#bfdbfe',
-                    { borderLeft: SEPARA }
-                  )}
-                >
+                <th colSpan="3" style={grupo('linear-gradient(135deg,#1a1f6e,#2d3282)', '#bfdbfe', { borderLeft: SEPARA })}>
                   Listas
                 </th>
-                <th
-                  colSpan="2"
-                  style={grupo(
-                    'linear-gradient(135deg,#374151,#1f2937)',
-                    '#d1d5db',
-                    { borderLeft: SEPARA }
-                  )}
-                >
+                <th colSpan="2" style={grupo('linear-gradient(135deg,#374151,#1f2937)', '#d1d5db', { borderLeft: SEPARA })}>
                   Tempo médio
                 </th>
-                <th
-                  colSpan="2"
-                  style={grupo(
-                    'linear-gradient(135deg,#7c2d12,#9a3412)',
-                    '#fed7aa',
-                    { borderLeft: SEPARA }
-                  )}
-                >
+                <th colSpan="2" style={grupo('linear-gradient(135deg,#7c2d12,#9a3412)', '#fed7aa', { borderLeft: SEPARA })}>
                   Volume
                 </th>
               </tr>
               <tr style={{ background: C.bgMuted }}>
-                {(mensal ? ['Mês', 'Dias'] : ['Mês', 'Data', 'Dia']).map(
-                  (t) => (
-                    <th key={t} style={th}>
-                      {t}
-                    </th>
-                  )
-                )}
+                {(mensal ? ['Mês', 'Dias'] : ['Mês', 'Data', 'Dia']).map((t) => (
+                  <th key={t} style={th}>
+                    {t}
+                  </th>
+                ))}
                 {['Iniciar ≤1h', 'Finalizar ≤1h', 'Geral'].map((t, i) => (
-                  <th
-                    key={t}
-                    style={{ ...th, borderLeft: i === 0 ? SEPARA : undefined }}
-                  >
+                  <th key={t} style={{ ...th, borderLeft: i === 0 ? SEPARA : undefined }}>
                     {t}
                   </th>
                 ))}
                 {['Total', 'No prazo', 'Atraso'].map((t, i) => (
-                  <th
-                    key={t}
-                    style={{ ...th, borderLeft: i === 0 ? SEPARA : undefined }}
-                  >
+                  <th key={t} style={{ ...th, borderLeft: i === 0 ? SEPARA : undefined }}>
                     {t}
                   </th>
                 ))}
                 {['Espera', 'Separação'].map((t, i) => (
-                  <th
-                    key={t}
-                    style={{ ...th, borderLeft: i === 0 ? SEPARA : undefined }}
-                  >
+                  <th key={t} style={{ ...th, borderLeft: i === 0 ? SEPARA : undefined }}>
                     {t}
                   </th>
                 ))}
                 {['Pedidos', 'Itens'].map((t, i) => (
-                  <th
-                    key={t}
-                    style={{ ...th, borderLeft: i === 0 ? SEPARA : undefined }}
-                  >
+                  <th key={t} style={{ ...th, borderLeft: i === 0 ? SEPARA : undefined }}>
                     {t}
                   </th>
                 ))}
@@ -21423,30 +17672,14 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
             <tbody>
               {carregando && !dias.length && (
                 <tr>
-                  <td
-                    colSpan={mensal ? 12 : 13}
-                    style={{
-                      padding: 28,
-                      textAlign: 'center',
-                      color: C.txtMuted,
-                      fontFamily: C.font,
-                    }}
-                  >
+                  <td colSpan={mensal ? 12 : 13} style={{ padding: 28, textAlign: 'center', color: C.txtMuted, fontFamily: C.font }}>
                     Carregando…
                   </td>
                 </tr>
               )}
               {!carregando && !dias.length && (
                 <tr>
-                  <td
-                    colSpan={mensal ? 12 : 13}
-                    style={{
-                      padding: 28,
-                      textAlign: 'center',
-                      color: C.txtMuted,
-                      fontFamily: C.font,
-                    }}
-                  >
+                  <td colSpan={mensal ? 12 : 13} style={{ padding: 28, textAlign: 'center', color: C.txtMuted, fontFamily: C.font }}>
                     Nenhuma lista separada neste filtro.
                   </td>
                 </tr>
@@ -21978,79 +18211,77 @@ export default function App() {
             Pedido de Venda
           </MenuBtn>
           {ehLogistica && (
-            <div
-              style={{
-                borderRadius: C.radius.md,
-                padding: indicAtivo ? 5 : 0,
-                background: indicAtivo
-                  ? 'rgba(255,255,255,0.04)'
-                  : 'transparent',
-                border: indicAtivo
-                  ? '1px solid rgba(255,255,255,0.07)'
-                  : '1px solid transparent',
-                marginTop: 2,
-              }}
+          <div
+            style={{
+              borderRadius: C.radius.md,
+              padding: indicAtivo ? 5 : 0,
+              background: indicAtivo ? 'rgba(255,255,255,0.04)' : 'transparent',
+              border: indicAtivo
+                ? '1px solid rgba(255,255,255,0.07)'
+                : '1px solid transparent',
+              marginTop: 2,
+            }}
+          >
+            <MenuGrupBtn
+              icon="I"
+              ativo={indicAtivo}
+              onClick={() => setTela('indicadorDiario')}
             >
-              <MenuGrupBtn
-                icon="I"
-                ativo={indicAtivo}
-                onClick={() => setTela('indicadorDiario')}
-              >
-                Indicadores
-              </MenuGrupBtn>
-              {indicAtivo && (
-                <div style={{ marginTop: 4, paddingTop: 2 }}>
-                  <SubMenuBtn
-                    ativo={tela === 'indicadorDiario'}
-                    onClick={() => setTela('indicadorDiario')}
-                  >
-                    Faturamento Diário
-                  </SubMenuBtn>
-                  <SubMenuBtn
-                    ativo={tela === 'indicadorExpedicaoDiario'}
-                    onClick={() => setTela('indicadorExpedicaoDiario')}
-                  >
-                    Expedição Diário
-                  </SubMenuBtn>
-                  <SubMenuBtn
-                    ativo={tela === 'indicadorFaturamentoMensal'}
-                    onClick={() => setTela('indicadorFaturamentoMensal')}
-                  >
-                    Faturamento Mensal
-                  </SubMenuBtn>
-                  <SubMenuBtn
-                    ativo={tela === 'indicadorExpedicaoMensal'}
-                    onClick={() => setTela('indicadorExpedicaoMensal')}
-                  >
-                    Expedição Mensal
-                  </SubMenuBtn>
-                  <SubMenuBtn
-                    ativo={tela === 'indicadorAbastecimentoEstoque'}
-                    onClick={() => setTela('indicadorAbastecimentoEstoque')}
-                  >
-                    Abastecimento Estoque
-                  </SubMenuBtn>
-                  <SubMenuBtn
-                    ativo={tela === 'indicadorAbastecimentoMensal'}
-                    onClick={() => setTela('indicadorAbastecimentoMensal')}
-                  >
-                    Abastecimento Mensal
-                  </SubMenuBtn>
-                  <SubMenuBtn
-                    ativo={tela === 'indicadorSeparacaoDiario'}
-                    onClick={() => setTela('indicadorSeparacaoDiario')}
-                  >
-                    Separação Diário
-                  </SubMenuBtn>
-                  <SubMenuBtn
-                    ativo={tela === 'indicadorSeparacaoMensal'}
-                    onClick={() => setTela('indicadorSeparacaoMensal')}
-                  >
-                    Separação Mensal
-                  </SubMenuBtn>
-                </div>
-              )}
-            </div>
+              Indicadores
+            </MenuGrupBtn>
+            {indicAtivo && (
+              <div style={{ marginTop: 4, paddingTop: 2 }}>
+                <SubMenuBtn
+                  ativo={tela === 'indicadorDiario'}
+                  onClick={() => setTela('indicadorDiario')}
+                >
+                  Faturamento Diário
+                </SubMenuBtn>
+                <SubMenuBtn
+                  ativo={tela === 'indicadorExpedicaoDiario'}
+                  onClick={() => setTela('indicadorExpedicaoDiario')}
+                >
+                  Expedição Diário
+                </SubMenuBtn>
+                <SubMenuBtn
+                  ativo={tela === 'indicadorFaturamentoMensal'}
+                  onClick={() => setTela('indicadorFaturamentoMensal')}
+                >
+                  Faturamento Mensal
+                </SubMenuBtn>
+                <SubMenuBtn
+                  ativo={tela === 'indicadorExpedicaoMensal'}
+                  onClick={() => setTela('indicadorExpedicaoMensal')}
+                >
+                  Expedição Mensal
+                </SubMenuBtn>
+                <SubMenuBtn
+                  ativo={tela === 'indicadorAbastecimentoEstoque'}
+                  onClick={() => setTela('indicadorAbastecimentoEstoque')}
+                >
+                  Abastecimento Estoque
+                </SubMenuBtn>
+                <SubMenuBtn
+                  ativo={tela === 'indicadorAbastecimentoMensal'}
+                  onClick={() => setTela('indicadorAbastecimentoMensal')}
+                >
+                  Abastecimento Mensal
+                </SubMenuBtn>
+                <SubMenuBtn
+                  ativo={tela === 'indicadorSeparacaoDiario'}
+                  onClick={() => setTela('indicadorSeparacaoDiario')}
+                >
+                  Separação Diário
+                </SubMenuBtn>
+                <SubMenuBtn
+                  ativo={tela === 'indicadorSeparacaoMensal'}
+                  onClick={() => setTela('indicadorSeparacaoMensal')}
+                >
+                  Separação Mensal
+                </SubMenuBtn>
+              </div>
+            )}
+          </div>
           )}
         </nav>
         <div
@@ -22224,8 +18455,7 @@ export default function App() {
                 }}
               >
                 <div style={{ fontSize: 13, fontWeight: 800, color: C.txtPri }}>
-                  Resultado da busca (
-                  {tipoBuscaGlobal === 'nf' ? 'NF' : 'pedido'}
+                  Resultado da busca ({tipoBuscaGlobal === 'nf' ? 'NF' : 'pedido'}
                   ): {pedidoBuscaGlobal || '—'}
                 </div>
                 <div
@@ -22253,11 +18483,7 @@ export default function App() {
                   }}
                 >
                   {(tipoBuscaGlobal === 'nf'
-                    ? [
-                        'Postagens',
-                        ehLogistica && 'Via Leitor',
-                        'Cancelamentos',
-                      ]
+                    ? ['Postagens', ehLogistica && 'Via Leitor', 'Cancelamentos']
                     : [
                         'Faturamento',
                         'Estoque',
@@ -22514,9 +18740,9 @@ export default function App() {
           <TelaEstoque />
         </div>
         {ehLogistica && (
-          <div style={{ display: tela === 'ajusteSaldo' ? 'block' : 'none' }}>
-            <TelaAjusteSaldo />
-          </div>
+        <div style={{ display: tela === 'ajusteSaldo' ? 'block' : 'none' }}>
+          <TelaAjusteSaldo />
+        </div>
         )}
         <div style={{ display: tela === 'consultaPecas' ? 'block' : 'none' }}>
           <TelaConsultaPecas />
@@ -22554,82 +18780,73 @@ export default function App() {
           <TelaPedidoVenda />
         </div>
         {ehLogistica && (
-          <div
-            style={{ display: tela === 'indicadorDiario' ? 'block' : 'none' }}
-          >
-            <TelaIndicadorDiario />
-          </div>
+        <div style={{ display: tela === 'indicadorDiario' ? 'block' : 'none' }}>
+          <TelaIndicadorDiario />
+        </div>
         )}
         {ehLogistica && (
-          <div
-            style={{
-              display: tela === 'indicadorExpedicaoDiario' ? 'block' : 'none',
-            }}
-          >
-            <TelaIndicadorExpedicaoDiario />
-          </div>
+        <div
+          style={{
+            display: tela === 'indicadorExpedicaoDiario' ? 'block' : 'none',
+          }}
+        >
+          <TelaIndicadorExpedicaoDiario />
+        </div>
         )}
         {ehLogistica && (
-          <div
-            style={{
-              display: tela === 'indicadorFaturamentoMensal' ? 'block' : 'none',
-            }}
-          >
-            <TelaIndicadorMensal tipo="faturamento" />
-          </div>
+        <div
+          style={{
+            display: tela === 'indicadorFaturamentoMensal' ? 'block' : 'none',
+          }}
+        >
+          <TelaIndicadorMensal tipo="faturamento" />
+        </div>
         )}
         {ehLogistica && (
-          <div
-            style={{
-              display: tela === 'indicadorExpedicaoMensal' ? 'block' : 'none',
-            }}
-          >
-            <TelaIndicadorMensal tipo="expedicao" />
-          </div>
+        <div
+          style={{
+            display: tela === 'indicadorExpedicaoMensal' ? 'block' : 'none',
+          }}
+        >
+          <TelaIndicadorMensal tipo="expedicao" />
+        </div>
         )}
         {ehLogistica && (
-          <div
-            style={{
-              display:
-                tela === 'indicadorAbastecimentoEstoque' ? 'block' : 'none',
-            }}
-          >
-            <TelaIndicadorAbastecimentoEstoque />
-          </div>
+        <div
+          style={{
+            display:
+              tela === 'indicadorAbastecimentoEstoque' ? 'block' : 'none',
+          }}
+        >
+          <TelaIndicadorAbastecimentoEstoque />
+        </div>
         )}
         {ehLogistica && (
-          <div
-            style={{
-              display:
-                tela === 'indicadorAbastecimentoMensal' ? 'block' : 'none',
-            }}
-          >
-            <TelaIndicadorAbastecimentoMensal />
-          </div>
+        <div
+          style={{
+            display: tela === 'indicadorAbastecimentoMensal' ? 'block' : 'none',
+          }}
+        >
+          <TelaIndicadorAbastecimentoMensal />
+        </div>
         )}
         {ehLogistica && (
-          <div
-            style={{
-              display: tela === 'indicadorSeparacaoDiario' ? 'block' : 'none',
-            }}
-          >
-            <TelaIndicadorSeparacao
-              ativo={tela === 'indicadorSeparacaoDiario'}
-              modo="dia"
-            />
-          </div>
+        <div
+          style={{
+            display: tela === 'indicadorSeparacaoDiario' ? 'block' : 'none',
+          }}
+        >
+          <TelaIndicadorSeparacao ativo={tela === 'indicadorSeparacaoDiario'} modo="dia" />
+        </div>
         )}
         {ehLogistica && (
-          <div
-            style={{
-              display: tela === 'indicadorSeparacaoMensal' ? 'block' : 'none',
-            }}
-          >
-            <TelaIndicadorSeparacao
-              ativo={tela === 'indicadorSeparacaoMensal'}
-              modo="mes"
-            />
-          </div>
+        <div
+          style={{
+            display: tela === 'indicadorSeparacaoMensal' ? 'block' : 'none',
+          }}
+        >
+          <TelaIndicadorSeparacao ativo={tela === 'indicadorSeparacaoMensal'} modo="mes" />
+        </div>
         )}
       </main>
     </div>
