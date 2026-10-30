@@ -12424,7 +12424,7 @@ function lfLocalizacaoHistorico(produto, salva) {
 
 // ─── Regras de envio ao estoque ───────────────────────────────────────
 // Todo o pedido vai para a planilha do estoque (e não entra em lista de impressão) se:
-//  1) Tipo de faturamento = PEDIDO CAIXA (em qualquer linha do pedido); ou
+//  1) Tipo de faturamento = PEDIDO CAIXA ou Tipo de Separação = Caixa (em qualquer linha do pedido); ou
 //  2) FILTRO V.1 = Picking Insuficiente (em qualquer item do pedido).
 function lfMotivoEstoque(p) {
   if (p.tipoCaixa) return 'PEDIDO_CAIXA';
@@ -12463,18 +12463,19 @@ function lfConsolidar(rows, idx, dataExecISO, dataExecTexto) {
     const pedidoObj = mapa.get(pedido);
     pedidoObj.linhasOriginais.push(row);
 
+    // Caixa (estoque automático): Tipo de faturamento = PEDIDO CAIXA ou Tipo de Separação = Caixa.
     if (
       lfTextoRegra(
         lfGet(row, idx, ['Tipo de faturamento', 'Tipo de Faturamento', 'Tipo Faturamento'])
-      ).includes('CAIXA')
+      ).includes('CAIXA') ||
+      lfTextoRegra(lfGet(row, idx, ['Tipo de Separacao', 'Tipo de Separação', 'Tipo Separacao'])).includes('CAIXA')
     ) {
       pedidoObj.tipoCaixa = true;
     }
-    if (
-      lfTextoRegra(lfGet(row, idx, ['FILTRO V.1', 'Filtro V.1', 'FILTRO V1'])).includes(
-        'PICKING INSUFICIENTE'
-      )
-    ) {
+    // Picking Insuficiente: V.1 diz "Picking Insuficiente" OU o pedido é Picking e o V.1 traz "Insuficiente" (qualquer texto).
+    const filtroV1 = lfTextoRegra(lfGet(row, idx, ['FILTRO V.1', 'Filtro V.1', 'FILTRO V1']));
+    const tipoSep = lfTextoRegra(lfGet(row, idx, ['Tipo de Separacao', 'Tipo de Separação', 'Tipo Separacao']));
+    if (filtroV1.includes('PICKING INSUFICIENTE') || (tipoSep.includes('PICKING') && filtroV1.includes('INSUFICIENTE'))) {
       pedidoObj.pickingInsuficiente = true;
     }
 
