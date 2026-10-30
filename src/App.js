@@ -206,27 +206,34 @@ const FILTROS_INDICADOR_EXPEDICAO_DIARIO_INICIAIS = {
   data: '',
   diaSemana: '',
   pedidos0101: '',
+  pedidos0102: '',
   pedidos1020: '',
   pedidosGeral: '',
   unidades0101: '',
+  unidades0102: '',
   unidades1020: '',
   unidadesGeral: '',
   observacao: '',
-  eqAtraso: '',
-  eqFaturados: '',
-  eqEnviados: '',
-  eqAposLimiteExpedicao: '',
-  eqUnidadesEnviadas: '',
-  eqUnidadesFaturadas: '',
-  bbAtraso: '',
-  bbFaturados: '',
-  bbTotalEnviados: '',
-  bbFicouAposLimite: '',
-  bbUnidadesEnviadas: '',
-  bbUnidadesFaturadas: '',
+  c0101Atraso: '',
+  c0101Faturados: '',
+  c0101Enviados: '',
+  c0101UnidadesEnviadas: '',
+  c0101UnidadesFaturadas: '',
+  c0102Atraso: '',
+  c0102Faturados: '',
+  c0102Enviados: '',
+  c0102UnidadesEnviadas: '',
+  c0102UnidadesFaturadas: '',
+  c1020Atraso: '',
+  c1020Faturados: '',
+  c1020Enviados: '',
+  c1020UnidadesEnviadas: '',
+  c1020UnidadesFaturadas: '',
   geralAtraso: '',
   geralFaturados: '',
   geralTotalEnviados: '',
+  geralUnidadesEnviadas: '',
+  geralUnidadesFaturadas: '',
 };
 
 const FILTROS_INDICADOR_ABASTECIMENTO_ESTOQUE_INICIAIS = {
@@ -5297,27 +5304,34 @@ function TelaIndicadorExpedicaoDiario() {
         'data',
         'diaSemana',
         'pedidos0101',
+        'pedidos0102',
         'pedidos1020',
         'pedidosGeral',
         'unidades0101',
+        'unidades0102',
         'unidades1020',
         'unidadesGeral',
         'observacao',
-        'eqAtraso',
-        'eqFaturados',
-        'eqEnviados',
-        'eqAposLimiteExpedicao',
-        'eqUnidadesEnviadas',
-        'eqUnidadesFaturadas',
-        'bbAtraso',
-        'bbFaturados',
-        'bbTotalEnviados',
-        'bbFicouAposLimite',
-        'bbUnidadesEnviadas',
-        'bbUnidadesFaturadas',
+        'c0101Atraso',
+        'c0101Faturados',
+        'c0101Enviados',
+        'c0101UnidadesEnviadas',
+        'c0101UnidadesFaturadas',
+        'c0102Atraso',
+        'c0102Faturados',
+        'c0102Enviados',
+        'c0102UnidadesEnviadas',
+        'c0102UnidadesFaturadas',
+        'c1020Atraso',
+        'c1020Faturados',
+        'c1020Enviados',
+        'c1020UnidadesEnviadas',
+        'c1020UnidadesFaturadas',
         'geralAtraso',
         'geralFaturados',
         'geralTotalEnviados',
+        'geralUnidadesEnviadas',
+        'geralUnidadesFaturadas',
       ]),
     [dadosPeriodo, busca, fc]
   );
@@ -5418,7 +5432,7 @@ function TelaIndicadorExpedicaoDiario() {
     marginBottom: 10,
     fontFamily: C.font,
   };
-  const cols = det ? 23 : 8;
+  const cols = det ? 30 : 10;
   return (
     <>
       <PageHeader
@@ -5625,7 +5639,7 @@ function TelaIndicadorExpedicaoDiario() {
                   Dia
                 </th>
                 <th
-                  colSpan="3"
+                  colSpan="4"
                   style={{
                     background: 'linear-gradient(135deg,#1a1f6e,#2d3282)',
                     color: '#bfdbfe',
@@ -5640,7 +5654,7 @@ function TelaIndicadorExpedicaoDiario() {
                   Pedidos (%)
                 </th>
                 <th
-                  colSpan="3"
+                  colSpan="4"
                   style={{
                     background: 'linear-gradient(135deg,#064e3b,#065f46)',
                     color: '#a7f3d0',
@@ -5654,13 +5668,19 @@ function TelaIndicadorExpedicaoDiario() {
                 >
                   Unidades (%)
                 </th>
-                {det && (
-                  <>
+                {det &&
+                  [
+                    ['0101', 'linear-gradient(135deg,#1e3a5f,#1e40af)', '#bae6fd'],
+                    ['0102', 'linear-gradient(135deg,#3b2a6e,#5b3fb0)', '#ddd6fe'],
+                    ['1020', 'linear-gradient(135deg,#134e4a,#065f46)', '#99f6e4'],
+                    ['Geral', 'linear-gradient(135deg,#374151,#1f2937)', '#d1d5db'],
+                  ].map(([nome, fundo, cor]) => (
                     <th
-                      colSpan="6"
+                      key={`g-${nome}`}
+                      colSpan="5"
                       style={{
-                        background: 'linear-gradient(135deg,#1e3a5f,#1e40af)',
-                        color: '#bae6fd',
+                        background: fundo,
+                        color: cor,
                         fontSize: 9,
                         fontWeight: 800,
                         textTransform: 'uppercase',
@@ -5669,40 +5689,9 @@ function TelaIndicadorExpedicaoDiario() {
                         borderLeft: '4px solid #f0f3ff',
                       }}
                     >
-                      Equipatech
+                      {nome}
                     </th>
-                    <th
-                      colSpan="6"
-                      style={{
-                        background: 'linear-gradient(135deg,#134e4a,#065f46)',
-                        color: '#99f6e4',
-                        fontSize: 9,
-                        fontWeight: 800,
-                        textTransform: 'uppercase',
-                        textAlign: 'center',
-                        padding: '7px 8px',
-                        borderLeft: '4px solid #f0f3ff',
-                      }}
-                    >
-                      BBBaterias
-                    </th>
-                    <th
-                      colSpan="3"
-                      style={{
-                        background: 'linear-gradient(135deg,#374151,#1f2937)',
-                        color: '#d1d5db',
-                        fontSize: 9,
-                        fontWeight: 800,
-                        textTransform: 'uppercase',
-                        textAlign: 'center',
-                        padding: '7px 8px',
-                        borderLeft: '4px solid #f0f3ff',
-                      }}
-                    >
-                      Geral
-                    </th>
-                  </>
-                )}
+                  ))}
               </tr>
               <tr
                 style={{
@@ -5726,7 +5715,7 @@ function TelaIndicadorExpedicaoDiario() {
                     {t}
                   </th>
                 ))}
-                {['0101', '1020', 'Geral'].map((t, i) => (
+                {['0101', '0102', '1020', 'Geral'].map((t, i) => (
                   <th
                     key={`p${i}`}
                     style={{
@@ -5744,7 +5733,7 @@ function TelaIndicadorExpedicaoDiario() {
                     {t}
                   </th>
                 ))}
-                {['0101', '1020', 'Geral'].map((t, i) => (
+                {['0101', '0102', '1020', 'Geral'].map((t, i) => (
                   <th
                     key={`u${i}`}
                     style={{
@@ -5762,18 +5751,11 @@ function TelaIndicadorExpedicaoDiario() {
                     {t}
                   </th>
                 ))}
-                {det && (
-                  <>
-                    {[
-                      'Atraso',
-                      'Fat.',
-                      'Env.',
-                      'Após lim.',
-                      'Un.Env.',
-                      'Un.Fat.',
-                    ].map((t, i) => (
+                {det &&
+                  ['0101', '0102', '1020', 'Geral'].map((bloco) =>
+                    ['Atraso', 'Fat.', 'Env.', 'Un.Env.', 'Un.Fat.'].map((t, i) => (
                       <th
-                        key={`eq${i}`}
+                        key={`${bloco}-${i}`}
                         style={{
                           padding: '5px 6px',
                           fontSize: 9,
@@ -5789,54 +5771,8 @@ function TelaIndicadorExpedicaoDiario() {
                       >
                         {t}
                       </th>
-                    ))}
-                    {[
-                      'Atraso',
-                      'Fat.',
-                      'Env.',
-                      'Após lim.',
-                      'Un.Env.',
-                      'Un.Fat.',
-                    ].map((t, i) => (
-                      <th
-                        key={`bb${i}`}
-                        style={{
-                          padding: '5px 6px',
-                          fontSize: 9,
-                          fontWeight: 800,
-                          color: C.txtSec,
-                          textAlign: 'center',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                          borderBottom: `1px solid ${C.bdLight}`,
-                          borderLeft: i === 0 ? '4px solid #f0f3ff' : undefined,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {t}
-                      </th>
-                    ))}
-                    {['Atraso', 'Fat.', 'Env.'].map((t, i) => (
-                      <th
-                        key={`g${i}`}
-                        style={{
-                          padding: '5px 6px',
-                          fontSize: 9,
-                          fontWeight: 800,
-                          color: C.txtSec,
-                          textAlign: 'center',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                          borderBottom: `1px solid ${C.bdLight}`,
-                          borderLeft: i === 0 ? '4px solid #f0f3ff' : undefined,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {t}
-                      </th>
-                    ))}
-                  </>
-                )}
+                    ))
+                  )}
               </tr>
             </thead>
             <tbody>
@@ -5901,30 +5837,23 @@ function TelaIndicadorExpedicaoDiario() {
                     {item.diaSemana || '—'}
                   </td>
                   {rp(item, 'pedidos0101', true)}
+                  {rp(item, 'pedidos0102')}
                   {rp(item, 'pedidos1020')}
                   {rp(item, 'pedidosGeral')}
                   {rp(item, 'unidades0101', true)}
+                  {rp(item, 'unidades0102')}
                   {rp(item, 'unidades1020')}
                   {rp(item, 'unidadesGeral')}
-                  {det && (
-                    <>
-                      {rn(item, 'eqAtraso', true, true)}
-                      {rn(item, 'eqFaturados')}
-                      {rn(item, 'eqEnviados')}
-                      {rn(item, 'eqAposLimiteExpedicao', false, true)}
-                      {rn(item, 'eqUnidadesEnviadas')}
-                      {rn(item, 'eqUnidadesFaturadas')}
-                      {rn(item, 'bbAtraso', true, true)}
-                      {rn(item, 'bbFaturados')}
-                      {rn(item, 'bbTotalEnviados')}
-                      {rn(item, 'bbFicouAposLimite', false, true)}
-                      {rn(item, 'bbUnidadesEnviadas')}
-                      {rn(item, 'bbUnidadesFaturadas')}
-                      {rn(item, 'geralAtraso', true, true)}
-                      {rn(item, 'geralFaturados')}
-                      {rn(item, 'geralTotalEnviados')}
-                    </>
-                  )}
+                  {det &&
+                    ['c0101', 'c0102', 'c1020', 'geral'].map((bloco) => (
+                      <React.Fragment key={bloco}>
+                        {rn(item, bloco + 'Atraso', true, true)}
+                        {rn(item, bloco + 'Faturados')}
+                        {rn(item, bloco === 'geral' ? 'geralTotalEnviados' : bloco + 'Enviados')}
+                        {rn(item, bloco + 'UnidadesEnviadas')}
+                        {rn(item, bloco + 'UnidadesFaturadas')}
+                      </React.Fragment>
+                    ))}
                 </tr>
               ))}
             </tbody>
@@ -12435,6 +12364,61 @@ function lfRotuloMotivo(m) {
   return m === 'PEDIDO_CAIXA' ? 'PEDIDO CAIXA' : 'PICKING INSUFICIENTE';
 }
 
+// ─── Agrupamento por transportadora ───────────────────────────────────
+// CORREIOS, PAC e SEDEX (qualquer transportadora que contenha uma dessas palavras)
+// podem ficar na MESMA lista; as demais continuam uma lista por transportadora.
+function lfGrupoTransporte(transportadora) {
+  const t = lfTextoRegra(transportadora);
+  if (/CORREIO|SEDEX|\bPAC\b/.test(t)) return 'GRUPO_CORREIOS';
+  return t;
+}
+// Texto da transportadora da lista: valores distintos, na ordem em que aparecem.
+function lfRotuloTransportes(pedidos) {
+  const vistos = [];
+  (pedidos || []).forEach((p) => {
+    const t = String(p.transportadora || '').trim();
+    if (t && !vistos.some((v) => lfTextoRegra(v) === lfTextoRegra(t))) vistos.push(t);
+  });
+  const texto = vistos.join(' / ');
+  return texto.length > 120 ? texto.slice(0, 117) + '...' : texto;
+}
+
+// Monta os blocos (listas) a partir dos pedidos, já na ordem do arquivo.
+// Regra: uma lista por filial + transportadora (Correios/PAC/Sedex juntos), até 15 pedidos.
+// Para não gastar papel, lista com apenas 1 pedido é incorporada a outra lista da MESMA
+// filial que ainda tenha espaço; as sobras sem lista com espaço são juntadas entre si.
+function lfMontarBlocos(pedidos, tamanho) {
+  const max = tamanho || 15;
+  const ordem = new Map();
+  pedidos.forEach((p, i) => ordem.set(p, i));
+  const porFilial = new Map();
+  pedidos.forEach((p) => {
+    const f = String(p.filial);
+    if (!porFilial.has(f)) porFilial.set(f, new Map());
+    const g = lfGrupoTransporte(p.transportadora);
+    const m = porFilial.get(f);
+    if (!m.has(g)) m.set(g, []);
+    m.get(g).push(p);
+  });
+  const resultado = [];
+  porFilial.forEach((m) => {
+    const listas = [];
+    m.forEach((arr) => lfChunk(arr, max).forEach((b) => listas.push(b)));
+    const sobras = listas.filter((l) => l.length === 1).map((l) => l[0]);
+    const fixas = listas.filter((l) => l.length > 1);
+    const restantes = [];
+    sobras.forEach((p) => {
+      const alvos = fixas.filter((l) => l.length < max).sort((a, b) => a.length - b.length);
+      if (alvos.length) alvos[0].push(p);
+      else restantes.push(p);
+    });
+    lfChunk(restantes, max).forEach((b) => fixas.push(b));
+    fixas.forEach((l) => l.sort((a, b) => ordem.get(a) - ordem.get(b)));
+    fixas.forEach((l) => resultado.push(l));
+  });
+  return resultado;
+}
+
 function lfConsolidar(rows, idx, dataExecISO, dataExecTexto) {
   const mapa = new Map();
   let linhasInvalidas = 0;
@@ -12472,10 +12456,10 @@ function lfConsolidar(rows, idx, dataExecISO, dataExecTexto) {
     ) {
       pedidoObj.tipoCaixa = true;
     }
-    // Picking Insuficiente: V.1 diz "Picking Insuficiente" OU o pedido é Picking e o V.1 traz "Insuficiente" (qualquer texto).
+    // Insuficiente: qualquer V.1 com "Insuficiente" (ex.: "Picking Insuficiente",
+    // "Producao Insuficiente ou Produto em falta") ou "Produto em falta" manda o pedido todo ao estoque.
     const filtroV1 = lfTextoRegra(lfGet(row, idx, ['FILTRO V.1', 'Filtro V.1', 'FILTRO V1']));
-    const tipoSep = lfTextoRegra(lfGet(row, idx, ['Tipo de Separacao', 'Tipo de Separação', 'Tipo Separacao']));
-    if (filtroV1.includes('PICKING INSUFICIENTE') || (tipoSep.includes('PICKING') && filtroV1.includes('INSUFICIENTE'))) {
+    if (filtroV1.includes('INSUFICIENTE') || filtroV1.includes('PRODUTO EM FALTA')) {
       pedidoObj.pickingInsuficiente = true;
     }
 
@@ -12635,7 +12619,7 @@ async function lfPreview(rows, idx) {
     aviso = 'Não foi possível consultar a tabela pedidos_estoque: ' + e.message;
   }
 
-  const grupos = {};
+  const paraLista = [];
   const repetidos = [];
   let caixa = 0;
   let insuf = 0;
@@ -12657,17 +12641,18 @@ async function lfPreview(rows, idx) {
       repetidos.push({ pedido: p.pedido, ...info });
       continue;
     }
-    const chave = p.filial + '|' + p.transportadora;
-    if (!grupos[chave]) {
-      grupos[chave] = { filial: p.filial, transportadora: p.transportadora, pedidos: 0, unidades: 0 };
-    }
-    grupos[chave].pedidos++;
-    grupos[chave].unidades += p.totalQtd;
+    paraLista.push(p);
   }
+  const gruposPrev = lfMontarBlocos(paraLista, 15).map((bloco) => ({
+    filial: bloco[0].filial,
+    transportadora: lfRotuloTransportes(bloco),
+    pedidos: bloco.length,
+    unidades: bloco.reduce((t, p) => t + p.totalQtd, 0),
+  }));
 
   return {
-    grupos: Object.values(grupos),
-    novosParaLista: Object.values(grupos).reduce((a, b) => a + b.pedidos, 0),
+    grupos: gruposPrev,
+    novosParaLista: paraLista.length,
     caixa,
     insuf,
     paraEstoque: caixa + insuf,
@@ -12691,7 +12676,7 @@ async function lfGerarListas({ rows, headers, idx, usuario, email, origemArquivo
     lfPedidosJaNoEstoque(comRegra),
   ]);
 
-  const grupos = {};
+  const paraLista = [];
   const filaEstoque = [];
   const pedidosParaRegistrarEstoque = new Set();
   let pedidosCaixa = 0;
@@ -12734,10 +12719,10 @@ async function lfGerarListas({ rows, headers, idx, usuario, email, origemArquivo
       bloqueadosHistorico++;
       continue;
     }
-    const chave = p.filial + '|' + p.transportadora;
-    if (!grupos[chave]) grupos[chave] = [];
-    grupos[chave].push(p);
+    paraLista.push(p);
   }
+  // A ordem dos pedidos dentro da lista segue a ordem do arquivo (já ordenado por produto),
+  // mesmo quando há mais de uma transportadora (Correios/PAC/Sedex) na mesma lista.
 
   let numeroLista = numeroInicial;
   const listasSessao = [];
@@ -12745,15 +12730,15 @@ async function lfGerarListas({ rows, headers, idx, usuario, email, origemArquivo
   const histListas = [];
   const histPedidos = [];
 
-  Object.values(grupos).forEach((pedidosGrupo) => {
-    lfChunk(pedidosGrupo, 15).forEach((bloco) => {
+  {
+    lfMontarBlocos(paraLista, 15).forEach((bloco) => {
       const lista = 'Lista ' + numeroLista++;
       const totalUnidades = bloco.reduce((t, p) => t + p.totalQtd, 0);
 
       listasSessao.push({
         lista,
         filial: bloco[0].filial,
-        transportadora: bloco[0].transportadora,
+        transportadora: lfRotuloTransportes(bloco),
         pedidos: bloco.length,
         unidades: totalUnidades,
         data_hora: dataExecISO,
@@ -12766,7 +12751,7 @@ async function lfGerarListas({ rows, headers, idx, usuario, email, origemArquivo
         usuario,
         email,
         filial: bloco[0].filial,
-        transportadora: bloco[0].transportadora,
+        transportadora: lfRotuloTransportes(bloco),
         pedidos: bloco.length,
         unidades: totalUnidades,
         impresso: 'NÃO',
@@ -12805,7 +12790,7 @@ async function lfGerarListas({ rows, headers, idx, usuario, email, origemArquivo
       });
       registrosPorLista[lista] = registros;
     });
-  });
+  }
 
   const gravacoes = [];
   if (histListas.length) {
@@ -13218,7 +13203,62 @@ const LF_CSS = `
 .lf-input:focus{border-color:var(--accent) !important;box-shadow:0 0 0 3px var(--accent-soft)}
 `;
 
-function LfBlocoImpressao({ lista, info, registros }) {
+// ─── Ordem da impressão ───────────────────────────────────────────────
+// padrao = ordem do arquivo (por pedido) | produto = A-Z pelo C9 Produto | local = pelo endereço (corredor)
+const LF_ORDEM_CHAVE = 'lf_ordem_impressao_v1';
+const LF_ORDENS = [
+  ['padrao', 'Padrão (ordem do arquivo)'],
+  ['produto', 'Por produto'],
+  ['local', 'Por localização'],
+];
+const lfCollator = new Intl.Collator('pt-BR', { numeric: true, sensitivity: 'base' });
+function lfOrdemSalva() {
+  try {
+    const v = localStorage.getItem(LF_ORDEM_CHAVE);
+    return LF_ORDENS.some((o) => o[0] === v) ? v : 'padrao';
+  } catch (e) {
+    return 'padrao';
+  }
+}
+// Devolve [{ reg, rank }]. O ranking continua sendo o número do pedido na ordem original.
+function lfOrdenarRegistros(registros, ordem) {
+  const ranking = lfCalcularRanking(registros);
+  const itens = registros.map((reg, i) => ({ reg, rank: ranking[i], i }));
+  if (ordem !== 'produto' && ordem !== 'local') return itens;
+  const loc = (x) => String(lfLocalizacaoHistorico(x.reg.produto, x.reg.localizacao) || '').trim();
+  const prod = (x) => String(x.reg.produto || '').trim();
+  const ped = (x) => String(x.reg.pedido || '').trim();
+  return itens.sort((a, b) => {
+    if (ordem === 'local') {
+      const la = loc(a), lb = loc(b);
+      if (!la !== !lb) return la ? -1 : 1; // sem endereço vai para o fim
+      const c = lfCollator.compare(la, lb);
+      if (c) return c;
+    }
+    return lfCollator.compare(prod(a), prod(b)) || lfCollator.compare(ped(a), ped(b)) || a.i - b.i;
+  });
+}
+function LfSeletorOrdem({ valor, onChange }) {
+  return (
+    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: C.txtSec, fontFamily: C.font }}>
+      Ordem da impressão
+      <select
+        className="lf-input"
+        value={valor}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ ...lfInputStyle, height: 32, padding: '0 8px' }}
+      >
+        {LF_ORDENS.map(([v, t]) => (
+          <option key={v} value={v}>
+            {t}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function LfBlocoImpressao({ lista, info, registros, ordem }) {
   const status = String(info?.status || 'ATIVA').toUpperCase();
   if (status === 'CANCELADA') {
     return (
@@ -13244,7 +13284,7 @@ function LfBlocoImpressao({ lista, info, registros }) {
       </div>
     );
   }
-  const ranking = lfCalcularRanking(registros);
+  const ordenados = lfOrdenarRegistros(registros, ordem);
   const pedidosUnicos = new Set(
     registros.map((x) => String(x.pedido || '').trim()).filter(Boolean)
   ).size;
@@ -13281,11 +13321,11 @@ function LfBlocoImpressao({ lista, info, registros }) {
           </tr>
         </thead>
         <tbody>
-          {registros.map((x, i) => (
+          {ordenados.map(({ reg: x, rank }, i) => (
             <tr key={i}>
               <td>{lista}</td>
               <td>{lfFmtData(info.data_hora || x.data_hora)}</td>
-              <td>{ranking[i]}</td>
+              <td>{rank}</td>
               <td>{x.produto || ''}</td>
               <td>{x.quantidade || 0}</td>
               <td>{lfLocalizacaoHistorico(x.produto, x.localizacao) || 'SEM ENDEREÇO'}</td>
@@ -14946,6 +14986,15 @@ function TelaListaFaturamento({ ativo }) {
 
   // Impressão
   const [blocos, setBlocos] = useState([]);
+  const [ordemImp, setOrdemImp] = useState(lfOrdemSalva);
+  const trocarOrdemImp = (v) => {
+    setOrdemImp(v);
+    try {
+      localStorage.setItem(LF_ORDEM_CHAVE, v);
+    } catch (e) {
+      // sem armazenamento: vale só nesta sessão
+    }
+  };
   const [imprimindo, setImprimindo] = useState(false);
 
   // Picking Poluído
@@ -15224,7 +15273,7 @@ function TelaListaFaturamento({ ativo }) {
     ['vialeitor', 'Via Leitor'],
   ];
   const registrosAbertos = listaAberta ? sessao.registros[listaAberta] || [] : [];
-  const rankingAberto = lfCalcularRanking(registrosAbertos);
+  const abertosOrdenados = lfOrdenarRegistros(registrosAbertos, ordemImp);
 
   return (
     <div style={{ fontFamily: C.font }}>
@@ -15418,7 +15467,11 @@ function TelaListaFaturamento({ ativo }) {
               />
             </LfKpis>
           )}
-          <LfCard titulo="Listas geradas para impressão" subtitulo="Listas criadas nesta sessão">
+          <LfCard
+            titulo="Listas geradas para impressão"
+            subtitulo="Listas criadas nesta sessão"
+            acoes={<LfSeletorOrdem valor={ordemImp} onChange={trocarOrdemImp} />}
+          >
             {sessao.listas.length === 0 ? (
               <LfVazio>Nenhuma lista gerada nesta sessão. Use "Histórico de listas" para listas de outros dias.</LfVazio>
             ) : (
@@ -15463,9 +15516,9 @@ function TelaListaFaturamento({ ativo }) {
               }
             >
               <LfTabela colunas={['Ranking', 'C9 Produto', 'Qtd', 'Localização', 'C9 Pedido', 'Unidade', 'Tipo de faturamento', 'FILTRO V.1']} numericas={['Qtd']}>
-                {registrosAbertos.map((r, i) => (
+                {abertosOrdenados.map(({ reg: r, rank }, i) => (
                   <tr key={i}>
-                    <td style={lfTdStyle}>{rankingAberto[i]}</td>
+                    <td style={lfTdStyle}>{rank}</td>
                     <td style={lfTdStyle}>{r.produto}</td>
                     <td style={lfTdNum}>{r.quantidade}</td>
                     <td style={lfTdStyle}>{lfLocalizacaoHistorico(r.produto, r.localizacao) || 'SEM ENDEREÇO'}</td>
@@ -15487,6 +15540,7 @@ function TelaListaFaturamento({ ativo }) {
           subtitulo="Consulte, reimprima ou cancele listas já geradas"
           acoes={
             <>
+              <LfSeletorOrdem valor={ordemImp} onChange={trocarOrdemImp} />
               <LfBtn onClick={() => carregarHistorico('')} disabled={carregandoHist}>
                 🔄 Atualizar
               </LfBtn>
@@ -15867,7 +15921,7 @@ function TelaListaFaturamento({ ativo }) {
       {createPortal(
         <div className="lf-print-root">
           {blocos.map((b) => (
-            <LfBlocoImpressao key={b.lista} lista={b.lista} info={b.info} registros={b.registros} />
+            <LfBlocoImpressao key={b.lista} lista={b.lista} info={b.info} registros={b.registros} ordem={ordemImp} />
           ))}
         </div>,
         document.body
@@ -15894,6 +15948,7 @@ const SEP_SEPARADORES = [
   'Amanda Carvalho',
   'Theo Aristimunho',
   'Eduarda',
+  'Lorenzo Braga',
 ];
 const SEP_CORES = ['var(--accent)', 'var(--green)', 'var(--blue)', 'var(--amber)', 'var(--purple)', 'var(--red)'];
 
@@ -18296,7 +18351,7 @@ export default function App() {
             fontFamily: C.font,
           }}
         >
-          BBDI © {new Date().getFullYear()}
+          BBDI © {new Date().getFullYear()} · v30.10-12h
         </div>
       </aside>
       {/* Main */}
