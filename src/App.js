@@ -13164,6 +13164,51 @@ async function lfLancarPoluido({ pedido, usuario, email }) {
   };
 }
 
+// ─── Exclusão de pedido do estoque (libera o pedido para lançar de novo) ──
+// Consulta o que prende o pedido: linhas em fila_lancamentos (bloqueia o Picking Poluído)
+// e o registro em pedidos_estoque (bloqueia Pedido Caixa / Picking Insuficiente).
+async function lfBuscarPedidoEstoque(pedido) {
+  const colPedido = encodeURIComponent('C9 Pedido');
+  const [fila, est] = await Promise.all([
+    lfApi(
+      '/fila_lancamentos?select=id,motivo,status,erro,enviado_em&' +
+        colPedido +
+        '=eq.' +
+        encodeURIComponent(pedido) +
+        '&order=id.asc&limit=5000'
+    ),
+    lfApi('/pedidos_estoque?select=pedido&pedido=eq.' + encodeURIComponent(pedido) + '&limit=1'),
+  ]);
+  return {
+    pedido,
+    fila: Array.isArray(fila) ? fila : [],
+    noEstoque: Array.isArray(est) && est.length > 0,
+  };
+}
+
+// Apaga o pedido das duas tabelas e grava a auditoria, tudo numa função do Supabase.
+async function lfExcluirPedidoEstoque({ pedido, motivo, usuario, email }) {
+  try {
+    const r = await lfApi('/rpc/excluir_pedido_estoque', {
+      method: 'POST',
+      body: JSON.stringify({ p_pedido: pedido, p_motivo: motivo, p_usuario: usuario, p_email: email }),
+      headers: { Prefer: 'return=representation' },
+    });
+    return r || {};
+  } catch (err) {
+    let msg = err.message;
+    try {
+      msg = JSON.parse(err.message).message || msg;
+    } catch (e) {
+      // resposta em texto simples
+    }
+    if (/PGRST202|Could not find the function/i.test(String(err.message))) {
+      msg = 'A função excluir_pedido_estoque ainda não existe no Supabase. Rode o SQL excluir_pedido_estoque.sql.';
+    }
+    throw new Error(msg);
+  }
+}
+
 // ─── Interface ────────────────────────────────────────────────────────
 const LF_CSS = `
 .lf-print-root{display:none}
@@ -13333,7 +13378,7 @@ function LfBlocoImpressao({ lista, info, registros, ordem }) {
               <td>{x.pedido || ''}</td>
               <td>{x.unidade_faturamento || ''}</td>
               <td>{x.data_hora_financeiro || ''}</td>
-              <td>{info.transportadora || x.transportadora || ''}</td>
+              <td>{x.transportadora || info.transportadora || ''}</td>
               <td>{lfValorCsv(x, ['Tipo de faturamento', 'Tipo Faturamento'])}</td>
               <td>{lfValorCsv(x, ['FILTRO V.1', 'FILTRO V1'])}</td>
             </tr>
@@ -15265,11 +15310,110 @@ function TelaListaFaturamento({ ativo }) {
     }
   };
 
+  // Exclusão de pedido do estoque
+  const [pedidoExcl, setPedidoExcl] = useState('');
+  const [consultaExcl, setConsultaExcl] = useState(null);
+  const [buscandoExcl, setBuscandoExcl] = useState(false);
+  const [motivoExcl, setMotivoExcl] = useState('');
+  const [excluindoExcl, setExcluindoExcl] = useState(false);
+  const [msgExcl, setMsgExcl] = useState(null);
+
+  const consultarExclusao = async () => {
+    const pedido = pedidoExcl.trim();
+    if (!pedido) {
+      setMsgExcl({ tipo: 'warn', texto: 'Informe o número do pedido.' });
+      return;
+    }
+    setBuscandoExcl(true);
+    setMsgExcl(null);
+    setConsultaExcl(null);
+    setMotivoExcl('');
+    try {
+      const r = await lfBuscarPedidoEstoque(pedido);
+      setConsultaExcl(r);
+      if (!r.fila.length && !r.noEstoque) {
+        setMsgExcl({
+          tipo: 'warn',
+          texto:
+            'O pedido ' + pedido + ' não está na fila do estoque nem na tabela pedidos_estoque. Não há nada para excluir.',
+        });
+      }
+    } catch (err) {
+      setMsgExcl({ tipo: 'erro', texto: 'Erro ao consultar: ' + err.message });
+    } finally {
+      setBuscandoExcl(false);
+    }
+  };
+
+  const executarExclusaoEstoque = async (usuario, pedido, motivo) => {
+    setExcluindoExcl(true);
+    try {
+      const r = await lfExcluirPedidoEstoque({
+        pedido,
+        motivo,
+        usuario: usuario.nome,
+        email: usuario.email,
+      });
+      const linhas = Number(r.linhas_fila) || 0;
+      const est = Number(r.pedidos_estoque) || 0;
+      if (!linhas && !est) {
+        setMsgExcl({ tipo: 'warn', texto: 'Nada foi excluído: o pedido ' + pedido + ' já não estava na fila nem em pedidos_estoque.' });
+      } else {
+        setMsgExcl({
+          tipo: 'ok',
+          texto:
+            'Pedido ' +
+            pedido +
+            ' excluído do estoque: ' +
+            linhas +
+            ' linha(s) da fila' +
+            (est ? ' e o registro em pedidos_estoque' : '') +
+            '. As linhas dele na aba Lançamentos da planilha serão apagadas automaticamente em até 1 minuto: espere antes de lançar de novo. A exclusão ficou registrada com o motivo.',
+        });
+      }
+      setConsultaExcl(null);
+      setPedidoExcl('');
+      setMotivoExcl('');
+    } catch (err) {
+      setMsgExcl({ tipo: 'erro', texto: 'Não foi possível excluir: ' + err.message });
+    } finally {
+      setExcluindoExcl(false);
+    }
+  };
+
+  const excluirPedidoDoEstoque = () => {
+    if (!consultaExcl) return;
+    const pedido = consultaExcl.pedido;
+    const motivo = motivoExcl.trim();
+    if (motivo.length < 5) {
+      alert('Informe um motivo com pelo menos 5 caracteres.');
+      return;
+    }
+    pedirQuem('Quem está excluindo o pedido do estoque?', (u) => executarExclusaoEstoque(u, pedido, motivo));
+  };
+
+  // Resume a fila do pedido por motivo + status
+  const gruposExcl = useMemo(() => {
+    const mapa = new Map();
+    ((consultaExcl && consultaExcl.fila) || []).forEach((x) => {
+      const motivo = String(x.motivo || '—');
+      const status = String(x.status || '—').toUpperCase();
+      const chave = motivo + '|' + status;
+      const atual = mapa.get(chave);
+      mapa.set(chave, { motivo, status, linhas: (atual ? atual.linhas : 0) + 1 });
+    });
+    return [...mapa.values()];
+  }, [consultaExcl]);
+  const exclTemEnviado = gruposExcl.some((g) => g.status === 'ENVIADO');
+  const exclTemPendente = gruposExcl.some((g) => g.status === 'PENDENTE' || g.status === 'PROCESSANDO');
+  const exclPodeExcluir = !!consultaExcl && (consultaExcl.fila.length > 0 || consultaExcl.noEstoque);
+
   const abas = [
     ['importar', 'Importar CSV'],
     ['listas', 'Listas geradas'],
     ['historico', 'Histórico de listas'],
     ['poluido', 'Picking Poluído'],
+    ['exclusao', 'Exclusão pedido estoque'],
     ['vialeitor', 'Via Leitor'],
   ];
   const registrosAbertos = listaAberta ? sessao.registros[listaAberta] || [] : [];
@@ -15793,6 +15937,112 @@ function TelaListaFaturamento({ ativo }) {
             </LfBtn>
           </div>
           {msgPoluido && <LfAviso tipo={msgPoluido.tipo}>{msgPoluido.texto}</LfAviso>}
+        </LfCard>
+      )}
+
+      {aba === 'exclusao' && (
+        <LfCard
+          titulo="Exclusão pedido estoque"
+          subtitulo="Tira o pedido da fila e da tabela de bloqueio do estoque para ele poder ser lançado de novo"
+        >
+          <LfAviso>
+            Digite o número do pedido e clique em Consultar. O sistema mostra onde o pedido está preso. Ao confirmar, ele é
+            apagado da fila do estoque (fila_lancamentos) e da tabela pedidos_estoque, e a exclusão fica registrada com o
+            motivo e o nome de quem fez.
+          </LfAviso>
+          <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              className="lf-input"
+              style={{ ...lfInputStyle, width: 240, height: 38 }}
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="Ex.: 577120"
+              value={pedidoExcl}
+              onChange={(e) => {
+                setPedidoExcl(e.target.value);
+                setConsultaExcl(null);
+                setMsgExcl(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') consultarExclusao();
+              }}
+            />
+            <LfBtn tipo="primario" disabled={buscandoExcl} onClick={consultarExclusao}>
+              {buscandoExcl ? 'Consultando...' : '🔎 Consultar'}
+            </LfBtn>
+            <LfBtn
+              onClick={() => {
+                setPedidoExcl('');
+                setConsultaExcl(null);
+                setMotivoExcl('');
+                setMsgExcl(null);
+              }}
+            >
+              Limpar
+            </LfBtn>
+          </div>
+          {msgExcl && <LfAviso tipo={msgExcl.tipo}>{msgExcl.texto}</LfAviso>}
+
+          {consultaExcl && exclPodeExcluir && (
+            <div style={{ marginTop: 16 }}>
+              <LfKpis>
+                <LfKpi rotulo="Pedido" valor={consultaExcl.pedido} tipo="info" />
+                <LfKpi
+                  rotulo="Linhas na fila do estoque"
+                  valor={consultaExcl.fila.length}
+                  tipo={consultaExcl.fila.length ? 'warn' : 'neutro'}
+                  detalhe="bloqueia o Picking Poluído"
+                />
+                <LfKpi
+                  rotulo="Em pedidos_estoque"
+                  valor={consultaExcl.noEstoque ? 'Sim' : 'Não'}
+                  tipo={consultaExcl.noEstoque ? 'warn' : 'neutro'}
+                  detalhe="bloqueia Caixa / Picking Insuficiente"
+                />
+              </LfKpis>
+
+              {gruposExcl.length > 0 && (
+                <LfTabela colunas={['Motivo', 'Status na fila', 'Linhas']} numericas={['Linhas']}>
+                  {gruposExcl.map((g) => (
+                    <tr key={g.motivo + g.status}>
+                      <td style={lfTdStyle}>{g.motivo}</td>
+                      <td style={lfTdStyle}>
+                        <LfBadge tipo={g.status === 'ENVIADO' ? 'ok' : g.status === 'ERRO' ? 'erro' : 'warn'}>{g.status}</LfBadge>
+                      </td>
+                      <td style={lfTdNum}>{g.linhas}</td>
+                    </tr>
+                  ))}
+                </LfTabela>
+              )}
+
+              {exclTemEnviado && (
+                <LfAviso tipo="info">
+                  Este pedido já foi gravado na aba Lançamentos da planilha do estoque. Ao excluir, as linhas dele lá também
+                  são apagadas automaticamente (em até 1 minuto). Espere esse tempo antes de lançar de novo, senão ele fica
+                  duplicado.
+                </LfAviso>
+              )}
+              {exclTemPendente && (
+                <LfAviso tipo="info">
+                  Há linhas ainda não enviadas à planilha (Pendente/Processando). Excluir cancela o envio delas.
+                </LfAviso>
+              )}
+
+              <textarea
+                className="lf-input"
+                value={motivoExcl}
+                onChange={(e) => setMotivoExcl(e.target.value)}
+                maxLength={500}
+                placeholder="Explique por que precisa excluir (mínimo 5 caracteres)..."
+                style={{ ...lfInputStyle, width: '100%', height: 80, padding: 10, boxSizing: 'border-box', resize: 'vertical', marginTop: 12 }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
+                <LfBtn tipo="perigo" disabled={excluindoExcl} onClick={excluirPedidoDoEstoque}>
+                  {excluindoExcl ? 'Excluindo...' : 'Excluir do estoque'}
+                </LfBtn>
+              </div>
+            </div>
+          )}
         </LfCard>
       )}
 
