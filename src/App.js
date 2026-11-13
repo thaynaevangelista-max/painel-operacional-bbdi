@@ -10504,6 +10504,25 @@ const CANC_FILIAIS_CNT = ['0104', '0105', '1030', '1040'];
 const CANC_ST_AG = 'Aguardando Cancelamento';
 const CANC_ST_BFT = 'Aguardando Pagto BFT';
 const CANC_ST_OK = 'Cancelado';
+// Inutilização de pedido: pedido SEM NF, prazo de 24 h. Fica na mesma tela dos Cancelamentos (caixa "Inutilização de pedido"
+// no formulário) e usa a tabela/funções do criar_inutilizacoes.sql. Os registros entram na lista com tipo 'inut'.
+const INUT_ST_AG = 'Aguardando Inutilização';
+const INUT_ST_OK = 'Inutilizado';
+const INUT_PRAZO_MS = 24 * 60 * 60 * 1000;
+function cancMapInut(x) {
+  const feito = x.status === INUT_ST_OK;
+  return {
+    ...x,
+    tipo: 'inut',
+    rawId: x.id,
+    id: `i${x.id}`,
+    nf: '',
+    nf_norm: '',
+    status: feito ? CANC_ST_OK : INUT_ST_AG,
+    cancelado_em: x.inutilizado_em,
+    data_cancelamento: x.data_inutilizacao,
+  };
+}
 const CANC_JANELA_DIAS = 30; // cancelados mais antigos que isso só entram por busca / "Carregar mais antigos"
 const CANC_HIST_TAM = 200;
 
@@ -10721,7 +10740,10 @@ function cancDuracao(ms) {
 function cancPrazoFim(c) {
   const sol = cancTs(c.solicitado_em);
   if (!sol) return null;
-  return cancTs(c.prazo_em) || new Date(sol.getTime() + CANC_PRAZO_MS);
+  return (
+    cancTs(c.prazo_em) ||
+    new Date(sol.getTime() + (c.tipo === 'inut' ? INUT_PRAZO_MS : CANC_PRAZO_MS))
+  );
 }
 
 function cancAtrasado(c, agora) {
@@ -10905,7 +10927,7 @@ function CancStatus({ status }) {
       ? 'ok'
       : status === CANC_ST_BFT
       ? 'bft'
-      : status === CANC_ST_AG
+      : status === CANC_ST_AG || status === INUT_ST_AG
       ? 'ag'
       : 'cnt';
   return <span className={`cnl-st ${cls}`}>{status || '—'}</span>;
@@ -10918,10 +10940,12 @@ const CANC_FORM_VAZIO = {
   nf: '',
   solicitante: '',
   motivo: '',
+  inut: false,
 };
 
 function TelaCancelamentos({ ativo, somenteLeitura }) {
   const [itens, setItens] = useState([]);
+  const [inuts, setInuts] = useState([]);
   const [aba, setAba] = useState(somenteLeitura ? 'cancelados' : 'lancar');
   const [form, setForm] = useState({ ...CANC_FORM_VAZIO, data: cancHojeBr() });
   const [editId, setEditId] = useState(null);
@@ -10956,9 +10980,22 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
     setTimeout(() => setToast(null), 3200);
   }, []);
 
+  // Inutilizações de pedido (tabela própria). Se o SQL ainda não foi rodado, a lista simplesmente fica vazia.
+  const carregarInuts = useCallback(async () => {
+    try {
+      const l = await lerSupabasePostagem(
+        'v_inutilizacoes_painel?select=*&order=id.desc&limit=3000'
+      );
+      setInuts(Array.isArray(l) ? l.map(cancMapInut) : []);
+    } catch (e) {
+      setInuts([]);
+    }
+  }, []);
+
   // forcar=true (depois de salvar/alterar/excluir): descarta a cópia compartilhada e busca uma nova;
   // se o servidor não responder, lê direto do Supabase. Nos outros casos usa a cópia compartilhada.
   const carregar = useCallback(async (forcar) => {
+    carregarInuts();
     const direto = forcar === true;
     setCarregando(true);
     setErro('');
@@ -11042,7 +11079,7 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
   useEffect(() => {
     const nf = form.nf.trim();
     const ped = form.pedido.trim();
-    if (!ativo || (!nf && !ped)) {
+    if (!ativo || (!nf && !ped) || form.inut) {
       setAnalise(null);
       return undefined;
     }
@@ -11072,7 +11109,7 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
       }
     }, 450);
     return () => clearTimeout(t);
-  }, [ativo, form.nf, form.pedido]);
+  }, [ativo, form.nf, form.pedido, form.inut]);
 
   useEffect(() => {
     if (!ativo) return undefined;
@@ -11082,8 +11119,12 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
   }, [ativo]);
 
   const pendentes = useMemo(
-    () => itens.filter((c) => c.status !== CANC_ST_OK),
-    [itens]
+    () => [...itens, ...inuts].filter((c) => c.status !== CANC_ST_OK),
+    [itens, inuts]
+  );
+  const inutsOk = useMemo(
+    () => inuts.filter((c) => c.status === CANC_ST_OK),
+    [inuts]
   );
   const canceladosCarregados = useMemo(() => {
     const mapa = new Map();
@@ -11092,9 +11133,25 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
     );
     return [...mapa.values()].sort((a, b) => Number(b.id) - Number(a.id));
   }, [itens, histExtra]);
-  const cancelados = histRes !== null ? histRes : canceladosCarregados;
-  const totalCanc = totais ? totais.canc : canceladosCarregados.length;
-  const totalGeral = totais ? totais.total : itens.length;
+  const feitoMs = (c) => {
+    const d = cancTs(c.cancelado_em);
+    return d ? d.getTime() : 0;
+  };
+  const cancelados = useMemo(() => {
+    if (histRes !== null) {
+      const t = histBusca.trim().toLowerCase();
+      const dasInut = inutsOk.filter((c) =>
+        [c.pedido, c.solicitante].join(' ').toLowerCase().includes(t)
+      );
+      return [...histRes, ...dasInut].sort((a, b) => feitoMs(b) - feitoMs(a));
+    }
+    return [...canceladosCarregados, ...inutsOk].sort(
+      (a, b) => feitoMs(b) - feitoMs(a)
+    );
+  }, [histRes, histBusca, canceladosCarregados, inutsOk]);
+  const totalCanc =
+    (totais ? totais.canc : canceladosCarregados.length) + inutsOk.length;
+  const totalGeral = (totais ? totais.total : itens.length) + inuts.length;
 
   // busca no histórico (servidor), com pausa de 500 ms ao digitar
   useEffect(() => {
@@ -11141,6 +11198,7 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
     }
   }
   const qtd = (st) => itens.filter((c) => c.status === st).length;
+  const qtdInut = pendentes.filter((c) => c.tipo === 'inut').length;
   const qtdAtencao = pendentes.filter((c) => c.atencao).length;
   const qtdAtrasados = pendentes.filter((c) => cancAtrasado(c, agora)).length;
   const hoje = cancHojeBr();
@@ -11157,12 +11215,12 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
 
   function editar(c) {
     if (c.status === CANC_ST_OK) {
-      avisar('Cancelamento já concluído — não pode mais ser editado.', 'err');
+      avisar('Registro já concluído — não pode mais ser editado.', 'err');
       return;
     }
     filialManual.current = true;
     setOutroSol(false);
-    setEditId(c.id);
+    setEditId(c.tipo === 'inut' ? c.rawId : c.id);
     setForm({
       data: cancIsoParaBr(c.data_cancelamento),
       filial: c.filial || '',
@@ -11170,6 +11228,7 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
       nf: c.nf || '',
       solicitante: c.solicitante || '',
       motivo: c.motivo || '',
+      inut: c.tipo === 'inut',
     });
     setAba('lancar');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -11187,8 +11246,18 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
     e.preventDefault();
     if (salvando) return;
     const iso = cancBrParaIso(form.data);
-    if (!iso || !form.filial || !form.pedido.trim() || !form.nf.trim()) {
-      avisar('Preencha Data (dd/mm/aaaa), Filial, Pedido e NF.', 'err');
+    if (
+      !iso ||
+      !form.filial ||
+      !form.pedido.trim() ||
+      (!form.inut && !form.nf.trim())
+    ) {
+      avisar(
+        form.inut
+          ? 'Preencha Data (dd/mm/aaaa), Filial e Pedido.'
+          : 'Preencha Data (dd/mm/aaaa), Filial, Pedido e NF.',
+        'err'
+      );
       return;
     }
     if (!form.solicitante.trim() || form.solicitante === '__outro') {
@@ -11201,17 +11270,34 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
     }
     setSalvando(true);
     try {
-      await cancRpc('cancelamento_salvar', {
-        p_id: editId,
-        p_data: iso,
-        p_filial: form.filial,
-        p_pedido: form.pedido,
-        p_nf: form.nf,
-        p_solicitante: form.solicitante,
-        p_responsavel: '',
-        p_motivo: form.motivo,
-      });
-      avisar(editId ? 'Registro atualizado!' : 'Cancelamento salvo!');
+      if (form.inut) {
+        await cancRpc('inutilizacao_salvar', {
+          p_id: editId,
+          p_data: iso,
+          p_filial: form.filial,
+          p_pedido: form.pedido,
+          p_solicitante: form.solicitante,
+          p_motivo: form.motivo,
+        });
+      } else {
+        await cancRpc('cancelamento_salvar', {
+          p_id: editId,
+          p_data: iso,
+          p_filial: form.filial,
+          p_pedido: form.pedido,
+          p_nf: form.nf,
+          p_solicitante: form.solicitante,
+          p_responsavel: '',
+          p_motivo: form.motivo,
+        });
+      }
+      avisar(
+        editId
+          ? 'Registro atualizado!'
+          : form.inut
+          ? 'Inutilização salva!'
+          : 'Cancelamento salvo!'
+      );
       limparForm();
       await carregar(true);
     } catch (err) {
@@ -11322,6 +11408,22 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
     );
   }
 
+  function marcarInutilizado(c) {
+    setConfirmar({
+      titulo: 'Confirmar',
+      texto: `Marcar como Inutilizado — Pedido ${c.pedido}?`,
+      botao: 'Confirmar',
+      acao: async () => {
+        await cancRpc('inutilizacao_status', {
+          p_id: c.rawId,
+          p_status: INUT_ST_OK,
+        });
+        avisar('Inutilizado!');
+        await carregar(true);
+      },
+    });
+  }
+
   function mudarStatus(c, status, texto) {
     setConfirmar({
       titulo: 'Confirmar',
@@ -11341,13 +11443,17 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
   }
 
   function excluir(c) {
+    const inut = c.tipo === 'inut';
     setConfirmar({
       titulo: 'Confirmar exclusão',
-      texto: `Tem certeza que deseja excluir o registro do pedido ${c.pedido}? Se estava Cancelado, a NF volta ao Via Leitor.`,
+      texto: inut
+        ? `Tem certeza que deseja excluir a inutilização do pedido ${c.pedido}?`
+        : `Tem certeza que deseja excluir o registro do pedido ${c.pedido}? Se estava Cancelado, a NF volta ao Via Leitor.`,
       botao: 'Excluir',
       perigo: true,
       acao: async () => {
-        await cancRpc('cancelamento_excluir', { p_id: c.id });
+        if (inut) await cancRpc('inutilizacao_excluir', { p_id: c.rawId });
+        else await cancRpc('cancelamento_excluir', { p_id: c.id });
         avisar('Excluído!');
         await carregar(true);
       },
@@ -11388,7 +11494,7 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
               <th>Solicitante</th>
               <th>Motivo</th>
               <th>{tipo === 'canc' ? 'Cancelado em' : 'Status'}</th>
-              <th>{tipo === 'canc' ? 'Tempo' : 'Prazo (1h)'}</th>
+              <th>{tipo === 'canc' ? 'Tempo' : 'Prazo (1h / 24h)'}</th>
               <th style={{ textAlign: 'right' }}>Ações</th>
             </tr>
           </thead>
@@ -11408,6 +11514,14 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
                 </td>
                 <td className="cnl-mono">
                   {c.pedido}
+                  {c.tipo === 'inut' && (
+                    <span
+                      className="cnl-st ag"
+                      style={{ marginLeft: 8, fontFamily: 'Inter,Arial,sans-serif' }}
+                    >
+                      Inutilização
+                    </span>
+                  )}
                   {c.atencao && tipo !== 'canc' && (
                     <span
                       className="cnl-atencao"
@@ -11420,7 +11534,7 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
                     <div className="cnl-atmot">{c.atencao_motivo}</div>
                   )}
                 </td>
-                <td className="cnl-mono">{c.nf}</td>
+                <td className="cnl-mono">{c.tipo === 'inut' ? '—' : c.nf}</td>
                 <td>{c.solicitante || '—'}</td>
                 <td>{c.motivo || '—'}</td>
                 <td>
@@ -11436,7 +11550,17 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
                 <td style={{ textAlign: 'right' }}>
                   {!somenteLeitura && (
                   <span className="cnl-acao">
-                    {tipo === 'pend' && (
+                    {tipo === 'pend' && c.tipo === 'inut' && (
+                      <button
+                        type="button"
+                        className="cnl-btn sm go"
+                        onClick={() => marcarInutilizado(c)}
+                      >
+                        <CancIco d={CANC_ICO_CHECK} />
+                        Inutilizar
+                      </button>
+                    )}
+                    {tipo === 'pend' && c.tipo !== 'inut' && (
                       <>
                         <button
                           type="button"
@@ -11481,7 +11605,7 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
                         </button>
                       </>
                     )}
-                    {tipo === 'pend' && c.status === CANC_ST_BFT && (
+                    {tipo === 'pend' && c.tipo !== 'inut' && c.status === CANC_ST_BFT && (
                       <button
                         type="button"
                         className="cnl-btn sm bftmsg"
@@ -11528,6 +11652,8 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
     pendFiltrados = pendFiltrados.filter((c) => c.atencao);
   else if (fStatus === 'atrasados')
     pendFiltrados = pendFiltrados.filter((c) => cancAtrasado(c, agora));
+  else if (fStatus === 'inut')
+    pendFiltrados = pendFiltrados.filter((c) => c.tipo === 'inut');
   else if (fStatus !== 'todos')
     pendFiltrados = pendFiltrados.filter((c) => c.status === fStatus);
   const cancOrdem = (c) => {
@@ -11616,9 +11742,21 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
               <b>{qtd(CANC_ST_BFT)}</b>
               <span>Aguardando BFT</span>
             </div>
+            <div className="cnl-stat" style={{ '--k': 'var(--orange-tx)' }}>
+              <b>{qtdInut}</b>
+              <span>Aguard. Inutilização</span>
+            </div>
           </div>
           <div className="cnl-card">
-            <h3>{editId ? 'Editar Cancelamento' : 'Novo Cancelamento'}</h3>
+            <h3>
+              {editId
+                ? form.inut
+                  ? 'Editar Inutilização'
+                  : 'Editar Cancelamento'
+                : form.inut
+                ? 'Nova Inutilização de Pedido'
+                : 'Novo Cancelamento'}
+            </h3>
             <form className="cnl-form" onSubmit={salvar}>
               <div className="cnl-campo">
                 <label>Data</label>
@@ -11656,10 +11794,41 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
               <div className="cnl-campo">
                 <label>Nota Fiscal</label>
                 <input
-                  value={form.nf}
+                  value={form.inut ? '' : form.nf}
                   onChange={setCampo('nf')}
-                  placeholder="98765"
+                  placeholder={form.inut ? 'sem NF' : '98765'}
+                  disabled={form.inut}
                 />
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    marginTop: 8,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    textTransform: 'none',
+                    letterSpacing: 0,
+                    cursor: editId ? 'default' : 'pointer',
+                    color: 'var(--txt)',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    style={{ width: 16, height: 16, margin: 0 }}
+                    checked={!!form.inut}
+                    disabled={!!editId}
+                    onChange={(e) => {
+                      const marcado = e.target.checked;
+                      setForm((cur) => ({
+                        ...cur,
+                        inut: marcado,
+                        nf: marcado ? '' : cur.nf,
+                      }));
+                    }}
+                  />
+                  Inutilização de pedido
+                </label>
               </div>
               <div className="cnl-campo">
                 <label>Solicitante *</label>
@@ -11784,11 +11953,21 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
                   </div>
                 )}
               <div className="cnl-dica">
-                A data e a hora da solicitação são gravadas automaticamente.
-                Prazo para cancelar: <b>1 hora</b>. Todo cancelamento começa
-                como <b>Aguardando Cancelamento</b>. Nas filiais 0104, 0105,
-                1030 e 1040, quem for cancelar marca <b>Aguardando CNT</b>{' '}
-                (botão CNT) quando a NF entrar nesse processo.
+                {form.inut ? (
+                  <>
+                    A data e a hora da solicitação são gravadas automaticamente.
+                    Pedido <b>sem NF</b>. Prazo para inutilizar: <b>24 horas</b>.
+                    Começa como <b>Aguardando Inutilização</b>.
+                  </>
+                ) : (
+                  <>
+                    A data e a hora da solicitação são gravadas automaticamente.
+                    Prazo para cancelar: <b>1 hora</b>. Todo cancelamento começa
+                    como <b>Aguardando Cancelamento</b>. Nas filiais 0104, 0105,
+                    1030 e 1040, quem for cancelar marca <b>Aguardando CNT</b>{' '}
+                    (botão CNT) quando a NF entrar nesse processo.
+                  </>
+                )}
               </div>
               <div className="cnl-acoes">
                 <button
@@ -11800,6 +11979,8 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
                     ? 'Salvando…'
                     : editId
                     ? 'Salvar Alterações'
+                    : form.inut
+                    ? 'Salvar Inutilização'
                     : 'Salvar Cancelamento'}
                 </button>
                 {editId && (
@@ -11836,6 +12017,10 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
               <b>{qtd(CANC_ST_BFT)}</b>
               <span>Aguardando BFT</span>
             </div>
+            <div className="cnl-stat" style={{ '--k': 'var(--orange-tx)' }}>
+              <b>{qtdInut}</b>
+              <span>Aguard. Inutilização</span>
+            </div>
             <div className="cnl-stat" style={{ '--k': 'var(--green-tx)' }}>
               <b>{paraHoje}</b>
               <span>Para Hoje</span>
@@ -11846,7 +12031,7 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
             </div>
             <div className="cnl-stat" style={{ '--k': 'var(--red)' }}>
               <b>{qtdAtrasados}</b>
-              <span>⏰ Atrasados (+1h)</span>
+              <span>⏰ Atrasados (prazo vencido)</span>
             </div>
           </div>
           <div className="cnl-filtros">
@@ -11856,6 +12041,7 @@ function TelaCancelamentos({ ativo, somenteLeitura }) {
               [CANC_ST_CNT, 'Aguardando CNT'],
               [CANC_ST_AG, 'Aguardando Cancelamento'],
               [CANC_ST_BFT, 'Aguardando Pagto BFT'],
+              ['inut', 'Inutilização'],
               ['atencao', '⚠ Com atenção'],
               ['atrasados', '⏰ Atrasados'],
             ].map(([v, t]) => (
@@ -13164,51 +13350,6 @@ async function lfLancarPoluido({ pedido, usuario, email }) {
   };
 }
 
-// ─── Exclusão de pedido do estoque (libera o pedido para lançar de novo) ──
-// Consulta o que prende o pedido: linhas em fila_lancamentos (bloqueia o Picking Poluído)
-// e o registro em pedidos_estoque (bloqueia Pedido Caixa / Picking Insuficiente).
-async function lfBuscarPedidoEstoque(pedido) {
-  const colPedido = encodeURIComponent('C9 Pedido');
-  const [fila, est] = await Promise.all([
-    lfApi(
-      '/fila_lancamentos?select=id,motivo,status,erro,enviado_em&' +
-        colPedido +
-        '=eq.' +
-        encodeURIComponent(pedido) +
-        '&order=id.asc&limit=5000'
-    ),
-    lfApi('/pedidos_estoque?select=pedido&pedido=eq.' + encodeURIComponent(pedido) + '&limit=1'),
-  ]);
-  return {
-    pedido,
-    fila: Array.isArray(fila) ? fila : [],
-    noEstoque: Array.isArray(est) && est.length > 0,
-  };
-}
-
-// Apaga o pedido das duas tabelas e grava a auditoria, tudo numa função do Supabase.
-async function lfExcluirPedidoEstoque({ pedido, motivo, usuario, email }) {
-  try {
-    const r = await lfApi('/rpc/excluir_pedido_estoque', {
-      method: 'POST',
-      body: JSON.stringify({ p_pedido: pedido, p_motivo: motivo, p_usuario: usuario, p_email: email }),
-      headers: { Prefer: 'return=representation' },
-    });
-    return r || {};
-  } catch (err) {
-    let msg = err.message;
-    try {
-      msg = JSON.parse(err.message).message || msg;
-    } catch (e) {
-      // resposta em texto simples
-    }
-    if (/PGRST202|Could not find the function/i.test(String(err.message))) {
-      msg = 'A função excluir_pedido_estoque ainda não existe no Supabase. Rode o SQL excluir_pedido_estoque.sql.';
-    }
-    throw new Error(msg);
-  }
-}
-
 // ─── Interface ────────────────────────────────────────────────────────
 const LF_CSS = `
 .lf-print-root{display:none}
@@ -13378,7 +13519,7 @@ function LfBlocoImpressao({ lista, info, registros, ordem }) {
               <td>{x.pedido || ''}</td>
               <td>{x.unidade_faturamento || ''}</td>
               <td>{x.data_hora_financeiro || ''}</td>
-              <td>{x.transportadora || info.transportadora || ''}</td>
+              <td>{info.transportadora || x.transportadora || ''}</td>
               <td>{lfValorCsv(x, ['Tipo de faturamento', 'Tipo Faturamento'])}</td>
               <td>{lfValorCsv(x, ['FILTRO V.1', 'FILTRO V1'])}</td>
             </tr>
@@ -15310,110 +15451,11 @@ function TelaListaFaturamento({ ativo }) {
     }
   };
 
-  // Exclusão de pedido do estoque
-  const [pedidoExcl, setPedidoExcl] = useState('');
-  const [consultaExcl, setConsultaExcl] = useState(null);
-  const [buscandoExcl, setBuscandoExcl] = useState(false);
-  const [motivoExcl, setMotivoExcl] = useState('');
-  const [excluindoExcl, setExcluindoExcl] = useState(false);
-  const [msgExcl, setMsgExcl] = useState(null);
-
-  const consultarExclusao = async () => {
-    const pedido = pedidoExcl.trim();
-    if (!pedido) {
-      setMsgExcl({ tipo: 'warn', texto: 'Informe o número do pedido.' });
-      return;
-    }
-    setBuscandoExcl(true);
-    setMsgExcl(null);
-    setConsultaExcl(null);
-    setMotivoExcl('');
-    try {
-      const r = await lfBuscarPedidoEstoque(pedido);
-      setConsultaExcl(r);
-      if (!r.fila.length && !r.noEstoque) {
-        setMsgExcl({
-          tipo: 'warn',
-          texto:
-            'O pedido ' + pedido + ' não está na fila do estoque nem na tabela pedidos_estoque. Não há nada para excluir.',
-        });
-      }
-    } catch (err) {
-      setMsgExcl({ tipo: 'erro', texto: 'Erro ao consultar: ' + err.message });
-    } finally {
-      setBuscandoExcl(false);
-    }
-  };
-
-  const executarExclusaoEstoque = async (usuario, pedido, motivo) => {
-    setExcluindoExcl(true);
-    try {
-      const r = await lfExcluirPedidoEstoque({
-        pedido,
-        motivo,
-        usuario: usuario.nome,
-        email: usuario.email,
-      });
-      const linhas = Number(r.linhas_fila) || 0;
-      const est = Number(r.pedidos_estoque) || 0;
-      if (!linhas && !est) {
-        setMsgExcl({ tipo: 'warn', texto: 'Nada foi excluído: o pedido ' + pedido + ' já não estava na fila nem em pedidos_estoque.' });
-      } else {
-        setMsgExcl({
-          tipo: 'ok',
-          texto:
-            'Pedido ' +
-            pedido +
-            ' excluído do estoque: ' +
-            linhas +
-            ' linha(s) da fila' +
-            (est ? ' e o registro em pedidos_estoque' : '') +
-            '. As linhas dele na aba Lançamentos da planilha serão apagadas automaticamente em até 1 minuto: espere antes de lançar de novo. A exclusão ficou registrada com o motivo.',
-        });
-      }
-      setConsultaExcl(null);
-      setPedidoExcl('');
-      setMotivoExcl('');
-    } catch (err) {
-      setMsgExcl({ tipo: 'erro', texto: 'Não foi possível excluir: ' + err.message });
-    } finally {
-      setExcluindoExcl(false);
-    }
-  };
-
-  const excluirPedidoDoEstoque = () => {
-    if (!consultaExcl) return;
-    const pedido = consultaExcl.pedido;
-    const motivo = motivoExcl.trim();
-    if (motivo.length < 5) {
-      alert('Informe um motivo com pelo menos 5 caracteres.');
-      return;
-    }
-    pedirQuem('Quem está excluindo o pedido do estoque?', (u) => executarExclusaoEstoque(u, pedido, motivo));
-  };
-
-  // Resume a fila do pedido por motivo + status
-  const gruposExcl = useMemo(() => {
-    const mapa = new Map();
-    ((consultaExcl && consultaExcl.fila) || []).forEach((x) => {
-      const motivo = String(x.motivo || '—');
-      const status = String(x.status || '—').toUpperCase();
-      const chave = motivo + '|' + status;
-      const atual = mapa.get(chave);
-      mapa.set(chave, { motivo, status, linhas: (atual ? atual.linhas : 0) + 1 });
-    });
-    return [...mapa.values()];
-  }, [consultaExcl]);
-  const exclTemEnviado = gruposExcl.some((g) => g.status === 'ENVIADO');
-  const exclTemPendente = gruposExcl.some((g) => g.status === 'PENDENTE' || g.status === 'PROCESSANDO');
-  const exclPodeExcluir = !!consultaExcl && (consultaExcl.fila.length > 0 || consultaExcl.noEstoque);
-
   const abas = [
     ['importar', 'Importar CSV'],
     ['listas', 'Listas geradas'],
     ['historico', 'Histórico de listas'],
     ['poluido', 'Picking Poluído'],
-    ['exclusao', 'Exclusão pedido estoque'],
     ['vialeitor', 'Via Leitor'],
   ];
   const registrosAbertos = listaAberta ? sessao.registros[listaAberta] || [] : [];
@@ -15937,112 +15979,6 @@ function TelaListaFaturamento({ ativo }) {
             </LfBtn>
           </div>
           {msgPoluido && <LfAviso tipo={msgPoluido.tipo}>{msgPoluido.texto}</LfAviso>}
-        </LfCard>
-      )}
-
-      {aba === 'exclusao' && (
-        <LfCard
-          titulo="Exclusão pedido estoque"
-          subtitulo="Tira o pedido da fila e da tabela de bloqueio do estoque para ele poder ser lançado de novo"
-        >
-          <LfAviso>
-            Digite o número do pedido e clique em Consultar. O sistema mostra onde o pedido está preso. Ao confirmar, ele é
-            apagado da fila do estoque (fila_lancamentos) e da tabela pedidos_estoque, e a exclusão fica registrada com o
-            motivo e o nome de quem fez.
-          </LfAviso>
-          <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'center' }}>
-            <input
-              className="lf-input"
-              style={{ ...lfInputStyle, width: 240, height: 38 }}
-              inputMode="numeric"
-              autoComplete="off"
-              placeholder="Ex.: 577120"
-              value={pedidoExcl}
-              onChange={(e) => {
-                setPedidoExcl(e.target.value);
-                setConsultaExcl(null);
-                setMsgExcl(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') consultarExclusao();
-              }}
-            />
-            <LfBtn tipo="primario" disabled={buscandoExcl} onClick={consultarExclusao}>
-              {buscandoExcl ? 'Consultando...' : '🔎 Consultar'}
-            </LfBtn>
-            <LfBtn
-              onClick={() => {
-                setPedidoExcl('');
-                setConsultaExcl(null);
-                setMotivoExcl('');
-                setMsgExcl(null);
-              }}
-            >
-              Limpar
-            </LfBtn>
-          </div>
-          {msgExcl && <LfAviso tipo={msgExcl.tipo}>{msgExcl.texto}</LfAviso>}
-
-          {consultaExcl && exclPodeExcluir && (
-            <div style={{ marginTop: 16 }}>
-              <LfKpis>
-                <LfKpi rotulo="Pedido" valor={consultaExcl.pedido} tipo="info" />
-                <LfKpi
-                  rotulo="Linhas na fila do estoque"
-                  valor={consultaExcl.fila.length}
-                  tipo={consultaExcl.fila.length ? 'warn' : 'neutro'}
-                  detalhe="bloqueia o Picking Poluído"
-                />
-                <LfKpi
-                  rotulo="Em pedidos_estoque"
-                  valor={consultaExcl.noEstoque ? 'Sim' : 'Não'}
-                  tipo={consultaExcl.noEstoque ? 'warn' : 'neutro'}
-                  detalhe="bloqueia Caixa / Picking Insuficiente"
-                />
-              </LfKpis>
-
-              {gruposExcl.length > 0 && (
-                <LfTabela colunas={['Motivo', 'Status na fila', 'Linhas']} numericas={['Linhas']}>
-                  {gruposExcl.map((g) => (
-                    <tr key={g.motivo + g.status}>
-                      <td style={lfTdStyle}>{g.motivo}</td>
-                      <td style={lfTdStyle}>
-                        <LfBadge tipo={g.status === 'ENVIADO' ? 'ok' : g.status === 'ERRO' ? 'erro' : 'warn'}>{g.status}</LfBadge>
-                      </td>
-                      <td style={lfTdNum}>{g.linhas}</td>
-                    </tr>
-                  ))}
-                </LfTabela>
-              )}
-
-              {exclTemEnviado && (
-                <LfAviso tipo="info">
-                  Este pedido já foi gravado na aba Lançamentos da planilha do estoque. Ao excluir, as linhas dele lá também
-                  são apagadas automaticamente (em até 1 minuto). Espere esse tempo antes de lançar de novo, senão ele fica
-                  duplicado.
-                </LfAviso>
-              )}
-              {exclTemPendente && (
-                <LfAviso tipo="info">
-                  Há linhas ainda não enviadas à planilha (Pendente/Processando). Excluir cancela o envio delas.
-                </LfAviso>
-              )}
-
-              <textarea
-                className="lf-input"
-                value={motivoExcl}
-                onChange={(e) => setMotivoExcl(e.target.value)}
-                maxLength={500}
-                placeholder="Explique por que precisa excluir (mínimo 5 caracteres)..."
-                style={{ ...lfInputStyle, width: '100%', height: 80, padding: 10, boxSizing: 'border-box', resize: 'vertical', marginTop: 12 }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
-                <LfBtn tipo="perigo" disabled={excluindoExcl} onClick={excluirPedidoDoEstoque}>
-                  {excluindoExcl ? 'Excluindo...' : 'Excluir do estoque'}
-                </LfBtn>
-              </div>
-            </div>
-          )}
         </LfCard>
       )}
 
@@ -18601,7 +18537,7 @@ export default function App() {
             fontFamily: C.font,
           }}
         >
-          BBDI © {new Date().getFullYear()} · v30.10-12h
+          BBDI © {new Date().getFullYear()} · v13.11-inut
         </div>
       </aside>
       {/* Main */}
