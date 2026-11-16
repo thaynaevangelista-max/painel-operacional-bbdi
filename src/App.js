@@ -42,6 +42,7 @@ const LOGINS = [
 const TELAS_BLOQUEADAS_GERAL = [
   'listaFaturamento',
   'separacaoLista',
+  'faturamentoBB',
   'viaLeitor',
   'producaoSolicitacoes',
   'ajusteSaldo',
@@ -1294,7 +1295,7 @@ function MenuGrupBtn({ ativo, onClick, children, icon }) {
   );
 }
 
-function SubMenuBtn({ ativo, onClick, children }) {
+function SubMenuBtn({ ativo, onClick, children, nivel = 0 }) {
   return (
     <button
       className="bbdi-nav"
@@ -1303,7 +1304,7 @@ function SubMenuBtn({ ativo, onClick, children }) {
         width: '100%',
         border: 'none',
         borderRadius: 9,
-        padding: '8px 12px 8px 18px',
+        padding: `8px 12px 8px ${18 + nivel * 14}px`,
         marginBottom: 2,
         cursor: 'pointer',
         textAlign: 'left',
@@ -12335,6 +12336,9 @@ const LF_ENDERECOS = {"B140XW02-V.1":"F-01-11","B156XTN08.1":"F-01-9","B156XW02-
 const LF_SUPABASE_URL = 'https://flvvhthiepgkgnnzrjmj.supabase.co';
 const LF_SUPABASE_KEY = 'sb_publishable_T3QCEpguQ4thZhUFDex70A_Kf9lMVYD';
 const LF_API = LF_SUPABASE_URL + '/rest/v1';
+// Telas da Equipatech mostram só estas filiais (a 1020 é da BBBaterias, na tela Lista BBBaterias).
+const LF_FILIAIS_EQ = ['0101', '0102'];
+const LF_FILTRO_FILIAL_EQ = '&filial=in.(' + LF_FILIAIS_EQ.join(',') + ')';
 const LF_HEADERS = {
   apikey: LF_SUPABASE_KEY,
   Authorization: 'Bearer ' + LF_SUPABASE_KEY,
@@ -14500,10 +14504,14 @@ function LfViaLeitorUpload({ existentes, agenteHa, onFechar, onFeito }) {
 }
 
 // Tela "Ver pedido": itens (produto e quantidade) e como cada um está no estoque (tabela painel_estoque).
-function LfViaLeitorDetalhe({ r, onFechar }) {
+function LfViaLeitorDetalhe({ r, onFechar, bb }) {
   const [painel, setPainel] = useState(null); // linhas do painel_estoque deste pedido
   const [erro, setErro] = useState('');
   useEffect(() => {
+    if (bb) {
+      setPainel([]); // BBBaterias não usa o painel do estoque da Equipatech
+      return undefined;
+    }
     let vivo = true;
     setPainel(null);
     setErro('');
@@ -14513,7 +14521,7 @@ function LfViaLeitorDetalhe({ r, onFechar }) {
     return () => {
       vivo = false;
     };
-  }, [r.pedido]);
+  }, [r.pedido, bb]);
   useEffect(() => {
     const k = (e) => e.key === 'Escape' && onFechar();
     window.addEventListener('keydown', k);
@@ -14587,7 +14595,7 @@ function LfViaLeitorDetalhe({ r, onFechar }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: C.font }}>
               <thead>
                 <tr>
-                  {['Produto', 'Qtd', 'Estoque', 'Entregue'].map((c) => (
+                  {(bb ? ['Produto', 'Qtd', 'Localização', 'EST-FD-01'] : ['Produto', 'Qtd', 'Estoque', 'Entregue']).map((c) => (
                     <th key={c} style={{ ...th, textAlign: c === 'Qtd' || c === 'Entregue' ? 'center' : 'left' }}>
                       {c}
                     </th>
@@ -14598,6 +14606,17 @@ function LfViaLeitorDetalhe({ r, onFechar }) {
                 {linhas.map((x, i) => {
                   const e = x.est[0];
                   const cod = e ? codSt(x.est) : '';
+                  if (bb) {
+                    const l = (bb.locMap || {})[bbChave(x.produto)] || {};
+                    return (
+                      <tr key={x.produto + i}>
+                        <td style={{ ...td, fontWeight: 700 }}>{x.produto}</td>
+                        <td style={{ ...td, textAlign: 'center' }}>{x.qtd == null ? '—' : x.qtd}</td>
+                        <td style={{ ...td, fontWeight: 800 }}>{l.localizacao || '—'}</td>
+                        <td style={{ ...td, textAlign: 'center' }}>{l.saldo_fd == null ? '—' : bbNum(l.saldo_fd)}</td>
+                      </tr>
+                    );
+                  }
                   return (
                     <tr key={x.produto + i}>
                       <td style={{ ...td, fontWeight: 700 }}>{x.produto}</td>
@@ -14624,7 +14643,9 @@ function LfViaLeitorDetalhe({ r, onFechar }) {
   );
 }
 
-function LfViaLeitor({ ativo }) {
+function LfViaLeitor({ ativo, bb }) {
+  const filialBB = bb ? bb.filial : '';
+  const bbListaDe = bb ? bb.listaDe : null;
   const [rows, setRows] = useState(null);
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(false);
@@ -14656,7 +14677,7 @@ function LfViaLeitor({ ativo }) {
       ];
       for (let k = 0; k < tentativas.length; k++) {
         try {
-          dados = await sepBuscarTudo(`/v_via_leitor_lista?select=${tentativas[k][0]}${ordem}`);
+          dados = await sepBuscarTudo(`/v_via_leitor_lista?select=${tentativas[k][0]}${filialBB ? '&filial=eq.' + encodeURIComponent(filialBB) : LF_FILTRO_FILIAL_EQ}${ordem}`);
           setSemFat(tentativas[k][1]);
           break;
         } catch (e1) {
@@ -14686,7 +14707,7 @@ function LfViaLeitor({ ativo }) {
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [filialBB]);
 
   useEffect(() => {
     if (!ativo) return undefined;
@@ -14709,7 +14730,7 @@ function LfViaLeitor({ ativo }) {
     () =>
       (rows || []).map((r) => {
         const lim = r.data_limite ? new Date(r.data_limite).getTime() : null;
-        return {
+        const o = {
           ...r,
           lim,
           restante: lim == null ? null : lim - agora,
@@ -14734,8 +14755,18 @@ function LfViaLeitor({ ativo }) {
             ? 'andamento'
             : 'nao',
         };
+        if (bbListaDe) {
+          // BBBaterias: a lista vem das listas BB (bb_listas), sem estoque/separação da Equipatech.
+          const ld = bbListaDe[String(r.pedido)];
+          o.tipo = ld ? 'lista' : 'gerar';
+          o.tem_lista = !!ld;
+          o.lista_status = ld ? bbNumero(ld) : 'Gerar Lista';
+          o.aplica = false;
+          o.sepSt = null;
+        }
+        return o;
       }),
-    [rows, agora]
+    [rows, agora, bbListaDe]
   );
   // Quem pode ser escolhido como faturador: a equipe + qualquer nome que já apareceu nos dados.
   const nomesFat = useMemo(() => {
@@ -14806,7 +14837,6 @@ function LfViaLeitor({ ativo }) {
     }),
     [lista]
   );
-  const filiais = useMemo(() => [...new Set(lista.map((r) => r.filial))].filter(Boolean).sort(), [lista]);
   const filtrados = useMemo(() => {
     const termo = sepNorm(busca);
     return lista.filter((r) => {
@@ -14842,17 +14872,17 @@ function LfViaLeitor({ ativo }) {
   return (
     <>
       <LfKpis>
-        <LfKpi rotulo="Pedidos no Via Leitor" valor={cont.total} detalhe="Filiais 0101 e 0102" tipo="info" />
+        <LfKpi rotulo="Pedidos no Via Leitor" valor={cont.total} detalhe={bb ? 'Filial ' + bb.filial : 'Filiais 0101 e 0102'} tipo="info" />
         <LfKpi rotulo="Gerar lista" valor={cont.gerar} detalhe="Sem lista e fora do estoque" tipo={cont.gerar ? 'erro' : 'ok'} />
         <LfKpi rotulo="Em lista" valor={cont.emLista} detalhe="Já têm lista gerada" tipo="ok" />
-        <LfKpi rotulo="Estoque - separação" valor={cont.estoque} detalhe="Lançados para o estoque" tipo="warn" />
+        {!bb && <LfKpi rotulo="Estoque - separação" valor={cont.estoque} detalhe="Lançados para o estoque" tipo="warn" />}
         <LfKpi rotulo="Em vermelho" valor={cont.alerta} detalhe="Falta 1h ou menos, ou já atrasou" tipo={cont.alerta ? 'erro' : 'ok'} />
         <LfKpi rotulo="Em azul" valor={cont.azul} detalhe="Mais de 50 un, faltam 3h ou menos" tipo="info" />
         <LfKpi rotulo="Em atraso" valor={cont.atraso} detalhe="Passou da data limite" tipo={cont.atraso ? 'erro' : 'ok'} />
-        {!semFat && (
+        {!semFat && !bb && (
           <LfKpi rotulo="Separação não iniciada" valor={cont.naoIniciada} detalhe="Sem nenhum item iniciado" tipo={cont.naoIniciada ? 'warn' : 'ok'} />
         )}
-        {!semFat && (
+        {!semFat && !bb && (
           <LfKpi rotulo="Sem faturador" valor={cont.semFat} detalhe="Concluída ou estoque, sem nome" tipo={cont.semFat ? 'warn' : 'ok'} />
         )}
       </LfKpis>
@@ -14876,7 +14906,7 @@ function LfViaLeitor({ ativo }) {
       >
         {erro && <LfAviso tipo="erro">{erro}</LfAviso>}
         {avisoFat && <LfAviso tipo={avisoFat.tipo}>{avisoFat.texto}</LfAviso>}
-        {semFat && !erro && (
+        {semFat && !bb && !erro && (
           <LfAviso tipo="warn">
             As colunas Separador, Faturador e Status da separação aparecem depois de rodar o SQL criar_faturador_separacao.sql no Supabase.
           </LfAviso>
@@ -14905,18 +14935,20 @@ function LfViaLeitor({ ativo }) {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
-          <select className="lf-input" style={lfInputStyle} value={fFilial} onChange={(e) => setFFilial(e.target.value)}>
-            <option value="">Filial: todas</option>
-            {filiais.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
+          {!bb && (
+            <select className="lf-input" style={lfInputStyle} value={fFilial} onChange={(e) => setFFilial(e.target.value)}>
+              <option value="">Filial: todas</option>
+              {LF_FILIAIS_EQ.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+          )}
           <select className="lf-input" style={lfInputStyle} value={fLista} onChange={(e) => setFLista(e.target.value)}>
             <option value="">Lista: todas</option>
             <option value="gerar">Gerar Lista</option>
-            <option value="estoque">Estoque - separação</option>
+            {!bb && <option value="estoque">Estoque - separação</option>}
             <option value="lista">Em lista</option>
           </select>
           <select className="lf-input" style={lfInputStyle} value={fPrazo} onChange={(e) => setFPrazo(e.target.value)}>
@@ -14926,7 +14958,7 @@ function LfViaLeitor({ ativo }) {
             <option value="atraso">Em atraso</option>
             <option value="prazo">No prazo</option>
           </select>
-          {!semFat && (
+          {!semFat && !bb && (
             <select className="lf-input" style={lfInputStyle} value={fSep} onChange={(e) => setFSep(e.target.value)}>
               <option value="">Separação: todas</option>
               <option value="nao">Não iniciada</option>
@@ -14946,8 +14978,10 @@ function LfViaLeitor({ ativo }) {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: C.font, fontVariantNumeric: 'tabular-nums' }}>
                 <thead>
                   <tr>
-                    {['Filial', 'Pedido', 'Data Liberação', 'Quant', 'Transporte', 'Produto', 'Status', 'Tempo Pedido', 'Data limite', 'Tempo Restante', 'Lista']
-                      .concat(semFat ? [] : ['Separador', 'Faturador', 'Status separação'])
+                    {['Filial', 'Pedido', 'Data Liberação', 'Quant', 'Transporte', 'Produto']
+                      .concat(bb ? ['Localização'] : [])
+                      .concat(['Status', 'Tempo Pedido', 'Data limite', 'Tempo Restante', 'Lista'])
+                      .concat(semFat || bb ? [] : ['Separador', 'Faturador', 'Status separação'])
                       .map((c) => (
                       <th
                         key={c}
@@ -15018,6 +15052,14 @@ function LfViaLeitor({ ativo }) {
                             );
                           })()}
                         </td>
+                        {bb && (() => {
+                          const its = lfVlItens(r);
+                          const loc = its.map((i) => ((bb.locMap || {})[bbChave(i.produto)] || {}).localizacao || '');
+                          const txt = !loc.some(Boolean) ? '' : its.length === 1 ? loc[0] : its.map((i, k) => `${i.produto}: ${loc[k] || '—'}`).join(' · ');
+                          return (
+                            <td style={{ ...td, fontWeight: 800, whiteSpace: 'normal', minWidth: 110, maxWidth: 260, wordBreak: 'break-word' }}>{txt || '—'}</td>
+                          );
+                        })()}
                         <td style={td}>{r.restante == null ? '—' : atrasado ? 'Atraso' : 'No Prazo'}</td>
                         <td style={td}>{horas ? `${horas}:00:00` : '—'}</td>
                         <td style={td}>{r.lim ? sepQuandoSeg(r.lim) : '—'}</td>
@@ -15034,7 +15076,7 @@ function LfViaLeitor({ ativo }) {
                         >
                           {r.lista_status}
                         </td>
-                        {!semFat && (
+                        {!semFat && !bb && (
                           <>
                             <td style={td}>{r.aplica ? r.separador || '—' : ''}</td>
                             <td style={{ ...td, padding: '5px 8px' }}>
@@ -15125,7 +15167,7 @@ function LfViaLeitor({ ativo }) {
         />
       )}
       {detalhe && lista.find((x) => `${x.filial}-${x.pedido}` === detalhe) && (
-        <LfViaLeitorDetalhe r={lista.find((x) => `${x.filial}-${x.pedido}` === detalhe)} onFechar={() => setDetalhe(null)} />
+        <LfViaLeitorDetalhe r={lista.find((x) => `${x.filial}-${x.pedido}` === detalhe)} onFechar={() => setDetalhe(null)} bb={bb} />
       )}
     </>
   );
@@ -15289,7 +15331,8 @@ function TelaListaFaturamento({ ativo }) {
         '/historico_listas?select=id,lista,data_hora,usuario,filial,transportadora,pedidos,unidades,impresso,status,motivo_ajuste,ajustada_por,ajustada_em' +
           filtroBusca +
           '&order=id.desc&limit=' +
-          (busca ? 500 : 1000)
+          (busca ? 500 : 1000) +
+          LF_FILTRO_FILIAL_EQ
       );
       setHistorico(Array.isArray(h) ? h : []);
       setLimiteTela(150);
@@ -15306,10 +15349,6 @@ function TelaListaFaturamento({ ativo }) {
     }
   }, [ativo, aba]);
 
-  const filiais = useMemo(
-    () => [...new Set(historico.map((x) => String(x.filial || '').trim()).filter(Boolean))].sort(),
-    [historico]
-  );
   const transps = useMemo(
     () => [...new Set(historico.map((x) => String(x.transportadora || '').trim()).filter(Boolean))].sort(),
     [historico]
@@ -15775,7 +15814,7 @@ function TelaListaFaturamento({ ativo }) {
             />
             <select className="lf-input" style={lfInputStyle} value={filtros.filial} onChange={(e) => setFiltros({ ...filtros, filial: e.target.value })}>
               <option value="">Filial: todas</option>
-              {filiais.map((f) => (
+              {LF_FILIAIS_EQ.map((f) => (
                 <option key={f}>{f}</option>
               ))}
             </select>
@@ -16317,6 +16356,514 @@ function SepCampoRotulo({ rotulo, children }) {
       <div style={{ fontSize: 11.5, fontWeight: 700, color: C.txtMuted, marginBottom: 5 }}>{rotulo}</div>
       {children}
     </label>
+  );
+}
+
+// ─── Lista BBBaterias (filial 1020) ────────────────────────────────────
+// A lista é o que o Via Leitor (agente) traz da 1020: uma linha por pedido + produto,
+// ordenada por produto, com o Nº da lista. Pedidos já listados não voltam (SQL criar_lista_bb.sql).
+const BB_FILIAL = '1020';
+
+const BB_USUARIO_CHAVE = 'bb_lista_usuario';
+const bbNumero = (id) => 'BB-' + String(id).padStart(4, '0');
+const bbEsc = (v) =>
+  String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const bbDataBR = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+};
+const bbHoraBR = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false });
+};
+const bbNum = (v) => (v == null || v === '' ? '-' : String(Number(v)).replace('.', ','));
+
+const bbChave = (v) => String(v == null ? '' : v).trim().toUpperCase();
+const BB_ORDEM_CHAVE = 'bb_ordem_impressao';
+// Ordem da lista: por produto (como a CALCULADORA) ou por localização (roteiro de separação).
+function bbOrdenar(linhas, ordem) {
+  const nat = (a, b) => String(a).localeCompare(String(b), 'pt-BR', { numeric: true });
+  return [...linhas].sort((a, b) =>
+    ordem === 'localizacao'
+      ? nat(a.localizacao || '\uffff', b.localizacao || '\uffff') || nat(a.produto, b.produto) || nat(a.pedido, b.pedido)
+      : nat(a.produto, b.produto) || nat(a.pedido, b.pedido)
+  );
+}
+// Uma linha por pedido + produto (usa "itens" do agente; se vier vazio, cai para "produtos" + quantidade total).
+// A localização e o saldo FD-01 vêm da tabela bb_localizacao (locMap: produto em maiúsculas -> {localizacao, saldo_fd}).
+function bbItensDoPedido(p) {
+  const itens = Array.isArray(p.itens) ? p.itens.filter((i) => i && i.produto) : [];
+  if (itens.length) return itens.map((i) => ({ produto: String(i.produto).trim(), qtd: Number(i.qtd) || 0 }));
+  const nomes = String(p.produtos || '').split(',').map((x) => x.trim()).filter(Boolean);
+  if (nomes.length === 1) return [{ produto: nomes[0], qtd: Number(p.qtd_total) || 0 }];
+  return [{ produto: String(p.produtos || '').trim() || '(sem produto)', qtd: Number(p.qtd_total) || 0 }];
+}
+function bbExplodirPedidos(pedidos, locMap = {}, ordem = 'produto') {
+  const linhas = [];
+  pedidos.forEach((p) => {
+    const base = { pedido: String(p.pedido), transporte: p.transportadora || '', lib_estoque: p.lib_estoque || null };
+    bbItensDoPedido(p).forEach((i) => {
+      const l = locMap[bbChave(i.produto)];
+      linhas.push({
+        ...base,
+        produto: i.produto,
+        qtd: i.qtd,
+        estoque_fd: l && l.saldo_fd != null ? Number(l.saldo_fd) : null,
+        localizacao: (l && l.localizacao) || null,
+      });
+    });
+  });
+  return bbOrdenar(linhas, ordem);
+}
+const bbNumero2 = (v) => {
+  if (v == null || String(v).trim() === '') return null;
+  let t = String(v).trim();
+  if (t.includes(',')) t = t.replace(/\./g, '').replace(',', '.');
+  const n = Number(t);
+  return Number.isNaN(n) ? null : n;
+};
+// Acha as colunas do arquivo de localização pelo título.
+function bbMapearLocalizacao(matriz) {
+  const nProd = ['produto', 'sku', 'codigo', 'codigoproduto', 'modelo', 'item'];
+  const nLoc = ['localizacao', 'endereco', 'enderecamento', 'local', 'loc', 'posicao'];
+  const nSal = ['estfd01', 'estoquefd01', 'estoquefd', 'saldofd01', 'saldofd', 'saldo', 'estoque', 'qtd', 'quantidade'];
+  for (let r = 0; r < Math.min(matriz.length, 25); r++) {
+    const cab = (matriz[r] || []).map(lfVlNormCab);
+    const ach = (nomes) => {
+      for (const n of nomes) {
+        const i = cab.indexOf(n);
+        if (i >= 0) return i;
+      }
+      return -1;
+    };
+    const iProd = ach(nProd);
+    const iLoc = ach(nLoc);
+    const iSal = ach(nSal);
+    if (iProd >= 0 && (iLoc >= 0 || iSal >= 0)) return { linha: r, iProd, iLoc, iSal };
+  }
+  return null;
+}
+
+function bbImprimir(lista, itens, ordem = 'produto') {
+  const linhas = bbOrdenar(itens, ordem)
+    .map(
+      (i) =>
+        `<tr><td>${bbEsc(i.pedido)}</td><td>${bbEsc(i.produto)}</td><td class="c"><b>${bbEsc(i.localizacao || '-')}</b></td><td class="c">${bbNum(i.qtd)}</td>` +
+        `<td class="c">${bbNum(i.estoque_fd)}</td><td>${bbEsc(i.transporte)}</td>` +
+        `<td class="c">${bbEsc(bbDataBR(i.lib_estoque))}</td><td class="c">${bbEsc(bbHoraBR(i.lib_estoque))}</td></tr>`
+    )
+    .join('');
+  const html =
+    `<!doctype html><html><head><meta charset="utf-8"><title>Lista ${bbNumero(lista.id)}</title><style>` +
+    `*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}body{margin:14px;color:#000}` +
+    `h1{font-size:20px;margin:0 0 4px}.info{font-size:12px;margin-bottom:10px;display:flex;gap:18px;flex-wrap:wrap}` +
+    `table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #444;padding:4px 6px}` +
+    `th{background:#1f3a5f;color:#fff;text-transform:uppercase;font-size:11px}td.c{text-align:center}` +
+    `thead{display:table-header-group}tr{break-inside:avoid}@page{size:A4 landscape;margin:10mm}` +
+    `</style></head><body><h1>Lista ${bbNumero(lista.id)} · BBBaterias ${BB_FILIAL}</h1>` +
+    `<div class="info"><span>Gerada em: <b>${bbEsc(new Date(lista.criada_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }))}</b></span>` +
+    `<span>Responsável: <b>${bbEsc(lista.usuario || '-')}</b></span><span>Pedidos: <b>${lista.pedidos}</b></span>` +
+    `<span>Itens: <b>${lista.itens}</b></span><span>Unidades: <b>${bbNum(lista.unidades)}</b></span><span>Ordem: <b>${ordem === 'localizacao' ? 'por localização' : 'por produto'}</b></span></div>` +
+    `<table><thead><tr><th>Pedido</th><th>Produto</th><th>Localização</th><th>Qt Liberada</th><th>EST-FD-01</th><th>Transporte</th><th>Dt. Lib Est</th><th>Hr. Lib. Est</th></tr></thead>` +
+    `<tbody>${linhas}</tbody></table></body></html>`;
+  const fr = document.createElement('iframe');
+  fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  document.body.appendChild(fr);
+  fr.contentDocument.open();
+  fr.contentDocument.write(html);
+  fr.contentDocument.close();
+  setTimeout(() => {
+    try {
+      fr.contentWindow.focus();
+      fr.contentWindow.print();
+    } finally {
+      setTimeout(() => fr.remove(), 60000);
+    }
+  }, 300);
+}
+
+function TelaListaBB({ ativo }) {
+  const [pedidos, setPedidos] = useState([]); // tudo que o agente trouxe da 1020 (como a CALCULADORA)
+  const [listaDe, setListaDe] = useState({}); // pedido -> id da lista em que já está
+  const [listas, setListas] = useState([]);
+  const [atualizadoEm, setAtualizadoEm] = useState('');
+  const [carregando, setCarregando] = useState(false);
+  const [msg, setMsg] = useState(null); // {tipo, texto}
+  const [usuario, setUsuario] = useState(() => {
+    try {
+      return localStorage.getItem(BB_USUARIO_CHAVE) || '';
+    } catch (e) {
+      return '';
+    }
+  });
+  const [gerando, setGerando] = useState(false);
+  const [aberta, setAberta] = useState(null); // { id, itens }
+  const [locMap, setLocMap] = useState({}); // produto (maiúsculas) -> {localizacao, saldo_fd, atualizado_em}
+  const [ordemImp, setOrdemImp] = useState(() => {
+    try {
+      return localStorage.getItem(BB_ORDEM_CHAVE) === 'localizacao' ? 'localizacao' : 'produto';
+    } catch (e) {
+      return 'produto';
+    }
+  });
+  const trocarOrdem = (v) => {
+    setOrdemImp(v);
+    try {
+      localStorage.setItem(BB_ORDEM_CHAVE, v);
+    } catch (e) {
+      /* sem armazenamento */
+    }
+  };
+  const [aba, setAba] = useState('vialeitor'); // vialeitor | historico
+  const [buscaHist, setBuscaHist] = useState('');
+  const [subindoLoc, setSubindoLoc] = useState(false);
+  const inputLocRef = useRef(null);
+
+  const carregar = useCallback(async () => {
+    setCarregando(true);
+    try {
+      const ag = await sepBuscarTudo(
+        '/via_leitor_agente?select=pedido,qtd_total,transportadora,produtos,itens,lib_estoque,data_limite,tempo_pedido_horas,atualizado_em&filial=eq.' +
+          BB_FILIAL +
+          '&order=data_limite.asc.nullslast,pedido.asc'
+      );
+      const mapa = {};
+      for (const lote of lfChunk(ag.map((p) => String(p.pedido)), 150)) {
+        const r = await lfApi('/bb_lista_itens?select=pedido,lista_id&pedido=in.(' + lote.map(encodeURIComponent).join(',') + ')');
+        (Array.isArray(r) ? r : []).forEach((x) => {
+          mapa[String(x.pedido)] = x.lista_id;
+        });
+      }
+      try {
+        const loc = await sepBuscarTudo('/bb_localizacao?select=produto,localizacao,saldo_fd,atualizado_em');
+        const m = {};
+        loc.forEach((x) => {
+          m[bbChave(x.produto)] = x;
+        });
+        setLocMap(m);
+      } catch (eLoc) {
+        /* tabela ainda não criada: a tela funciona sem localização */
+      }
+      setPedidos(ag);
+      setListaDe(mapa);
+      setAtualizadoEm(ag.reduce((m, p) => (p.atualizado_em && p.atualizado_em > m ? p.atualizado_em : m), ''));
+      const h = await lfApi('/bb_listas?select=*&order=id.desc&limit=300');
+      setListas(Array.isArray(h) ? h : []);
+      setMsg(null);
+    } catch (e) {
+      const t = String(e.message || e);
+      setMsg({
+        tipo: 'erro',
+        texto: /PGRST205|does not exist|Could not find/i.test(t)
+          ? 'As tabelas da Lista BB ainda não existem no Supabase. Rode o SQL criar_lista_bb.sql.'
+          : 'Erro ao carregar: ' + t.slice(0, 180),
+      });
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (ativo) {
+      carregar();
+      const t = setInterval(carregar, 60000);
+      return () => clearInterval(t);
+    }
+    return undefined;
+  }, [ativo, carregar]);
+
+  const semLista = useMemo(() => pedidos.filter((p) => !listaDe[String(p.pedido)]), [pedidos, listaDe]);
+  const linhasNovas = useMemo(() => bbExplodirPedidos(semLista, locMap, ordemImp), [semLista, locMap, ordemImp]);
+  const semLocal = useMemo(() => {
+    const falta = new Set();
+    pedidos.forEach((p) => bbItensDoPedido(p).forEach((i) => !(locMap[bbChave(i.produto)] || {}).localizacao && falta.add(bbChave(i.produto))));
+    return falta.size;
+  }, [pedidos, locMap]);
+  const locAtualizadaEm = useMemo(() => Object.values(locMap).reduce((m, x) => (x.atualizado_em && x.atualizado_em > m ? x.atualizado_em : m), ''), [locMap]);
+
+  const bbProps = useMemo(() => ({ filial: BB_FILIAL, listaDe, locMap }), [listaDe, locMap]);
+  const listasVisiveis = useMemo(() => {
+    const t = buscaHist.trim().toLowerCase();
+    if (!t) return listas;
+    return listas.filter((l) => bbNumero(l.id).toLowerCase().includes(t) || String(l.usuario || '').toLowerCase().includes(t));
+  }, [listas, buscaHist]);
+
+  const gerar = async () => {
+    const nome = usuario.trim();
+    if (!nome) {
+      setMsg({ tipo: 'erro', texto: 'Informe quem está gerando a lista.' });
+      return;
+    }
+    if (!linhasNovas.length) return;
+    setGerando(true);
+    setMsg({ tipo: 'info', texto: 'Gerando lista...' });
+    try {
+      try {
+        localStorage.setItem(BB_USUARIO_CHAVE, nome);
+      } catch (e) {
+        /* sem armazenamento */
+      }
+      const id = await lfApi('/rpc/bb_gerar_lista', {
+        method: 'POST',
+        body: JSON.stringify({ p_usuario: nome, p_itens: linhasNovas }),
+      });
+      const [lista] = await lfApi('/bb_listas?id=eq.' + id + '&select=*');
+      const itens = await lfApi('/bb_lista_itens?lista_id=eq.' + id + '&select=*&order=produto.asc,pedido.asc');
+      bbImprimir(lista, itens, ordemImp);
+      await lfApi('/bb_listas?id=eq.' + id, { method: 'PATCH', body: JSON.stringify({ impresso: true }), headers: { Prefer: 'return=minimal' } });
+      setMsg({ tipo: 'ok', texto: `Lista ${bbNumero(id)} gerada: ${lista.pedidos} pedidos, ${lista.itens} itens.` });
+      await carregar();
+    } catch (e) {
+      const t = String(e.message || e);
+      setMsg({ tipo: 'erro', texto: 'Erro ao gerar: ' + ((t.match(/"message":"([^"]+)"/) || [])[1] || t.slice(0, 200)) });
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  const subirLocalizacao = async (e) => {
+    const arq = e.target.files && e.target.files[0];
+    if (e.target) e.target.value = '';
+    if (!arq) return;
+    setSubindoLoc(true);
+    setMsg({ tipo: 'info', texto: 'Lendo ' + arq.name + '...' });
+    try {
+      const matriz = await lfVlLerArquivo(arq);
+      const m = bbMapearLocalizacao(matriz);
+      if (!m) throw new Error('Não achei as colunas. O arquivo precisa ter "Produto" e "Localização" (e/ou "EST-FD-01" / saldo) no cabeçalho.');
+      const agoraIso = new Date().toISOString();
+      const porProduto = new Map();
+      matriz.slice(m.linha + 1).forEach((r) => {
+        const produto = bbChave(r[m.iProd]);
+        if (!produto) return;
+        const o = { produto, origem: 'arquivo', atualizado_em: agoraIso };
+        if (m.iLoc >= 0) o.localizacao = String(r[m.iLoc] == null ? '' : r[m.iLoc]).trim() || null;
+        if (m.iSal >= 0) o.saldo_fd = bbNumero2(r[m.iSal]);
+        porProduto.set(produto, o);
+      });
+      const linhas = [...porProduto.values()];
+      if (!linhas.length) throw new Error('O arquivo não tem nenhum produto abaixo do cabeçalho.');
+      for (const lote of lfChunk(linhas, 500)) {
+        await lfApi('/bb_localizacao?on_conflict=produto', {
+          method: 'POST',
+          body: JSON.stringify(lote),
+          headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+        });
+      }
+      setMsg({
+        tipo: 'ok',
+        texto: `${linhas.length} produtos atualizados` + (m.iLoc >= 0 ? ' (localização' + (m.iSal >= 0 ? ' e saldo)' : ')') : ' (saldo)') + '.',
+      });
+      await carregar();
+    } catch (err) {
+      const t = String(err.message || err);
+      setMsg({
+        tipo: 'erro',
+        texto: /PGRST205|does not exist|Could not find/i.test(t) ? 'A tabela de localização não existe. Rode o SQL criar_lista_bb.sql.' : 'Erro ao subir o arquivo: ' + t.slice(0, 200),
+      });
+    } finally {
+      setSubindoLoc(false);
+    }
+  };
+
+  const itensDe = async (id) => lfApi('/bb_lista_itens?lista_id=eq.' + id + '&select=*&order=produto.asc,pedido.asc');
+  const reimprimir = async (l) => {
+    try {
+      bbImprimir(l, await itensDe(l.id), ordemImp);
+      await lfApi('/bb_listas?id=eq.' + l.id, { method: 'PATCH', body: JSON.stringify({ impresso: true }), headers: { Prefer: 'return=minimal' } });
+      setListas((x) => x.map((y) => (y.id === l.id ? { ...y, impresso: true } : y)));
+    } catch (e) {
+      setMsg({ tipo: 'erro', texto: 'Erro ao imprimir: ' + String(e.message || e).slice(0, 160) });
+    }
+  };
+  const ver = async (l) => {
+    if (aberta && aberta.id === l.id) return setAberta(null);
+    try {
+      setAberta({ id: l.id, itens: await itensDe(l.id) });
+    } catch (e) {
+      setMsg({ tipo: 'erro', texto: 'Erro ao abrir: ' + String(e.message || e).slice(0, 160) });
+    }
+  };
+  const excluir = async (l) => {
+    if (!window.confirm(`Excluir a lista ${bbNumero(l.id)}? Os ${l.pedidos} pedidos voltam para "aguardando lista".`)) return;
+    try {
+      await lfApi('/bb_listas?id=eq.' + l.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
+      if (aberta && aberta.id === l.id) setAberta(null);
+      await carregar();
+    } catch (e) {
+      setMsg({ tipo: 'erro', texto: 'Erro ao excluir: ' + String(e.message || e).slice(0, 160) });
+    }
+  };
+
+  const dataHora = (iso) => (iso ? bbDataBR(iso) + ' ' + bbHoraBR(iso) : '');
+
+  const card = { background: C.bgCard, border: `1px solid ${C.bdLight}`, borderRadius: C.radius.lg, boxShadow: C.shadowSm, marginBottom: 16, overflow: 'hidden' };
+  const th = { textAlign: 'left', padding: '9px 12px', fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.4, color: '#fff', background: '#2f6b57', position: 'sticky', top: 0, whiteSpace: 'nowrap' };
+  const td = { padding: '8px 12px', fontSize: 13, color: C.txtPri, borderBottom: `1px solid ${C.bdLight}`, whiteSpace: 'nowrap' };
+  const btn = (primario, desab) => ({
+    border: primario ? 'none' : `1px solid ${C.bdMid}`,
+    background: primario ? C.primaryGrad : C.bgCard,
+    color: primario ? '#fff' : C.txtPri,
+    borderRadius: C.radius.md,
+    padding: '8px 14px',
+    fontWeight: 700,
+    fontSize: 13,
+    cursor: desab ? 'not-allowed' : 'pointer',
+    opacity: desab ? 0.55 : 1,
+    fontFamily: C.font,
+    whiteSpace: 'nowrap',
+  });
+  const corMsg = msg && (msg.tipo === 'erro' ? [C.redBg, C.redBd, C.red] : msg.tipo === 'ok' ? [C.greenBg, C.greenBd, C.green] : [C.blueBg, C.blueBd, C.blue]);
+
+  return (
+    <div style={{ fontFamily: C.font, color: C.txtPri }}>
+      <style>{LF_CSS}</style>
+      <div style={{ ...card, padding: '16px 22px', borderTop: `3px solid ${C.primary}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, color: C.primary, textTransform: 'uppercase' }}>Faturamento · BBBaterias</div>
+            <div style={{ fontSize: 24, fontWeight: 800 }}>Via Leitor</div>
+            <div style={{ fontSize: 12, color: C.txtMuted, marginTop: 2 }}>
+              Filial {BB_FILIAL} · agente{atualizadoEm ? ' · atualizado às ' + bbHoraBR(atualizadoEm) : ''} · {pedidos.length} pedidos · {semLista.length} aguardando lista
+              {Object.keys(locMap).length ? ` · localização de ${dataHora(locAtualizadaEm)}${semLocal ? ' · ' + semLocal + ' produtos sem localização' : ''}` : ' · localização ainda não carregada'}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              className="cnl-busca"
+              style={{ marginBottom: 0, width: 180 }}
+              placeholder="Quem está gerando?"
+              value={usuario}
+              onChange={(e) => setUsuario(e.target.value)}
+            />
+            <button style={{ ...btn(true, gerando || !linhasNovas.length), padding: '10px 18px', fontSize: 14 }} disabled={gerando || !linhasNovas.length} onClick={gerar}>
+              {gerando ? 'Gerando...' : `Gerar lista${semLista.length ? ' (' + semLista.length + ' pedidos)' : ''}`}
+            </button>
+            <select className="cnl-sel" style={{ height: 38 }} value={ordemImp} onChange={(e) => trocarOrdem(e.target.value)} title="Ordem em que a lista é impressa">
+              <option value="produto">Imprimir por produto</option>
+              <option value="localizacao">Imprimir por localização</option>
+            </select>
+            <button style={btn(false, subindoLoc)} disabled={subindoLoc} onClick={() => inputLocRef.current && inputLocRef.current.click()}>
+              {subindoLoc ? 'Subindo...' : 'Subir localização'}
+            </button>
+            <input ref={inputLocRef} type="file" accept=".csv,.txt,.xlsx,.ods" style={{ display: 'none' }} onChange={subirLocalizacao} />
+            <button style={btn(false, carregando)} disabled={carregando} onClick={carregar}>
+              {carregando ? 'Atualizando...' : 'Atualizar'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {msg && (
+        <div style={{ background: corMsg[0], border: `1px solid ${corMsg[1]}`, color: corMsg[2], borderRadius: C.radius.md, padding: '10px 14px', fontSize: 13, fontWeight: 600, marginBottom: 14 }}>
+          {msg.texto}
+        </div>
+      )}
+
+      <div role="tablist" style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap', borderBottom: `1px solid ${C.bdMid}` }}>
+        {[
+          ['vialeitor', 'Via Leitor'],
+          ['historico', 'Histórico de listas' + (listas.length ? ' (' + listas.length + ')' : '')],
+        ].map(([id, nome]) => {
+          const ativa = aba === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={ativa}
+              onClick={() => setAba(id)}
+              style={{
+                padding: '10px 16px',
+                marginBottom: -1,
+                background: 'transparent',
+                border: 'none',
+                borderBottom: `2px solid ${ativa ? C.primary : 'transparent'}`,
+                color: ativa ? C.primary : C.txtSec,
+                fontWeight: ativa ? 800 : 600,
+                fontSize: 13.5,
+                cursor: 'pointer',
+                fontFamily: C.font,
+              }}
+            >
+              {nome}
+            </button>
+          );
+        })}
+      </div>
+
+      {aba === 'vialeitor' && <LfViaLeitor ativo={ativo} bb={bbProps} />}
+
+      {aba === 'historico' && (
+      <div style={card}>
+        <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', borderBottom: `1px solid ${C.bdLight}` }}>
+          <div style={{ fontWeight: 800, fontSize: 15 }}>Histórico de listas</div>
+          <input className="cnl-busca" style={{ marginBottom: 0, width: 260, marginLeft: 'auto' }} placeholder="Buscar nº da lista ou responsável" value={buscaHist} onChange={(e) => setBuscaHist(e.target.value)} />
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                {['Nº da lista', 'Gerada em', 'Responsável', 'Pedidos', 'Itens', 'Unidades', 'Impressa', ''].map((h) => (
+                  <th key={h} style={th}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {listasVisiveis.map((l) => (
+                <React.Fragment key={l.id}>
+                  <tr>
+                    <td style={{ ...td, fontWeight: 800 }}>{bbNumero(l.id)}</td>
+                    <td style={td}>{new Date(l.criada_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</td>
+                    <td style={td}>{l.usuario || '-'}</td>
+                    <td style={td}>{l.pedidos}</td>
+                    <td style={td}>{l.itens}</td>
+                    <td style={td}>{bbNum(l.unidades)}</td>
+                    <td style={td}>{l.impresso ? 'Sim' : 'Não'}</td>
+                    <td style={{ ...td, whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      <button style={{ ...btn(false), padding: '5px 10px', marginRight: 6 }} onClick={() => ver(l)}>
+                        {aberta && aberta.id === l.id ? 'Fechar' : 'Ver'}
+                      </button>
+                      <button style={{ ...btn(false), padding: '5px 10px', marginRight: 6 }} onClick={() => reimprimir(l)}>Imprimir</button>
+                      <button style={{ ...btn(false), padding: '5px 10px', color: C.red }} onClick={() => excluir(l)}>Excluir</button>
+                    </td>
+                  </tr>
+                  {aberta && aberta.id === l.id && (
+                    <tr>
+                      <td colSpan={8} style={{ padding: 0, background: C.bgStripe }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <tbody>
+                            {aberta.itens.map((i) => (
+                              <tr key={i.id}>
+                                <td style={td}>{i.pedido}</td>
+                                <td style={td}>{i.produto}</td>
+                                <td style={{ ...td, fontWeight: 800 }}>{i.localizacao || '-'}</td>
+                                <td style={td}>{bbNum(i.qtd)}</td>
+                                <td style={td}>{bbNum(i.estoque_fd)}</td>
+                                <td style={td}>{i.transporte}</td>
+                                <td style={td}>{bbDataBR(i.lib_estoque)} {bbHoraBR(i.lib_estoque)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
+              {!listasVisiveis.length && (
+                <tr>
+                  <td style={{ ...td, textAlign: 'center', color: C.txtMuted, padding: 24 }} colSpan={8}>{listas.length ? 'Nenhuma lista encontrada.' : 'Nenhuma lista gerada ainda.'}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      )}
+    </div>
   );
 }
 
@@ -17974,8 +18521,13 @@ export default function App() {
     'faturamento',
     'listaFaturamento',
     'separacaoLista',
+    'faturamentoBB',
     'cancelamentos',
   ].includes(tela);
+  const equipAtiva = ['listaFaturamento', 'separacaoLista'].includes(tela);
+  const bbAtiva = tela === 'faturamentoBB';
+  const [grupoEquipAberto, setGrupoEquipAberto] = useState(true);
+  const [grupoBBAberto, setGrupoBBAberto] = useState(true);
   const producaoAtivo = [
     'producao',
     'producaoResumo',
@@ -18318,20 +18870,47 @@ export default function App() {
                   Painel Faturamento
                 </SubMenuBtn>
                 {ehLogistica && (
-                  <SubMenuBtn
-                    ativo={tela === 'listaFaturamento'}
-                    onClick={() => setTela('listaFaturamento')}
-                  >
-                    Lista Faturamento
-                  </SubMenuBtn>
-                )}
-                {ehLogistica && (
-                  <SubMenuBtn
-                    ativo={tela === 'separacaoLista'}
-                    onClick={() => setTela('separacaoLista')}
-                  >
-                    Separação de Lista
-                  </SubMenuBtn>
+                  <>
+                    <SubMenuBtn
+                      ativo={equipAtiva && !grupoEquipAberto}
+                      onClick={() => setGrupoEquipAberto((v) => !v)}
+                    >
+                      {grupoEquipAberto ? '▾' : '›'} Equipatech
+                    </SubMenuBtn>
+                    {grupoEquipAberto && (
+                      <>
+                        <SubMenuBtn
+                          nivel={1}
+                          ativo={tela === 'listaFaturamento'}
+                          onClick={() => setTela('listaFaturamento')}
+                        >
+                          Lista Faturamento
+                        </SubMenuBtn>
+                        <SubMenuBtn
+                          nivel={1}
+                          ativo={tela === 'separacaoLista'}
+                          onClick={() => setTela('separacaoLista')}
+                        >
+                          Separação de Lista
+                        </SubMenuBtn>
+                      </>
+                    )}
+                    <SubMenuBtn
+                      ativo={bbAtiva && !grupoBBAberto}
+                      onClick={() => setGrupoBBAberto((v) => !v)}
+                    >
+                      {grupoBBAberto ? '▾' : '›'} BBBaterias
+                    </SubMenuBtn>
+                    {grupoBBAberto && (
+                      <SubMenuBtn
+                        nivel={1}
+                        ativo={tela === 'faturamentoBB'}
+                        onClick={() => setTela('faturamentoBB')}
+                      >
+                        Via Leitor
+                      </SubMenuBtn>
+                    )}
+                  </>
                 )}
                 <SubMenuBtn
                   ativo={tela === 'cancelamentos'}
@@ -18537,7 +19116,7 @@ export default function App() {
             fontFamily: C.font,
           }}
         >
-          BBDI © {new Date().getFullYear()} · v13.11-inut
+          BBDI © {new Date().getFullYear()} · v13.18-bb-vialeitor-eq
         </div>
       </aside>
       {/* Main */}
@@ -18962,6 +19541,11 @@ export default function App() {
             style={{ display: tela === 'separacaoLista' ? 'block' : 'none' }}
           >
             <TelaSeparacaoLista ativo={tela === 'separacaoLista'} />
+          </div>
+        )}
+        {ehLogistica && (
+          <div style={{ display: tela === 'faturamentoBB' ? 'block' : 'none' }}>
+            <TelaListaBB ativo={tela === 'faturamentoBB'} />
           </div>
         )}
         <div style={{ display: tela === 'postagens' ? 'block' : 'none' }}>
