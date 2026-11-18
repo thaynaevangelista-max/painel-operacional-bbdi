@@ -13856,11 +13856,6 @@ const LF_VL_GRANDE_ALERTA_MS = 3 * 60 * 60000;
 // Separador / Faturador / Status separação só valem para pedido com lista e para pedido de estoque
 // ("Estoque - separação", qualquer quantidade). Em "Gerar Lista" as células ficam em branco.
 const lfVlAplica = (r) => !!r.tem_lista || !!r.no_estoque;
-// BB: como o prazo é recalculado (liberação + 3h), a lista fica na ordem do prazo: o que vence primeiro vem primeiro
-function lfVlOrdenaBB(ehBB, itens) {
-  if (!ehBB) return itens;
-  return [...itens].sort((a, b) => (a.lim == null) - (b.lim == null) || (a.lim || 0) - (b.lim || 0) || String(a.pedido).localeCompare(String(b.pedido)));
-}
 function lfVlCor(r) {
   if (r.restante == null) return null;
   if (r.restante <= LF_VL_ALERTA_MS) return 'vermelho';
@@ -14810,10 +14805,9 @@ function LfViaLeitor({ ativo, bb }) {
 
   const lista = useMemo(
     () =>
-      lfVlOrdenaBB(bbListaDe, (rows || []).map((r) => {
-        // BBBaterias: o prazo de todos os pedidos é de 3h a partir da liberação (Data Liberação + 3h)
-        const libMs = bbListaDe && r.lib_estoque ? new Date(r.lib_estoque).getTime() : NaN;
-        const lim = !Number.isNaN(libMs) ? libMs + 3 * 3600000 : r.data_limite ? new Date(r.data_limite).getTime() : null;
+      (rows || []).map((r) => {
+        // A data limite é sempre a do agente (ele já calcula). BBBaterias: o "Tempo Pedido" é sempre 3h.
+        const lim = r.data_limite ? new Date(r.data_limite).getTime() : null;
         const o = {
           ...r,
           ...(bbListaDe ? { tempo_pedido_horas: 3 } : {}),
@@ -14850,7 +14844,7 @@ function LfViaLeitor({ ativo, bb }) {
           o.sepSt = null;
         }
         return o;
-      })),
+      }),
     [rows, agora, bbListaDe]
   );
   // Quem pode ser escolhido como faturador: a equipe + qualquer nome que já apareceu nos dados.
@@ -20884,7 +20878,7 @@ export default function App() {
             fontFamily: C.font,
           }}
         >
-          {menuRecolhido ? 'v13.60' : `BBDI © ${new Date().getFullYear()} · v13.62-prazo-3h-bb`}
+          {menuRecolhido ? 'v13.60' : `BBDI © ${new Date().getFullYear()} · v13.63-tempo-pedido-3h-bb`}
         </div>
       </aside>
       <button
