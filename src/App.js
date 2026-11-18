@@ -15329,6 +15329,15 @@ function LfViaLeitor({ ativo, bb }) {
                           >
                             {r.pedido}
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => setDetalhe(`${r.filial}-${r.pedido}`)}
+                            title="Ver o pedido: itens, quantidades e localização"
+                            aria-label={`Ver o pedido ${r.pedido}`}
+                            style={{ marginLeft: 6, padding: '0 4px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, lineHeight: 1, verticalAlign: 'middle' }}
+                          >
+                            🔍
+                          </button>
                         </td>
                         <td style={td}>{r.lib_estoque ? sepQuandoSeg(new Date(r.lib_estoque).getTime()) : '—'}</td>
                         <td style={td}>{sepNum(r.qtd_total)}</td>
@@ -20878,7 +20887,7 @@ export default function App() {
             fontFamily: C.font,
           }}
         >
-          {menuRecolhido ? 'v13.60' : `BBDI © ${new Date().getFullYear()} · v13.63-tempo-pedido-3h-bb`}
+          {menuRecolhido ? 'v13.60' : `BBDI © ${new Date().getFullYear()} · v13.64-lupa-pedido`}
         </div>
       </aside>
       <button
