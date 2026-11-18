@@ -15087,8 +15087,8 @@ function LfViaLeitor({ ativo, bb }) {
   const onVisiveis = bb && bb.onVisiveis;
   const assinaturaVis = filtrosAtivos ? filtrados.map((r) => r.pedido).join(',') : '*';
   useEffect(() => {
-    if (onVisiveis) onVisiveis(filtrosAtivos ? filtrados.map((r) => String(r.pedido)) : null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!onVisiveis) return;
+    onVisiveis(assinaturaVis === '*' ? null : assinaturaVis ? assinaturaVis.split(',') : []);
   }, [assinaturaVis, onVisiveis]);
   useEffect(() => setLimiteTela(200), [busca, fFilial, fLista, fPrazo, fSep, fTipoPV]);
 
@@ -20876,7 +20876,7 @@ export default function App() {
             fontFamily: C.font,
           }}
         >
-          {menuRecolhido ? 'v13.60' : `BBDI © ${new Date().getFullYear()} · v13.60-menu-icones`}
+          {menuRecolhido ? 'v13.60' : `BBDI © ${new Date().getFullYear()} · v13.61-menu-icones`}
         </div>
       </aside>
       <button
