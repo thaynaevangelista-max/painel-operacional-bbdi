@@ -7,6 +7,8 @@
 
 import { createPortal } from 'react-dom';
 import React, {
+  createContext,
+  useContext,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -43,6 +45,7 @@ const TELAS_BLOQUEADAS_GERAL = [
   'listaFaturamento',
   'separacaoLista',
   'faturamentoBB',
+  'ajusteSaldoBB',
   'viaLeitor',
   'producaoSolicitacoes',
   'ajusteSaldo',
@@ -1192,15 +1195,22 @@ function CabecalhoComFiltro({
   );
 }
 
+// Menu lateral: "recolhido" mostra só os símbolos; a bolinha na borda abre o resto
+const MenuRecolhidoCtx = createContext({ recolhido: false, expandir: () => {} });
+const MENU_RECOLHIDO_CHAVE = 'painel_menu_recolhido';
+
 function MenuBtn({ ativo, onClick, children, icon }) {
+  const { recolhido } = useContext(MenuRecolhidoCtx);
   return (
     <button
       className="bbdi-nav"
       onClick={onClick}
+      title={recolhido && typeof children === 'string' ? children : undefined}
       style={{
         width: '100%',
         borderRadius: C.radius.md,
-        padding: '9px 12px',
+        padding: recolhido ? '9px 0' : '9px 12px',
+        justifyContent: recolhido ? 'center' : undefined,
         cursor: 'pointer',
         textAlign: 'left',
         fontWeight: 600,
@@ -1234,20 +1244,23 @@ function MenuBtn({ ativo, onClick, children, icon }) {
       >
         {icon}
       </span>
-      <span style={{ flex: 1 }}>{children}</span>
+      {!recolhido && <span style={{ flex: 1 }}>{children}</span>}
     </button>
   );
 }
 
 function MenuGrupBtn({ ativo, onClick, children, icon }) {
+  const { recolhido, expandir } = useContext(MenuRecolhidoCtx);
   return (
     <button
       className="bbdi-nav"
-      onClick={onClick}
+      onClick={recolhido ? expandir : onClick}
+      title={recolhido && typeof children === 'string' ? children : undefined}
       style={{
         width: '100%',
         borderRadius: C.radius.md,
-        padding: '9px 12px',
+        padding: recolhido ? '9px 0' : '9px 12px',
+        justifyContent: recolhido ? 'center' : undefined,
         cursor: 'pointer',
         textAlign: 'left',
         fontWeight: 600,
@@ -1281,21 +1294,25 @@ function MenuGrupBtn({ ativo, onClick, children, icon }) {
       >
         {icon}
       </span>
-      <span style={{ flex: 1 }}>{children}</span>
-      <span
-        style={{
-          fontSize: 13,
-          color: ativo ? 'rgba(255,255,255,0.8)' : 'rgba(226,232,240,0.4)',
-          fontWeight: 700,
-        }}
-      >
-        {ativo ? '▾' : '›'}
-      </span>
+      {!recolhido && <span style={{ flex: 1 }}>{children}</span>}
+      {!recolhido && (
+        <span
+          style={{
+            fontSize: 13,
+            color: ativo ? 'rgba(255,255,255,0.8)' : 'rgba(226,232,240,0.4)',
+            fontWeight: 700,
+          }}
+        >
+          {ativo ? '▾' : '›'}
+        </span>
+      )}
     </button>
   );
 }
 
 function SubMenuBtn({ ativo, onClick, children, nivel = 0 }) {
+  const { recolhido } = useContext(MenuRecolhidoCtx);
+  if (recolhido) return null;
   return (
     <button
       className="bbdi-nav"
@@ -14595,7 +14612,7 @@ function LfViaLeitorDetalhe({ r, onFechar, bb }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: C.font }}>
               <thead>
                 <tr>
-                  {(bb ? ['Produto', 'Qtd', 'Localização', 'EST-FD-01'] : ['Produto', 'Qtd', 'Estoque', 'Entregue']).map((c) => (
+                  {(bb ? ['Produto', 'Qtd', 'Localização', 'EST-FD-01', 'Compra'] : ['Produto', 'Qtd', 'Estoque', 'Entregue']).map((c) => (
                     <th key={c} style={{ ...th, textAlign: c === 'Qtd' || c === 'Entregue' ? 'center' : 'left' }}>
                       {c}
                     </th>
@@ -14612,8 +14629,15 @@ function LfViaLeitorDetalhe({ r, onFechar, bb }) {
                       <tr key={x.produto + i}>
                         <td style={{ ...td, fontWeight: 700 }}>{x.produto}</td>
                         <td style={{ ...td, textAlign: 'center' }}>{x.qtd == null ? '—' : x.qtd}</td>
-                        <td style={{ ...td, fontWeight: 800 }}>{l.localizacao || '—'}</td>
+                        <td style={{ ...td, fontWeight: 800 }}>{bbLocResumo(l.localizacao, 99).txt || '—'}</td>
                         <td style={{ ...td, textAlign: 'center' }}>{l.saldo_fd == null ? '—' : bbNum(l.saldo_fd)}</td>
+                        <td style={td}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            {bb.chkCompra ? bb.chkCompra(x) : null}
+                            {bb.pvSelo ? bb.pvSelo(x) : null}
+                            {bb.btnCompra ? bb.btnCompra(x) : null}
+                          </div>
+                        </td>
                       </tr>
                     );
                   }
@@ -14646,6 +14670,58 @@ function LfViaLeitorDetalhe({ r, onFechar, bb }) {
 function LfViaLeitor({ ativo, bb }) {
   const filialBB = bb ? bb.filial : '';
   const bbListaDe = bb ? bb.listaDe : null;
+  const [selecao, setSelecao] = useState({}); // BB: produtos marcados ("pedido|PRODUTO" -> item) para solicitar juntos
+  const [loteAberto, setLoteAberto] = useState(false);
+  const [modoSel, setModoSel] = useState(false); // BB: "Solicitar compra" foi apertado -> mostra as caixinhas para marcar os produtos
+  const [pedidoCopiado, setPedidoCopiado] = useState(''); // aviso "Pedido copiado" (some sozinho)
+  // Modo tela cheia: a tela ocupa o navegador inteiro (F11 do próprio site); Esc ou o mesmo botão sai
+  const [telaCheia, setTelaCheia] = useState(false);
+  const telaRef = useRef(null);
+  const alternarTelaCheia = () => {
+    const el = telaRef.current;
+    if (!telaCheia) {
+      setTelaCheia(true);
+      try {
+        if (el && el.requestFullscreen) el.requestFullscreen().catch(() => {});
+      } catch (e) {
+        /* sem API de tela cheia: fica o modo sobreposto */
+      }
+    } else {
+      setTelaCheia(false);
+      try {
+        if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      } catch (e) {
+        /* ignora */
+      }
+    }
+  };
+  useEffect(() => {
+    if (!telaCheia) return undefined;
+    const aoMudar = () => {
+      if (!document.fullscreenElement) setTelaCheia(false);
+    };
+    const aoTecla = (e) => {
+      if (e.key === 'Escape' && !document.fullscreenElement) setTelaCheia(false);
+    };
+    document.addEventListener('fullscreenchange', aoMudar);
+    document.addEventListener('keydown', aoTecla);
+    return () => {
+      document.removeEventListener('fullscreenchange', aoMudar);
+      document.removeEventListener('keydown', aoTecla);
+    };
+  }, [telaCheia]);
+  const copiarPedido = async (pedido) => {
+    const ok = await cancCopiar(String(pedido));
+    setPedidoCopiado(ok ? String(pedido) : '!' + pedido);
+  };
+  useEffect(() => {
+    if (!pedidoCopiado) return undefined;
+    const t = setTimeout(() => setPedidoCopiado(''), 2200);
+    return () => clearTimeout(t);
+  }, [pedidoCopiado]);
+  const [modoAj, setModoAj] = useState(false); // BB: "Ajuste de saldo" foi apertado -> caixinhas para marcar os produtos a ajustar
+  const [selAj, setSelAj] = useState({}); // BB: produtos marcados para ajuste ("PRODUTO" -> { produto })
+  const [ajusteAberto, setAjusteAberto] = useState(false);
   const [rows, setRows] = useState(null);
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(false);
@@ -14654,6 +14730,7 @@ function LfViaLeitor({ ativo, bb }) {
   const [fFilial, setFFilial] = useState('');
   const [fLista, setFLista] = useState('');
   const [fPrazo, setFPrazo] = useState('');
+  const [fTipoPV, setFTipoPV] = useState(''); // BB: '' | 'pv' (pedido de venda) | 'estoque'
   const [limiteTela, setLimiteTela] = useState(200);
   const [fSep, setFSep] = useState('');
   const [semFat, setSemFat] = useState(false); // view ainda sem as colunas de faturador
@@ -14823,6 +14900,139 @@ function LfViaLeitor({ ativo, bb }) {
       setGravandoFat('');
     }
   };
+  // BBBaterias: produto que está como "Comprar" na aba Relatório 1020 = pedido de venda (peça comprada da 0101 para a 1020):
+  // não é para procurar a peça no estoque.
+  const pvSelo = (r, it) => {
+    if (!bb) return null;
+    const kpv = bbCompraChave(r.pedido, it.produto);
+    const pv = (bb.pedVenda || {})[kpv];
+    if (!pv) return null;
+    if (pv.mantido && (bb.compras || {})[kpv] && bbStatusCompra(bb.compras[kpv]).texto === 'Chegou') return null; // já chegou
+    return (
+      <span
+        title={`Pedido de venda: sem estoque na 1020. A peça está sendo comprada da 0101 e ainda pode não ter chegado. Não procurar no estoque.${pv.mantido ? ' (Já saiu do relatório, mas continua marcado por 24 h desde a última vez que apareceu: ' + new Date(pv.visto).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' }) + ')' : ''}`}
+        style={{ ...bbSeloTabela, background: '#7c3aed', color: '#fff' }}
+      >
+        📦 Pedido de venda
+      </span>
+    );
+  };
+  // BBBaterias: selo com a situação na planilha (Pendente / Comprado / Chegou...) ao lado do produto já solicitado.
+  const btnCompra = (r, it) => {
+    if (!bb || !bb.solicitarLote) return null;
+    const key = bbCompraChave(r.pedido, it.produto);
+    const st = (bb.compras || {})[key];
+    if (!st) return null;
+    const v = bbStatusCompra(st);
+    const d = (bb.comprasDatas || {})[key] || {};
+    const dica = [d.solic && `Solicitado em ${d.solic}`, d.compra && `Comprado em ${d.compra}`, d.chegou && `Chegou em ${d.chegou}`].filter(Boolean).join(' · ');
+    return (
+      <span title={dica || `Situação na planilha: ${st}`} style={{ ...bbSeloTabela, background: v.bg, color: v.fg }}>
+        🛒 {v.texto}
+      </span>
+    );
+  };
+  // BBBaterias: conteúdo da coluna "Situação" (selos de pedido de venda e de compra), na mesma ordem dos produtos.
+  const bbSituacao = (r) => {
+    const its = lfVlItens(r);
+    const nomeStatus = (st) => bbStatusCompra(st);
+    const selos = (i) => {
+      const pv = pvSelo(r, i);
+      const cp = btnCompra(r, i);
+      return pv || cp ? (
+        <>
+          {pv}
+          {cp}
+        </>
+      ) : null;
+    };
+    let conteudo;
+    if (!its.length) conteudo = '—';
+    else if (its.length <= LF_VL_MAX_MODELOS) {
+      // um por linha, na mesma ordem dos produtos ("—" para o que não tem selo); passe o mouse para ver de qual produto é
+      conteudo = its.some((i) => selos(i)) ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          {its.map((i) => (
+            <div key={i.produto} title={i.produto} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+              {selos(i) || '—'}
+            </div>
+          ))}
+        </div>
+      ) : (
+        '—'
+      );
+    } else {
+      const nPV = its.filter((i) => (bb.pedVenda || {})[bbCompraChave(r.pedido, i.produto)]).length;
+      const grupos = {};
+      its.forEach((i) => {
+        const st = (bb.compras || {})[bbCompraChave(r.pedido, i.produto)];
+        if (st) {
+          const v = nomeStatus(st);
+          grupos[v.texto] = grupos[v.texto] || { v, n: 0 };
+          grupos[v.texto].n += 1;
+        }
+      });
+      const bolha = bbSeloTabela;
+      conteudo =
+        nPV || Object.keys(grupos).length ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+            {nPV > 0 && (
+              <span title="Itens deste pedido que são pedido de venda (peça sendo comprada da 0101). Veja o detalhe." style={{ ...bolha, background: '#7c3aed', color: '#fff' }}>
+                📦 {nPV} pedido{nPV > 1 ? 's' : ''} de venda
+              </span>
+            )}
+            {Object.values(grupos).map((g) => (
+              <span key={g.v.texto} style={{ ...bolha, background: g.v.bg, color: g.v.fg }}>
+                🛒 {g.n} {g.v.texto}
+              </span>
+            ))}
+          </div>
+        ) : (
+          '—'
+        );
+    }
+    return conteudo;
+  };
+  // BBBaterias: caixinhas de seleção para solicitar a compra de vários produtos de uma vez.
+  const itemCompra = (r, it) => ({ pedido: String(r.pedido), produto: it.produto, qtd: it.qtd > 0 ? it.qtd : 1, transporte: r.transportadora || '', lib: r.lib_estoque || '', lim: r.data_limite || '' });
+  const podeSel = (key) => Boolean(bb && bb.solicitarLote) && !(bb.compras || {})[key] && !(bb.enviando || {})[key];
+  const marcarItens = (pares, on) =>
+    setSelecao((s) => {
+      const n = { ...s };
+      pares.forEach(([k, item]) => {
+        if (on) n[k] = item;
+        else delete n[k];
+      });
+      return n;
+    });
+  const chkEstilo = { width: 17, height: 17, cursor: 'pointer', accentColor: '#1a73e8' };
+  const chkItem = (r, it) => {
+    if (modoAj) {
+      const k = bbChave(it.produto);
+      return (
+        <input
+          type="checkbox"
+          aria-label={`Selecionar ${it.produto} para ajuste`}
+          style={chkEstilo}
+          checked={Boolean(selAj[k])}
+          onChange={(e) =>
+            setSelAj((s) => {
+              const n = { ...s };
+              if (e.target.checked) n[k] = { produto: it.produto };
+              else delete n[k];
+              return n;
+            })
+          }
+        />
+      );
+    }
+    const key = bbCompraChave(r.pedido, it.produto);
+    if (!modoSel || !podeSel(key)) return null;
+    return (
+      <input type="checkbox" aria-label={`Selecionar ${it.produto}`} style={chkEstilo} checked={Boolean(selecao[key])} onChange={(e) => marcarItens([[key, itemCompra(r, it)]], e.target.checked)} />
+    );
+  };
+  const itensSel = Object.entries(selecao).filter(([k]) => podeSel(k)).map(([, v]) => v);
   const cont = useMemo(
     () => ({
       total: lista.length,
@@ -14837,6 +15047,7 @@ function LfViaLeitor({ ativo, bb }) {
     }),
     [lista]
   );
+  const filtrosAtivos = Boolean(busca.trim() || fFilial || fLista || fPrazo || fSep || fTipoPV);
   const filtrados = useMemo(() => {
     const termo = sepNorm(busca);
     return lista.filter((r) => {
@@ -14846,6 +15057,21 @@ function LfViaLeitor({ ativo, bb }) {
       if (fPrazo === 'vermelho' && lfVlCor(r) !== 'vermelho') return false;
       if (fPrazo === 'azul' && lfVlCor(r) !== 'azul') return false;
       if (fPrazo === 'prazo' && !(r.restante != null && r.restante >= 0)) return false;
+      if (bb && fTipoPV) {
+        const temPV = lfVlItens(r).some((i) => Boolean((bb.pedVenda || {})[bbCompraChave(r.pedido, i.produto)]));
+        if (fTipoPV === 'pv' && !temPV) return false;
+        if (fTipoPV === 'estoque' && temPV) return false;
+        if (fTipoPV === 'chegando' || fTipoPV === 'liberado') {
+          // item solicitado (qualquer status, menos "Chegou") ou pedido de venda sem solicitação = está vindo
+          const chegando = lfVlItens(r).some((i) => {
+            const k = bbCompraChave(r.pedido, i.produto);
+            const st = (bb.compras || {})[k];
+            return st ? bbStatusCompra(st).texto !== 'Chegou' : Boolean((bb.pedVenda || {})[k]);
+          });
+          if (fTipoPV === 'chegando' && !chegando) return false;
+          if (fTipoPV === 'liberado' && chegando) return false;
+        }
+      }
       if (fSep === 'sem_faturador') {
         if (!((r.sepSt === 'concluida' || (r.tipo === 'estoque' && r.aplica)) && !r.faturador)) return false;
       } else if (fSep && r.sepSt !== fSep) return false;
@@ -14856,8 +15082,15 @@ function LfViaLeitor({ ativo, bb }) {
         return false;
       return true;
     });
-  }, [lista, busca, fFilial, fLista, fPrazo, fSep]);
-  useEffect(() => setLimiteTela(200), [busca, fFilial, fLista, fPrazo, fSep]);
+  }, [lista, busca, fFilial, fLista, fPrazo, fSep, fTipoPV, bb && bb.pedVenda, bb && bb.compras]);
+  // BB: o "Gerar novos / Gerar tudo" leva só o que está aparecendo na tela quando há filtro (busca, lista, prazo, situação...)
+  const onVisiveis = bb && bb.onVisiveis;
+  const assinaturaVis = filtrosAtivos ? filtrados.map((r) => r.pedido).join(',') : '*';
+  useEffect(() => {
+    if (onVisiveis) onVisiveis(filtrosAtivos ? filtrados.map((r) => String(r.pedido)) : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assinaturaVis, onVisiveis]);
+  useEffect(() => setLimiteTela(200), [busca, fFilial, fLista, fPrazo, fSep, fTipoPV]);
 
   const ultimaAtualizacao = useMemo(
     () => (rows && rows.length ? Math.max(...rows.map((r) => new Date(r.atualizado_em).getTime() || 0)) : 0),
@@ -14870,7 +15103,10 @@ function LfViaLeitor({ ativo, bb }) {
   const agenteParado = ultimoDado && agora - ultimoDado > LF_VL_AGENTE_PARADO_MS;
 
   return (
-    <>
+    <div
+      ref={telaRef}
+      style={telaCheia ? { position: 'fixed', inset: 0, zIndex: 900, overflow: 'auto', background: 'var(--page)', padding: '16px 20px', boxSizing: 'border-box' } : undefined}
+    >
       <LfKpis>
         <LfKpi rotulo="Pedidos no Via Leitor" valor={cont.total} detalhe={bb ? 'Filial ' + bb.filial : 'Filiais 0101 e 0102'} tipo="info" />
         <LfKpi rotulo="Gerar lista" valor={cont.gerar} detalhe="Sem lista e fora do estoque" tipo={cont.gerar ? 'erro' : 'ok'} />
@@ -14897,6 +15133,7 @@ function LfViaLeitor({ ativo, bb }) {
         }
         acoes={
           <div style={{ display: 'flex', gap: 8 }}>
+            <LfBtn onClick={alternarTelaCheia}>{telaCheia ? '🗗 Sair da tela cheia' : '⛶ Tela cheia'}</LfBtn>
             <LfBtn onClick={() => setSubindo(true)}>📤 Subir relatório</LfBtn>
             <LfBtn onClick={() => carregar(false)} disabled={carregando}>
               {carregando ? 'Atualizando...' : '🔄 Atualizar'}
@@ -14904,6 +15141,7 @@ function LfViaLeitor({ ativo, bb }) {
           </div>
         }
       >
+        {bb && bb.avisoCompra && <LfAviso tipo={bb.avisoCompra.tipo}>{bb.avisoCompra.texto}</LfAviso>}
         {erro && <LfAviso tipo="erro">{erro}</LfAviso>}
         {avisoFat && <LfAviso tipo={avisoFat.tipo}>{avisoFat.texto}</LfAviso>}
         {semFat && !bb && !erro && (
@@ -14958,6 +15196,61 @@ function LfViaLeitor({ ativo, bb }) {
             <option value="atraso">Em atraso</option>
             <option value="prazo">No prazo</option>
           </select>
+          {bb && (
+            <select className="lf-input" style={lfInputStyle} value={fTipoPV} onChange={(e) => setFTipoPV(e.target.value)} aria-label="Situação do pedido">
+              <option value="">Situação: todas</option>
+              <option value="liberado">✅ Pronto para catar (nada aguardando)</option>
+              <option value="chegando">⏳ Tem item aguardando chegada</option>
+              <option value="pv">📦 Pedido de venda</option>
+              <option value="estoque">Do estoque (sem pedido de venda)</option>
+            </select>
+          )}
+          {bb && bb.solicitarLote && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto', flexWrap: 'wrap' }}>
+              {!modoSel && !modoAj ? (
+                <>
+                  <LfBtn title="Libera as caixinhas para marcar os produtos que precisam de ajuste de saldo" onClick={() => setModoAj(true)}>
+                    ⚖️ Ajuste de saldo
+                  </LfBtn>
+                  <LfBtn tipo="primario" title="Libera as caixinhas para marcar os produtos que precisam de compra" onClick={() => setModoSel(true)}>
+                    🛒 Solicitar compra
+                  </LfBtn>
+                </>
+              ) : modoAj ? (
+                <>
+                  <span style={{ fontSize: 12.5, color: C.txtMuted, fontWeight: 600 }}>Marque os produtos que precisam de ajuste de saldo</span>
+                  <LfBtn
+                    pequeno
+                    onClick={() => {
+                      setModoAj(false);
+                      setSelAj({});
+                    }}
+                  >
+                    Cancelar
+                  </LfBtn>
+                  <LfBtn tipo="primario" disabled={Object.keys(selAj).length === 0} title="Informar os saldos e enviar para a planilha" onClick={() => setAjusteAberto(true)}>
+                    ⚖️ Informar saldos{Object.keys(selAj).length > 0 ? ` (${Object.keys(selAj).length})` : ''}
+                  </LfBtn>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontSize: 12.5, color: C.txtMuted, fontWeight: 600 }}>Marque os produtos que precisam de compra</span>
+                  <LfBtn
+                    pequeno
+                    onClick={() => {
+                      setModoSel(false);
+                      setSelecao({});
+                    }}
+                  >
+                    Cancelar
+                  </LfBtn>
+                  <LfBtn tipo="primario" disabled={itensSel.length === 0} title="Revisar e enviar para a planilha" onClick={() => setLoteAberto(true)}>
+                    🛒 Enviar solicitação{itensSel.length > 0 ? ` (${itensSel.length})` : ''}
+                  </LfBtn>
+                </>
+              )}
+            </div>
+          )}
           {!semFat && !bb && (
             <select className="lf-input" style={lfInputStyle} value={fSep} onChange={(e) => setFSep(e.target.value)}>
               <option value="">Separação: todas</option>
@@ -14980,7 +15273,9 @@ function LfViaLeitor({ ativo, bb }) {
                   <tr>
                     {['Filial', 'Pedido', 'Data Liberação', 'Quant', 'Transporte', 'Produto']
                       .concat(bb ? ['Localização'] : [])
-                      .concat(['Status', 'Tempo Pedido', 'Data limite', 'Tempo Restante', 'Lista'])
+                      .concat(['Status', 'Tempo Pedido', 'Data limite', 'Tempo Restante'])
+                      .concat(bb ? ['Situação'] : [])
+                      .concat(['Lista'])
                       .concat(semFat || bb ? [] : ['Separador', 'Faturador', 'Status separação'])
                       .map((c) => (
                       <th
@@ -15026,9 +15321,9 @@ function LfViaLeitor({ ativo, bb }) {
                         <td style={td}>{r.filial}</td>
                         <td style={{ ...td, fontWeight: 800 }}>
                           <span
-                            onClick={() => setDetalhe(`${r.filial}-${r.pedido}`)}
-                            title="Ver itens do pedido"
-                            style={{ cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
+                            onClick={() => copiarPedido(r.pedido)}
+                            title="Clique para copiar o número do pedido"
+                            style={{ cursor: 'copy', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}
                           >
                             {r.pedido}
                           </span>
@@ -15040,6 +15335,20 @@ function LfViaLeitor({ ativo, bb }) {
                           {(() => {
                             const its = lfVlItens(r);
                             if (!its.length) return '';
+                            if (its.length <= LF_VL_MAX_MODELOS && bb)
+                              return (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '2px 8px', flexWrap: 'wrap', minHeight: 26 }}>
+                                  {its.map((i, k) => (
+                                    <span key={i.produto} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
+                                      {(modoSel || modoAj) && (chkItem(r, i) || <span style={{ width: 17 }} />)}
+                                      <span>
+                                        {i.produto}
+                                        {k < its.length - 1 ? ',' : ''}
+                                      </span>
+                                    </span>
+                                  ))}
+                                </div>
+                              );
                             if (its.length <= LF_VL_MAX_MODELOS) return its.map((i) => i.produto).join(' , ');
                             return (
                               <button
@@ -15048,22 +15357,45 @@ function LfViaLeitor({ ativo, bb }) {
                                 style={{ fontFamily: C.font, fontSize: 12, fontWeight: 700, padding: '3px 9px', borderRadius: 999, border: '1px solid rgba(0,0,0,0.25)', background: '#fff', color: '#111', cursor: 'pointer' }}
                               >
                                 🔍 Ver {its.length} itens
+                                {bb && bb.solicitarLote && (modoSel || modoAj) && (() => {
+                                  const n = modoAj
+                                    ? its.filter((i) => selAj[bbChave(i.produto)]).length
+                                    : its.filter((i) => selecao[bbCompraChave(r.pedido, i.produto)] && podeSel(bbCompraChave(r.pedido, i.produto))).length;
+                                  return n > 0 ? ` · ${n} marcado${n > 1 ? 's' : ''}` : '';
+                                })()}
                               </button>
                             );
                           })()}
                         </td>
                         {bb && (() => {
                           const its = lfVlItens(r);
-                          const loc = its.map((i) => ((bb.locMap || {})[bbChave(i.produto)] || {}).localizacao || '');
-                          const txt = !loc.some(Boolean) ? '' : its.length === 1 ? loc[0] : its.map((i, k) => `${i.produto}: ${loc[k] || '—'}`).join(' · ');
+                          const loc = its.map((i) => bbLocResumo(((bb.locMap || {})[bbChave(i.produto)] || {}).localizacao));
                           return (
-                            <td style={{ ...td, fontWeight: 800, whiteSpace: 'normal', minWidth: 110, maxWidth: 260, wordBreak: 'break-word' }}>{txt || '—'}</td>
+                            <>
+                              <td title={its.length === 1 && loc[0].extra ? loc[0].completo : undefined} style={{ ...td, fontWeight: 800, whiteSpace: 'normal', minWidth: 140, maxWidth: 260, wordBreak: 'break-word' }}>
+                                {its.length === 1 ? (
+                                  loc[0].txt || '—'
+                                ) : its.length > 1 ? (
+                                  <button
+                                    type="button"
+                                    title="Ver a localização de cada item"
+                                    onClick={() => setDetalhe(`${r.filial}-${r.pedido}`)}
+                                    style={{ fontFamily: C.font, fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999, border: '1px solid rgba(0,0,0,0.25)', background: '#fff', color: '#111', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                                  >
+                                    🔍 Ver localização
+                                  </button>
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                            </>
                           );
                         })()}
                         <td style={td}>{r.restante == null ? '—' : atrasado ? 'Atraso' : 'No Prazo'}</td>
                         <td style={td}>{horas ? `${horas}:00:00` : '—'}</td>
                         <td style={td}>{r.lim ? sepQuandoSeg(r.lim) : '—'}</td>
                         <td style={{ ...td, fontWeight: 800 }}>{r.restante == null ? '—' : lfRestante(r.restante)}</td>
+                        {bb && <td style={{ ...td, whiteSpace: 'normal', width: 160, minWidth: 140, maxWidth: 170 }}>{bbSituacao(r)}</td>}
                         <td
                           style={{
                             ...td,
@@ -15166,10 +15498,50 @@ function LfViaLeitor({ ativo, bb }) {
           }}
         />
       )}
-      {detalhe && lista.find((x) => `${x.filial}-${x.pedido}` === detalhe) && (
-        <LfViaLeitorDetalhe r={lista.find((x) => `${x.filial}-${x.pedido}` === detalhe)} onFechar={() => setDetalhe(null)} bb={bb} />
+      {loteAberto && bb && itensSel.length > 0 && (
+        <BBCompraLoteModal
+          itens={itensSel}
+          pessoas={BB_PESSOAS}
+          usuario={bb.usuario}
+          onFechar={() => setLoteAberto(false)}
+          onEnviar={(d) => {
+            setLoteAberto(false);
+            setModoSel(false);
+            setSelecao({});
+            bb.solicitarLote(d);
+          }}
+        />
       )}
-    </>
+      {pedidoCopiado && (
+        <div
+          role="status"
+          style={{ position: 'fixed', left: '50%', bottom: 28, transform: 'translateX(-50%)', zIndex: 1300, background: pedidoCopiado[0] === '!' ? '#b3261e' : '#1e293b', color: '#fff', fontFamily: C.font, fontSize: 14, fontWeight: 700, padding: '10px 18px', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.28)', display: 'flex', alignItems: 'center', gap: 8 }}
+        >
+          {pedidoCopiado[0] === '!' ? `Não foi possível copiar o pedido ${pedidoCopiado.slice(1)}` : <><span style={{ color: '#4ade80' }}>✓</span> Pedido {pedidoCopiado} copiado</>}
+        </div>
+      )}
+      {ajusteAberto && bb && Object.keys(selAj).length > 0 && (
+        <BBAjusteLoteModal
+          itens={Object.values(selAj)}
+          pessoas={BB_PESSOAS}
+          usuario={bb.usuario}
+          onFechar={() => setAjusteAberto(false)}
+          onEnviar={(d) => {
+            setAjusteAberto(false);
+            setModoAj(false);
+            setSelAj({});
+            bb.solicitarAjuste(d);
+          }}
+        />
+      )}
+      {detalhe && lista.find((x) => `${x.filial}-${x.pedido}` === detalhe) && (
+        <LfViaLeitorDetalhe
+          r={lista.find((x) => `${x.filial}-${x.pedido}` === detalhe)}
+          onFechar={() => setDetalhe(null)}
+          bb={bb ? { ...bb, btnCompra: (it) => btnCompra(lista.find((x) => `${x.filial}-${x.pedido}` === detalhe), it), chkCompra: (it) => chkItem(lista.find((x) => `${x.filial}-${x.pedido}` === detalhe), it), pvSelo: (it) => pvSelo(lista.find((x) => `${x.filial}-${x.pedido}` === detalhe), it) } : bb}
+        />
+      )}
+    </div>
   );
 }
 
@@ -16365,6 +16737,300 @@ function SepCampoRotulo({ rotulo, children }) {
 const BB_FILIAL = '1020';
 
 const BB_USUARIO_CHAVE = 'bb_lista_usuario';
+// Supabase do ESTOQUE (schema inventario): o site lê a view public.v_bb_localizacao (criar_view_localizacao_estoque.sql).
+// Preencha a URL do projeto e a chave PÚBLICA (anon). Vazio = usa a tabela bb_localizacao (arquivo enviado).
+const EST_SUPABASE_URL = 'https://mntlzdlilnvebvqinxzi.supabase.co';
+const EST_SUPABASE_ANON = 'sb_publishable_LIRfujLgg_PkuUlKGtyeNw_IHCCqEN-';
+async function bbLerLocalizacaoEstoque() {
+  const out = [];
+  for (let off = 0; off < 20000; off += 1000) {
+    const r = await fetch(`${EST_SUPABASE_URL}/rest/v1/v_bb_localizacao?select=produto,localizacao,saldo_fd,atualizado_em&order=produto.asc&limit=1000&offset=${off}`, {
+      // chave nova (sb_publishable_...) vai só no apikey; chave antiga (JWT, eyJ...) pede também o Authorization
+      headers: EST_SUPABASE_ANON.startsWith('eyJ') ? { apikey: EST_SUPABASE_ANON, Authorization: `Bearer ${EST_SUPABASE_ANON}` } : { apikey: EST_SUPABASE_ANON },
+    });
+    if (!r.ok) throw new Error('Estoque ' + r.status);
+    const page = await r.json();
+    if (!Array.isArray(page)) throw new Error('Resposta inesperada do estoque');
+    out.push(...page);
+    if (page.length < 1000) break;
+  }
+  return out;
+}
+const BB_PESSOAS = ['Mayza Gomes', 'Tamires Pereira', 'Gregory Rutkoski', 'Thayna Evangelista'];
+// Solicitar compra: o site chama o Apps Script solicitar_compra_bb.gs (planilha "FAT x EST x PROD", aba "Pedido venda BB").
+// Cole aqui a URL do app da web (termina em /exec) depois de publicar o script.
+const BB_COMPRA_URL =
+  'https://script.google.com/macros/s/AKfycbzR6yTnxd2JS3ZenY9Ze8HPokguS_1yla7bVRxt8qeLlRP2RzE9iOR5ezZfYfVSTQrZRQ/exec';
+const BB_COMPRA_SEGREDO = 'BB-COMPRA-1020-2026';
+// Situação lida da planilha (coluna H "STATUS") -> texto e cor para a equipe.
+function bbStatusCompra(st) {
+  const t = norm_BB(st);
+  if (t.startsWith('pendente') || t === 'solicitado') return { texto: 'Aguardando compra', bg: '#f9ab00', fg: '#000' };
+  // "Encontrada | Faturado" na planilha = o mesmo que Comprado
+  if (t.startsWith('comprado') || t.startsWith('encontrada')) return { texto: 'Comprado · aguardando chegada', bg: '#8ab4f8', fg: '#000' };
+  if (t.startsWith('chegou')) return { texto: 'Chegou', bg: '#34a853', fg: '#fff' };
+  return { texto: String(st).trim() || 'Solicitado', bg: '#e8eaed', fg: '#111' };
+}
+const bbSeloTabela = { display: 'inline-block', fontFamily: C.font, fontSize: 11, fontWeight: 800, padding: '3px 9px', borderRadius: 12, lineHeight: 1.25, textAlign: 'center', maxWidth: 150 };
+const BB_PV_RETENCAO_H = 24; // horas em que um item "Comprar" continua marcado como pedido de venda depois de sair do relatório
+const bbBolha = { fontFamily: C.font, fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 999, lineHeight: 1.25, whiteSpace: 'nowrap' };
+const bbCompraChave = (pedido, produto) => String(pedido).trim() + '|' + bbChave(produto);
+async function bbCompraApi(acao, dados) {
+  if (!BB_COMPRA_URL) throw new Error('A solicitação de compra ainda não foi configurada (falta a URL do Apps Script).');
+  const q = new URLSearchParams({ acao, segredo: BB_COMPRA_SEGREDO });
+  const lote = acao === 'solicitar_lote' || acao === 'ajuste_saldo_lote'; // vários itens: vai no corpo (POST), a URL não aguenta muita coisa
+  if (dados && !lote) q.set('data', JSON.stringify(dados));
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), lote ? 70000 : 40000);
+  try {
+    const r = await fetch(
+      BB_COMPRA_URL + '?' + q.toString(),
+      lote
+        ? { method: 'POST', redirect: 'follow', signal: ctrl.signal, headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(dados || {}) }
+        : { redirect: 'follow', signal: ctrl.signal }
+    );
+    const txt = await r.text();
+    try {
+      return JSON.parse(txt);
+    } catch (e) {
+      throw new Error('A planilha não respondeu como esperado. Confira a publicação do Apps Script (acesso: qualquer pessoa).');
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') throw new Error('Demorou demais para responder. Confira na planilha antes de tentar de novo.');
+    throw e;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+// Janela de "Solicitar compra" de vários produtos marcados: ajusta a quantidade de cada um e envia tudo junto.
+function BBCompraLoteModal({ itens, pessoas, usuario, onEnviar, onFechar }) {
+  const [linhas, setLinhas] = useState(() => itens.map((i) => ({ ...i, q: String(i.qtd || 1) })));
+  const [sol, setSol] = useState(usuario || '');
+  const [outro, setOutro] = useState(Boolean(usuario) && !pessoas.includes(usuario));
+  useEffect(() => {
+    const k = (e) => e.key === 'Escape' && onFechar();
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onFechar]);
+  const qtdOk = (q) => Number(q) >= 1 && Number.isInteger(Number(q));
+  const valido = linhas.length > 0 && linhas.every((l) => qtdOk(l.q)) && sol.trim().length > 0;
+  const campo = { fontFamily: C.font, fontSize: 14, padding: '8px 10px', borderRadius: C.radius.md, border: `1px solid ${C.bdMid}`, background: C.bgCard, color: C.txtPri, width: '100%', boxSizing: 'border-box' };
+  const thS = { textAlign: 'left', fontSize: 12, fontWeight: 800, color: C.txtMuted, padding: '6px 8px', borderBottom: `1px solid ${C.bdLight}` };
+  const tdS = { padding: '6px 8px', fontSize: 13, borderBottom: `1px solid ${C.bdLight}` };
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(2px)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={onFechar}
+    >
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.bgCard, borderRadius: C.radius.xl, padding: 22, width: 620, maxWidth: '94vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: C.shadowXl, border: `1px solid ${C.bdMid}`, fontFamily: C.font, color: C.txtPri }}>
+        <div style={{ fontSize: 17, fontWeight: 800 }}>Solicitar compra ({linhas.length} {linhas.length === 1 ? 'produto' : 'produtos'})</div>
+        <div style={{ fontSize: 13, color: C.txtMuted, margin: '4px 0 12px' }}>Ajuste a quantidade de cada um, se precisar, e envie todos de uma vez para a planilha.</div>
+        <div style={{ overflow: 'auto', border: `1px solid ${C.bdLight}`, borderRadius: C.radius.lg, minHeight: 60 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={thS}>Pedido</th>
+                <th style={thS}>Produto</th>
+                <th style={{ ...thS, width: 90 }}>Quantidade</th>
+                <th style={{ ...thS, width: 36 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {linhas.map((l, i) => (
+                <tr key={l.pedido + '|' + l.produto}>
+                  <td style={{ ...tdS, fontWeight: 800 }}>{l.pedido}</td>
+                  <td style={tdS}>{l.produto}</td>
+                  <td style={tdS}>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      aria-label={`Quantidade de ${l.produto}`}
+                      value={l.q}
+                      onChange={(e) => setLinhas((x) => x.map((y, k) => (k === i ? { ...y, q: e.target.value } : y)))}
+                      style={{ ...campo, padding: '5px 8px', width: 76, borderColor: qtdOk(l.q) ? C.bdMid : '#d93025' }}
+                    />
+                  </td>
+                  <td style={tdS}>
+                    <button
+                      type="button"
+                      title="Tirar da solicitação"
+                      aria-label={`Tirar ${l.produto}`}
+                      onClick={() => setLinhas((x) => x.filter((_, k) => k !== i))}
+                      style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 16, color: C.txtMuted }}
+                    >
+                      ✕
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <label style={{ fontSize: 12, fontWeight: 700, color: C.txtMuted, marginTop: 12 }}>Solicitante</label>
+        <select
+          style={{ ...campo, margin: '4px 0 8px' }}
+          value={outro ? '__outro' : sol}
+          onChange={(e) => {
+            if (e.target.value === '__outro') {
+              setOutro(true);
+              setSol('');
+            } else {
+              setOutro(false);
+              setSol(e.target.value);
+            }
+          }}
+        >
+          <option value="">Escolha...</option>
+          {pessoas.map((x) => (
+            <option key={x} value={x}>
+              {x}
+            </option>
+          ))}
+          <option value="__outro">Outro...</option>
+        </select>
+        {outro && <input style={{ ...campo, marginBottom: 8 }} placeholder="Digite o nome" value={sol} onChange={(e) => setSol(e.target.value)} />}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
+          <LfBtn onClick={onFechar}>Cancelar</LfBtn>
+          <LfBtn tipo="primario" disabled={!valido} onClick={() => onEnviar({ solicitante: sol.trim(), itens: linhas.map((l) => ({ pedido: l.pedido, produto: l.produto, qtd: Number(l.q), transporte: l.transporte, lib: l.lib, lim: l.lim })) })}>
+            🛒 Enviar {linhas.length} para a planilha
+          </LfBtn>
+        </div>
+      </div>
+    </div>
+  );
+}
+// Janela do "Ajuste de saldo" dos produtos marcados: para cada um, lote (opcional), saldo físico (ou Uso T.I / Gabriel) e saldo do inventário.
+function BBAjusteLoteModal({ itens, pessoas, usuario, onEnviar, onFechar }) {
+  const [linhas, setLinhas] = useState(() => itens.map((i) => ({ produto: i.produto, lote: '', fis: '', inv: '', ti: false })));
+  const [sol, setSol] = useState(usuario || '');
+  const [outro, setOutro] = useState(Boolean(usuario) && !pessoas.includes(usuario));
+  useEffect(() => {
+    const k = (e) => e.key === 'Escape' && onFechar();
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onFechar]);
+  const numOk = (q) => String(q).trim() !== '' && Number.isInteger(Number(q)) && Number(q) >= 0;
+  const linhaOk = (l) => numOk(l.inv) && (l.ti || numOk(l.fis));
+  const valido = linhas.length > 0 && linhas.every(linhaOk) && sol.trim().length > 0;
+  const mudar = (i, parte) => setLinhas((x) => x.map((y, k) => (k === i ? { ...y, ...parte } : y)));
+  const campo = { fontFamily: C.font, fontSize: 14, padding: '8px 10px', borderRadius: C.radius.md, border: `1px solid ${C.bdMid}`, background: C.bgCard, color: C.txtPri, width: '100%', boxSizing: 'border-box' };
+  const thS = { textAlign: 'left', fontSize: 12, fontWeight: 800, color: C.txtMuted, padding: '6px 8px', borderBottom: `1px solid ${C.bdLight}` };
+  const tdS = { padding: '6px 8px', fontSize: 13, borderBottom: `1px solid ${C.bdLight}`, verticalAlign: 'top' };
+  const peq = { ...campo, padding: '5px 8px' };
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(2px)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={onFechar}
+    >
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.bgCard, borderRadius: C.radius.xl, padding: 22, width: 760, maxWidth: '96vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: C.shadowXl, border: `1px solid ${C.bdLight}`, color: C.txtPri, fontFamily: C.font }}>
+        <div style={{ fontSize: 17, fontWeight: 800 }}>Ajuste de saldo ({linhas.length} {linhas.length === 1 ? 'produto' : 'produtos'})</div>
+        <div style={{ fontSize: 13, color: C.txtMuted, margin: '4px 0 12px' }}>Informe o saldo físico e o saldo do inventário de cada produto. O ajuste e o status a planilha calcula.</div>
+        <div style={{ overflow: 'auto', border: `1px solid ${C.bdLight}`, borderRadius: C.radius.lg, minHeight: 60 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={thS}>Produto</th>
+                <th style={{ ...thS, width: 100 }}>Lote</th>
+                <th style={{ ...thS, width: 150 }}>Saldo físico</th>
+                <th style={{ ...thS, width: 100 }}>Inventário</th>
+                <th style={{ ...thS, width: 70 }}>Ajuste</th>
+                <th style={{ ...thS, width: 36 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {linhas.map((l, i) => {
+                const aj = !l.ti && numOk(l.fis) && numOk(l.inv) ? Number(l.fis) - Number(l.inv) : null;
+                return (
+                  <tr key={l.produto}>
+                    <td style={{ ...tdS, fontWeight: 800 }}>{l.produto}</td>
+                    <td style={tdS}>
+                      <input aria-label={`Lote de ${l.produto}`} placeholder="Opcional" value={l.lote} onChange={(e) => mudar(i, { lote: e.target.value })} style={peq} />
+                    </td>
+                    <td style={tdS}>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        aria-label={`Saldo físico de ${l.produto}`}
+                        disabled={l.ti}
+                        placeholder={l.ti ? 'GABRIEL PEGOU' : '0'}
+                        value={l.ti ? '' : l.fis}
+                        onChange={(e) => mudar(i, { fis: e.target.value })}
+                        style={{ ...peq, opacity: l.ti ? 0.5 : 1, borderColor: l.ti || numOk(l.fis) || l.fis === '' ? C.bdMid : '#d93025' }}
+                      />
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 5, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        <input type="checkbox" aria-label={`Uso T.I / Gabriel de ${l.produto}`} checked={l.ti} onChange={(e) => mudar(i, { ti: e.target.checked })} style={{ width: 15, height: 15, accentColor: '#1a73e8', cursor: 'pointer' }} />
+                        Uso T.I / Gabriel
+                      </label>
+                    </td>
+                    <td style={tdS}>
+                      <input
+                        type="number"
+                        min={0}
+                        step={1}
+                        aria-label={`Saldo do inventário de ${l.produto}`}
+                        placeholder="0"
+                        value={l.inv}
+                        onChange={(e) => mudar(i, { inv: e.target.value })}
+                        style={{ ...peq, borderColor: numOk(l.inv) || l.inv === '' ? C.bdMid : '#d93025' }}
+                      />
+                    </td>
+                    <td style={{ ...tdS, fontWeight: 800, color: aj == null || aj === 0 ? C.txtPri : aj < 0 ? C.red : C.green }}>{aj == null ? '—' : aj > 0 ? `+${aj}` : aj}</td>
+                    <td style={tdS}>
+                      <button type="button" title="Tirar do ajuste" aria-label={`Tirar ${l.produto}`} onClick={() => setLinhas((x) => x.filter((_, k) => k !== i))} style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 16, color: C.txtMuted }}>
+                        ✕
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <label style={{ fontSize: 12, fontWeight: 700, color: C.txtMuted, marginTop: 12 }}>Solicitante</label>
+        <select
+          style={{ ...campo, margin: '4px 0 8px' }}
+          value={outro ? '__outro' : sol}
+          onChange={(e) => {
+            if (e.target.value === '__outro') {
+              setOutro(true);
+              setSol('');
+            } else {
+              setOutro(false);
+              setSol(e.target.value);
+            }
+          }}
+        >
+          <option value="">Escolha...</option>
+          {pessoas.map((x) => (
+            <option key={x} value={x}>
+              {x}
+            </option>
+          ))}
+          <option value="__outro">Outro...</option>
+        </select>
+        {outro && <input style={{ ...campo, marginBottom: 8 }} placeholder="Digite o nome" value={sol} onChange={(e) => setSol(e.target.value)} />}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
+          <LfBtn onClick={onFechar}>Cancelar</LfBtn>
+          <LfBtn
+            tipo="primario"
+            disabled={!valido}
+            onClick={() =>
+              onEnviar({
+                solicitante: sol.trim(),
+                itens: linhas.map((l) => ({ produto: l.produto, lote: l.lote.trim(), fisico: l.ti ? '' : Number(l.fis), inventario: Number(l.inv), tiGabriel: l.ti })),
+              })
+            }
+          >
+            ⚖️ Enviar {linhas.length} para a planilha
+          </LfBtn>
+        </div>
+      </div>
+    </div>
+  );
+}
 const bbNumero = (id) => 'BB-' + String(id).padStart(4, '0');
 const bbEsc = (v) =>
   String(v == null ? '' : v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -16381,6 +17047,26 @@ const bbHoraBR = (iso) => {
 const bbNum = (v) => (v == null || v === '' ? '-' : String(Number(v)).replace('.', ','));
 
 const bbChave = (v) => String(v == null ? '' : v).trim().toUpperCase();
+// Localização: no estoque o mesmo produto pode estar em vários endereços, cada um com a sua quantidade ("BB-33 (30) · BB-34 (30)").
+// Na lista e na impressão mostramos no máximo BB_LOC_MAX (os de maior saldo primeiro) e "+N" para o resto; o detalhe do pedido mostra todos.
+const BB_LOC_MAX = 2;
+function bbLocLista(loc) {
+  const t = String(loc == null ? '' : loc).trim();
+  if (!t) return [];
+  let itens;
+  if (/\(\s*\d/.test(t)) {
+    itens = [...t.matchAll(/([^\s;|·,]+)\s*\(([^)]*)\)/g)].map((m) => ({ txt: `${m[1]} (${m[2].trim()})`, q: Number(String(m[2]).replace(',', '.')) }));
+  } else {
+    itens = t.split(/\s*(?:;|\||·|,)\s*/).filter(Boolean).map((x) => ({ txt: x, q: NaN }));
+  }
+  if (itens.every((x) => !Number.isNaN(x.q))) itens = itens.map((x, i) => ({ ...x, i })).sort((a, b) => b.q - a.q || a.i - b.i);
+  return itens.map((x) => x.txt);
+}
+function bbLocResumo(loc, max = BB_LOC_MAX) {
+  const todas = bbLocLista(loc);
+  const txt = todas.slice(0, max).join(' · ') + (todas.length > max ? ` +${todas.length - max}` : '');
+  return { txt, completo: todas.join(' · '), extra: Math.max(0, todas.length - max) };
+}
 const BB_ORDEM_CHAVE = 'bb_ordem_impressao';
 // Ordem da lista: por produto (como a CALCULADORA) ou por localização (roteiro de separação).
 function bbOrdenar(linhas, ordem) {
@@ -16393,6 +17079,7 @@ function bbOrdenar(linhas, ordem) {
 }
 // Uma linha por pedido + produto (usa "itens" do agente; se vier vazio, cai para "produtos" + quantidade total).
 // A localização e o saldo FD-01 vêm da tabela bb_localizacao (locMap: produto em maiúsculas -> {localizacao, saldo_fd}).
+const norm_BB = (v) => String(v == null ? '' : v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 function bbItensDoPedido(p) {
   const itens = Array.isArray(p.itens) ? p.itens.filter((i) => i && i.produto) : [];
   if (itens.length) return itens.map((i) => ({ produto: String(i.produto).trim(), qtd: Number(i.qtd) || 0 }));
@@ -16411,7 +17098,7 @@ function bbExplodirPedidos(pedidos, locMap = {}, ordem = 'produto') {
         produto: i.produto,
         qtd: i.qtd,
         estoque_fd: l && l.saldo_fd != null ? Number(l.saldo_fd) : null,
-        localizacao: (l && l.localizacao) || null,
+        localizacao: bbLocResumo(l && l.localizacao).txt || null,
       });
     });
   });
@@ -16446,28 +17133,71 @@ function bbMapearLocalizacao(matriz) {
   return null;
 }
 
-function bbImprimir(lista, itens, ordem = 'produto') {
-  const linhas = bbOrdenar(itens, ordem)
-    .map(
-      (i) =>
-        `<tr><td>${bbEsc(i.pedido)}</td><td>${bbEsc(i.produto)}</td><td class="c"><b>${bbEsc(i.localizacao || '-')}</b></td><td class="c">${bbNum(i.qtd)}</td>` +
-        `<td class="c">${bbNum(i.estoque_fd)}</td><td>${bbEsc(i.transporte)}</td>` +
-        `<td class="c">${bbEsc(bbDataBR(i.lib_estoque))}</td><td class="c">${bbEsc(bbHoraBR(i.lib_estoque))}</td></tr>`
-    )
+function bbImprimir(lista, itens, ordem = 'produto', opcoes = {}) {
+  const em_pe = opcoes.folha !== 'paisagem'; // padrão: folha em pé (reta)
+  const sitDe = opcoes.situacao || (() => '');
+  const comSit = itens.some((i) => sitDe(i));
+  const dtHr = (iso) => {
+    const d = bbDataBR(iso);
+    return d ? `${d.slice(0, 5)} <span class="h">${bbEsc(bbHoraBR(iso).slice(0, 5))}</span>` : '—';
+  };
+  const ordenados = bbOrdenar(itens, ordem);
+  const linhas = ordenados
+    .map((i, n) => {
+      const loc = String(i.localizacao || '').trim();
+      const sit = sitDe(i);
+      return (
+        `<tr${sit ? ' class="ag"' : ''}>` +
+        `<td class="n">${n + 1}</td>` +
+        `<td class="ok"><span class="box"></span></td>` +
+        `<td class="ped">${bbEsc(i.pedido)}</td>` +
+        `<td class="prod">${bbEsc(i.produto)}</td>` +
+        `<td class="q">${bbNum(i.qtd)}</td>` +
+        `<td class="loc">${loc ? bbEsc(loc) : '<span class="nd">—</span>'}</td>` +
+        `<td class="c">${bbNum(i.estoque_fd) === '-' ? '<span class="nd">—</span>' : bbNum(i.estoque_fd)}</td>` +
+        `<td>${bbEsc(i.transporte || '')}</td>` +
+        `<td class="c">${dtHr(i.lib_estoque)}</td>` +
+        (comSit ? `<td class="c sit">${sit ? bbEsc(sit.toUpperCase()) : ''}</td>` : '') +
+        `</tr>`
+      );
+    })
     .join('');
+  const dGer = new Date(lista.criada_em || Date.now());
+  const geradaEm = (Number.isNaN(dGer.getTime()) ? new Date() : dGer).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
   const html =
     `<!doctype html><html><head><meta charset="utf-8"><title>Lista ${bbNumero(lista.id)}</title><style>` +
-    `*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}body{margin:14px;color:#000}` +
-    `h1{font-size:20px;margin:0 0 4px}.info{font-size:12px;margin-bottom:10px;display:flex;gap:18px;flex-wrap:wrap}` +
-    `table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #444;padding:4px 6px}` +
-    `th{background:#1f3a5f;color:#fff;text-transform:uppercase;font-size:11px}td.c{text-align:center}` +
-    `thead{display:table-header-group}tr{break-inside:avoid}@page{size:A4 landscape;margin:10mm}` +
-    `</style></head><body><h1>Lista ${bbNumero(lista.id)} · BBBaterias ${BB_FILIAL}</h1>` +
-    `<div class="info"><span>Gerada em: <b>${bbEsc(new Date(lista.criada_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }))}</b></span>` +
-    `<span>Responsável: <b>${bbEsc(lista.usuario || '-')}</b></span><span>Pedidos: <b>${lista.pedidos}</b></span>` +
-    `<span>Itens: <b>${lista.itens}</b></span><span>Unidades: <b>${bbNum(lista.unidades)}</b></span><span>Ordem: <b>${ordem === 'localizacao' ? 'por localização' : 'por produto'}</b></span></div>` +
-    `<table><thead><tr><th>Pedido</th><th>Produto</th><th>Localização</th><th>Qt Liberada</th><th>EST-FD-01</th><th>Transporte</th><th>Dt. Lib Est</th><th>Hr. Lib. Est</th></tr></thead>` +
-    `<tbody>${linhas}</tbody></table></body></html>`;
+    `@page{size:A4 ${em_pe ? 'portrait' : 'landscape'};margin:${em_pe ? '10mm 8mm 12mm' : '10mm 10mm 12mm'}}` +
+    `*{box-sizing:border-box;font-family:"Segoe UI",Roboto,Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}` +
+    `body{margin:0;color:#111;font-size:12px}` +
+    `.topo{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1f3a5f;padding-bottom:8px;margin-bottom:8px}` +
+    `.marca{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#1f3a5f}` +
+    `h1{font-size:24px;margin:2px 0 0;letter-spacing:-.01em}` +
+    `.ger{text-align:right;font-size:11px;color:#444;line-height:1.5}.ger b{color:#111;font-size:12px}` +
+    `.resumo{display:flex;flex-wrap:wrap;gap:0 22px;margin:0 0 8px;font-size:11px;color:#444}` +
+    `.resumo span{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#666;margin-right:5px}` +
+    `.resumo b{font-size:12px;color:#111}` +
+    `table{width:100%;border-collapse:collapse}` +
+    `thead{display:table-header-group}tr{break-inside:avoid}` +
+    `th{background:#eef1f5;color:#1f3a5f;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;text-align:left;padding:${em_pe ? '6px 5px' : '7px 8px'};border-top:1px solid #1f3a5f;border-bottom:2px solid #1f3a5f}` +
+    `td{padding:${em_pe ? '6px 5px' : '7px 8px'};border-bottom:1px solid #d5d9e0;vertical-align:middle;font-size:${em_pe ? '11px' : '12px'}}` +
+    `tbody tr:nth-child(even) td{background:#f8f9fb}` +
+    `th.c,td.c,th.q,td.q,th.n,td.n,th.ok,td.ok{text-align:center}` +
+    `td.n{color:#777;font-size:10.5px;width:26px}td.ped{font-weight:700;font-size:${em_pe ? '12px' : '13px'};font-variant-numeric:tabular-nums}` +
+    `td.prod{font-weight:700;font-size:${em_pe ? '12px' : '13px'}}td.loc{font-weight:800;font-size:${em_pe ? '12px' : '13px'};${em_pe ? '' : 'white-space:nowrap'}}` +
+    `td.q{font-weight:800;font-size:15px}.nd{color:#999;font-weight:400}.h{color:#666}` +
+    `td.sit{font-size:10px;font-weight:800;white-space:nowrap}tr.ag td{background:#e9e9e9!important}` +
+    `td.ok{width:44px}.box{display:inline-block;width:16px;height:16px;border:1.5px solid #333;border-radius:3px;background:#fff}` +
+    `</style></head><body>` +
+    `<div class="topo"><div><div class="marca">BBBaterias · Filial ${bbEsc(BB_FILIAL)}</div><h1>Lista de Separação ${bbNumero(lista.id)}</h1></div>` +
+    `<div class="ger">Gerada em <b>${bbEsc(geradaEm)}</b><br>Responsável: <b>${bbEsc(lista.usuario || '—')}</b></div></div>` +
+    `<div class="resumo"><div><span>Pedidos</span><b>${lista.pedidos}</b></div><div><span>Itens</span><b>${lista.itens}</b></div>` +
+    `<div><span>Unidades</span><b>${bbNum(lista.unidades)}</b></div>` +
+    `<div><span>Ordem</span><b>${ordem === 'localizacao' ? 'Por localização' : 'Por produto'}</b></div>` +
+    (opcoes.semAguardando ? `<div><span>Filtro</span><b>Sem itens aguardando chegada</b></div>` : '') +
+    `</div>` +
+    `<table><thead><tr><th class="n">#</th><th class="ok">Catado</th><th>Pedido</th><th>Produto</th><th class="q">Qtd</th><th>Localização</th><th class="c">Saldo FD-01</th><th>Transporte</th><th class="c">Liberação</th>${comSit ? '<th class="c">Situação</th>' : ''}</tr></thead>` +
+    `<tbody>${linhas}</tbody></table>` +
+    `</body></html>`;
   const fr = document.createElement('iframe');
   fr.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
   document.body.appendChild(fr);
@@ -16484,9 +17214,609 @@ function bbImprimir(lista, itens, ordem = 'produto') {
   }, 300);
 }
 
+// Reenvio: registro de quem reenviou o quê (filial, NF, pedido, transporte/rastreio). A data e a hora são marcadas pelo banco ao salvar.
+const REENVIO_USUARIO_CHAVE = 'reenvio_usuario';
+function TelaReenvio({ ativo, somenteLeitura }) {
+  const [filial, setFilial] = useState('');
+  const [nf, setNf] = useState('');
+  const [pedido, setPedido] = useState('');
+  const [transporte, setTransporte] = useState('');
+  const [rastreio, setRastreio] = useState('');
+  const [ticket, setTicket] = useState('');
+  const [nome, setNome] = useState(() => {
+    try {
+      return localStorage.getItem(REENVIO_USUARIO_CHAVE) || '';
+    } catch (e) {
+      return '';
+    }
+  });
+  const [salvando, setSalvando] = useState(false);
+  const [aviso, setAviso] = useState(null);
+  const [lista, setLista] = useState([]);
+  const [carregando, setCarregando] = useState(false);
+  const [erroLista, setErroLista] = useState('');
+  const [busca, setBusca] = useState('');
+  const [fFilial, setFFilial] = useState('');
+  const nfRef = useRef(null);
+  const [fixos, setFixos] = useState([]); // mesma lista de nomes fixos do Cancelamentos
+  const [outroNome, setOutroNome] = useState(false);
+  const [achado, setAchado] = useState(''); // aviso do preenchimento automático
+  const filialManual = useRef(false);
+  const seqBusca = useRef(0);
+  const [cliente, setCliente] = useState(''); // nome do cliente vindo da expedição (só filiais 0101/0102)
+  const [clienteFilial, setClienteFilial] = useState('');
+
+  useEffect(() => {
+    if (!ativo) return;
+    lerSupabasePostagem('v_cancelamento_solicitantes_fixos?select=nome&order=nome')
+      .then((f) => setFixos(Array.isArray(f) ? f.map((x) => x.nome).filter(Boolean) : []))
+      .catch(() => setFixos([])); // sem a lista, o campo fica livre para digitar
+  }, [ativo]);
+
+  // Ao digitar NF e/ou pedido: procura na expedição (como no Cancelamentos) e preenche a filial e o que faltar.
+  useEffect(() => {
+    const n = nf.trim();
+    const p = pedido.trim();
+    if (!ativo || (!n && !p)) {
+      setAchado('');
+      setCliente('');
+      setClienteFilial('');
+      filialManual.current = false; // campos vazios: um novo preenchimento automático pode escolher a filial
+      return undefined;
+    }
+    const seq = ++seqBusca.current;
+    const t = setTimeout(async () => {
+      try {
+        let r = null;
+        try {
+          r = await cancRpc('cancelamento_analisar', { p_nf: n, p_pedido: p });
+        } catch (e) {
+          r = null; // sem a consulta da expedição ainda dá para achar o cliente pelas postagens
+        }
+        if (seq !== seqBusca.current) return;
+        let filialAch = r && r.filial ? String(r.filial) : '';
+        let pedidoAch = r && r.pedido ? String(r.pedido) : '';
+        let nfAch = r && r.nf ? String(r.nf) : '';
+        let cli = r && r.cliente ? String(r.cliente) : '';
+        // Nome do cliente: vem da expedição (view de postagens), para qualquer filial em que a NF/pedido exista.
+        if (!cli || !filialAch) {
+          try {
+            const sem0 = n.replace(/^0+(?=\d)/, '');
+            const vars = [...new Set([n, sem0, sem0.padStart(9, '0')])].filter(Boolean);
+            const filtro = n ? `nf=in.(${vars.map(encodeURIComponent).join(',')})` : `pedido=eq.${encodeURIComponent(p)}`;
+            const linhas = await lerSupabasePostagem(`v_postagens_painel?select=filial,nf,pedido,cliente_nome&${filtro}&limit=20`);
+            if (seq !== seqBusca.current) return;
+            const lista = (Array.isArray(linhas) ? linhas : []).filter((x) => !p || !x.pedido || String(x.pedido) === p || !n);
+            const melhor = lista.find((x) => x.cliente_nome && (!filialAch || String(x.filial) === filialAch)) || lista.find((x) => x.cliente_nome) || lista[0];
+            if (melhor) {
+              if (!cli && melhor.cliente_nome) cli = String(melhor.cliente_nome);
+              if (!filialAch && melhor.filial) filialAch = String(melhor.filial);
+              if (!pedidoAch && melhor.pedido) pedidoAch = String(melhor.pedido);
+              if (!nfAch && melhor.nf) nfAch = String(melhor.nf);
+            }
+          } catch (e) {
+            /* sem a view de postagens: segue só com o que a consulta da expedição devolveu */
+          }
+        }
+        if (seq !== seqBusca.current) return;
+        setCliente(cli);
+        setClienteFilial(filialAch);
+        const partes = [];
+        if (filialAch && CANC_FILIAIS.includes(filialAch) && !filialManual.current) {
+          setFilial(filialAch);
+          partes.push(`filial ${filialAch}`);
+        }
+        if (!p && pedidoAch) {
+          setPedido(pedidoAch);
+          partes.push(`pedido ${pedidoAch}`);
+        }
+        if (!n && nfAch) {
+          setNf(nfAch.replace(/^0+(?=\d)/, ''));
+          partes.push('NF');
+        }
+        if (cli) partes.push('cliente');
+        setAchado(partes.length ? 'Preenchido pela expedição: ' + partes.join(', ') + '.' : '');
+      } catch (e) {
+        if (seq === seqBusca.current) setAchado('');
+      }
+    }, 450);
+    return () => clearTimeout(t);
+  }, [ativo, nf, pedido]);
+
+  const carregar = useCallback(async () => {
+    setCarregando(true);
+    setErroLista('');
+    try {
+      const r = await lfApi('/reenvios_log?select=*&order=id.desc&limit=500');
+      setLista(Array.isArray(r) ? r : []);
+    } catch (e) {
+      const t = String(e.message || e);
+      setErroLista(/PGRST205|does not exist|Could not find/i.test(t) ? 'A tabela de reenvios ainda não existe no Supabase. Rode o SQL criar_reenvios.sql.' : 'Erro ao carregar: ' + t.slice(0, 180));
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (ativo) carregar();
+  }, [ativo, carregar]);
+
+  const nomes = useMemo(() => [...new Set(lista.map((x) => x.incluido_por).filter(Boolean))].slice(0, 30), [lista]);
+  // Cliente vem da expedição; só vale para a filial em que ele foi encontrado (se a filial for trocada na mão, ou não houver nome, fica "-")
+  const clienteExib = filial && clienteFilial === filial && cliente ? cliente : '';
+  const valido = filial && nf.trim() && pedido.trim() && (transporte.trim() || rastreio.trim()) && nome.trim();
+  const dataHora = (iso) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
+  };
+
+  const salvar = async () => {
+    if (!valido || salvando) return;
+    const reg = { filial, nf: nf.trim(), pedido: pedido.trim(), transporte: transporte.trim() || null, rastreio: rastreio.trim() || null, ticket: ticket.replace(/^[#\s]+/, '').trim() ? '#' + ticket.replace(/^[#\s]+/, '').trim() : null, cliente: clienteExib || null, incluido_por: nome.trim() };
+    const igual = lista.find((x) => x.filial === reg.filial && String(x.nf).trim().toUpperCase() === reg.nf.toUpperCase() && String(x.pedido).trim() === reg.pedido);
+    if (igual && !window.confirm(`Esse reenvio (filial ${igual.filial}, NF ${igual.nf}, pedido ${igual.pedido}) já foi registrado em ${dataHora(igual.criado_em)} por ${igual.incluido_por}. Registrar de novo?`)) return;
+    setSalvando(true);
+    setAviso(null);
+    try {
+      try {
+        localStorage.setItem(REENVIO_USUARIO_CHAVE, reg.incluido_por);
+      } catch (e) {
+        /* sem armazenamento */
+      }
+      const gravar = (corpo) => lfApi('/reenvios_log', { method: 'POST', body: JSON.stringify(corpo), headers: { Prefer: 'return=representation', 'Content-Type': 'application/json' } });
+      let r;
+      try {
+        r = await gravar(reg);
+      } catch (e1) {
+        // tabela criada antes da coluna "cliente": grava sem ela (rode de novo o SQL criar_reenvios.sql para ter o cliente no histórico)
+        if (/cliente/i.test(String(e1.message || e1)) && /PGRST204|column/i.test(String(e1.message || e1))) {
+          const { cliente: _semCliente, ...semCliente } = reg;
+          r = await gravar(semCliente);
+        } else throw e1;
+      }
+      const novo = Array.isArray(r) ? r[0] : null;
+      setAviso({ tipo: 'ok', texto: `Reenvio registrado: NF ${reg.nf} · pedido ${reg.pedido}${novo ? ' · ' + dataHora(novo.criado_em) : ''}.` });
+      if (novo) setLista((x) => [novo, ...x]);
+      else carregar();
+      setNf('');
+      setPedido('');
+      setTransporte('');
+      setRastreio('');
+      setTicket('');
+      setCliente('');
+      setClienteFilial('');
+      setAchado('');
+      filialManual.current = false;
+      if (nfRef.current) nfRef.current.focus();
+    } catch (e) {
+      const t = String(e.message || e);
+      setAviso({ tipo: 'erro', texto: /PGRST205|does not exist|Could not find/i.test(t) ? 'A tabela de reenvios ainda não existe no Supabase. Rode o SQL criar_reenvios.sql.' : 'Não foi possível registrar: ' + t.slice(0, 200) });
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const excluir = async (x) => {
+    if (!window.confirm(`Excluir o reenvio da NF ${x.nf} (pedido ${x.pedido}), registrado em ${dataHora(x.criado_em)} por ${x.incluido_por}?`)) return;
+    try {
+      await lfApi('/reenvios_log?id=eq.' + x.id, { method: 'DELETE', headers: { Prefer: 'return=representation' } }).then((r) => {
+        if (Array.isArray(r) && r.length === 0) throw new Error('Nada foi excluído (sem permissão). Rode de novo o SQL criar_reenvios.sql.');
+      });
+      setLista((l) => l.filter((y) => y.id !== x.id));
+      setAviso({ tipo: 'ok', texto: `Reenvio da NF ${x.nf} excluído.` });
+    } catch (e) {
+      setAviso({ tipo: 'erro', texto: 'Não foi possível excluir: ' + String(e.message || e).slice(0, 200) });
+    }
+  };
+
+  const filtrada = useMemo(() => {
+    const t = sepNorm(busca);
+    return lista
+      .filter((x) => !fFilial || x.filial === fFilial)
+      .filter((x) => !t || sepNorm(`${x.nf} ${x.pedido} ${x.cliente || ''} ${x.transporte || ''} ${x.rastreio || ''} ${x.ticket || ''} ${x.incluido_por} ${x.filial}`).includes(t))
+      .slice(0, 200);
+  }, [lista, busca, fFilial]);
+
+  const campo = { fontFamily: C.font, fontSize: 14, padding: '8px 10px', borderRadius: C.radius.md, border: `1px solid ${C.bdMid}`, background: C.bgCard, color: C.txtPri, width: '100%', boxSizing: 'border-box' };
+  const rotulo = { fontSize: 12, fontWeight: 700, color: C.txtMuted, marginBottom: 4, display: 'block' };
+  const enter = (e) => {
+    if (e.key === 'Enter') salvar();
+  };
+
+  return (
+    <div style={{ padding: 20, fontFamily: C.font, color: C.txtPri }}>
+      {!somenteLeitura && (
+      <>
+      <LfCard titulo="Reenvio" subtitulo="Registre os pedidos reenviados. A data e a hora ficam marcadas automaticamente no momento em que você salvar.">
+        {aviso && <LfAviso tipo={aviso.tipo}>{aviso.texto}</LfAviso>}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14, alignItems: 'start' }}>
+          <div>
+            <label style={rotulo} htmlFor="rv-filial">Filial</label>
+            <select id="rv-filial" style={campo} value={filial} onChange={(e) => { filialManual.current = true; setFilial(e.target.value); }}>
+              <option value="">-</option>
+              {CANC_FILIAIS.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={rotulo} htmlFor="rv-nf">NF</label>
+            <input id="rv-nf" ref={nfRef} style={campo} placeholder="Número da nota" value={nf} onChange={(e) => setNf(e.target.value)} onKeyDown={enter} />
+          </div>
+          <div>
+            <label style={rotulo} htmlFor="rv-pedido">Pedido</label>
+            <input id="rv-pedido" style={campo} placeholder="Número do pedido" value={pedido} onChange={(e) => setPedido(e.target.value)} onKeyDown={enter} />
+          </div>
+          <div>
+            <label style={rotulo} htmlFor="rv-cliente">Cliente</label>
+            <input id="rv-cliente" readOnly tabIndex={-1} title="Preenchido automático pela expedição ao digitar a NF ou o pedido. Sem nome encontrado fica -" style={{ ...campo, background: C.bgStripe, fontWeight: 700, cursor: 'default' }} value={clienteExib || '-'} />
+          </div>
+          <div>
+            <label style={rotulo} htmlFor="rv-transp">Transporte</label>
+            <input id="rv-transp" style={campo} placeholder="Ex.: LOGGI, SEDEX" value={transporte} onChange={(e) => setTransporte(e.target.value)} onKeyDown={enter} />
+          </div>
+          <div>
+            <label style={rotulo} htmlFor="rv-rastreio">Rastreio</label>
+            <input id="rv-rastreio" style={campo} placeholder="Código de rastreio" value={rastreio} onChange={(e) => setRastreio(e.target.value)} onKeyDown={enter} />
+          </div>
+          <div>
+            <label style={rotulo} htmlFor="rv-ticket">Ticket <span style={{ fontWeight: 400 }}>(opcional)</span></label>
+            <input id="rv-ticket" style={campo} placeholder="Ex.: 65556 (salva como #65556)" value={ticket} onChange={(e) => setTicket(e.target.value)} onKeyDown={enter} />
+          </div>
+          <div>
+            <label style={rotulo} htmlFor="rv-nome">Quem está incluindo</label>
+            {fixos.length > 0 && !outroNome && (!nome || fixos.includes(nome)) ? (
+              <select
+                id="rv-nome"
+                style={campo}
+                value={nome}
+                onChange={(e) => {
+                  if (e.target.value === '__outro') {
+                    setOutroNome(true);
+                    setNome('');
+                  } else setNome(e.target.value);
+                }}
+              >
+                <option value="">Selecione...</option>
+                {fixos.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+                <option value="__outro">Outro (digitar)…</option>
+              </select>
+            ) : (
+              <>
+                <input id="rv-nome" list="rv-nomes" style={campo} placeholder="Seu nome" value={nome} onChange={(e) => setNome(e.target.value)} onKeyDown={enter} />
+                <datalist id="rv-nomes">
+                  {nomes.map((n) => (
+                    <option key={n} value={n} />
+                  ))}
+                </datalist>
+                {fixos.length > 0 && (
+                  <button type="button" onClick={() => { setOutroNome(false); setNome(''); }} style={{ border: 'none', background: 'transparent', color: C.blue, cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: '4px 0' }}>
+                    ↩ usar a lista
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: achado ? C.green : C.txtMuted, fontWeight: achado ? 700 : 400 }}>{achado || 'Informe o transporte ou o rastreio (pelo menos um).'}</span>
+          <LfBtn tipo="primario" disabled={!valido || salvando} onClick={salvar}>
+            {salvando ? 'Salvando...' : 'Registrar reenvio'}
+          </LfBtn>
+        </div>
+      </LfCard>
+
+      <div style={{ height: 14 }} />
+      </>
+      )}
+      <LfCard
+        titulo="Reenvios registrados"
+        subtitulo={`${lista.length} no histórico · mostrando os mais novos primeiro${somenteLeitura ? ' · somente consulta' : ''}`}
+        acoes={
+          <>
+            <select className="lf-input" style={lfInputStyle} value={fFilial} onChange={(e) => setFFilial(e.target.value)} aria-label="Filtrar por filial">
+              <option value="">Filial: todas</option>
+              {CANC_FILIAIS.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+            <input className="lf-input" style={{ ...lfInputStyle, width: 240 }} placeholder="Buscar NF, pedido, cliente, rastreio, ticket..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+            <LfBtn onClick={carregar} disabled={carregando}>
+              {carregando ? 'Atualizando...' : 'Atualizar'}
+            </LfBtn>
+          </>
+        }
+        semPadding
+      >
+        {erroLista && <LfAviso tipo="erro">{erroLista}</LfAviso>}
+        <div style={{ overflow: 'auto', maxHeight: '55vh' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                {['Data / hora', 'Filial', 'NF', 'Pedido', 'Cliente', 'Transporte', 'Rastreio', 'Ticket', 'Incluído por'].concat(somenteLeitura ? [] : ['']).map((c) => (
+                  <th key={c} style={lfThStyle}>
+                    {c}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtrada.map((x) => (
+                <tr key={x.id}>
+                  <td style={lfTdStyle}>{dataHora(x.criado_em)}</td>
+                  <td style={lfTdStyle}>{x.filial}</td>
+                  <td style={{ ...lfTdStyle, fontWeight: 800 }}>{x.nf}</td>
+                  <td style={{ ...lfTdStyle, fontWeight: 800 }}>{x.pedido}</td>
+                  <td style={lfTdStyle}>{x.cliente || '-'}</td>
+                  <td style={lfTdStyle}>{x.transporte || '—'}</td>
+                  <td style={lfTdStyle}>{x.rastreio || '—'}</td>
+                  <td style={lfTdStyle}>{x.ticket || '—'}</td>
+                  <td style={lfTdStyle}>{x.incluido_por}</td>
+                  {!somenteLeitura && (
+                    <td style={{ ...lfTdStyle, textAlign: 'right' }}>
+                      <button type="button" onClick={() => excluir(x)} title="Excluir este registro" style={{ fontFamily: C.font, fontSize: 12, fontWeight: 700, padding: '4px 10px', borderRadius: 6, border: `1px solid ${C.redBd}`, background: C.redBg, color: C.red, cursor: 'pointer' }}>
+                        Excluir
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {!filtrada.length && !carregando && (
+                <tr>
+                  <td style={{ ...lfTdStyle, textAlign: 'center', color: C.txtMuted }} colSpan={somenteLeitura ? 9 : 10}>
+                    {lista.length ? 'Nenhum reenvio encontrado neste filtro.' : 'Nenhum reenvio registrado ainda.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </LfCard>
+    </div>
+  );
+}
+
+// Ajuste de saldo da BBBaterias: envia o pedido de ajuste para a aba "AJUSTE SALDO BB" (planilha CALCULADORA) pelo Apps Script.
+// A planilha preenche sozinha o ajuste (físico − inventário) e o status; aqui vão só os dados digitados.
+function TelaAjusteSaldoBB({ ativo }) {
+  const [usuario, setUsuario] = useState(() => {
+    try {
+      return localStorage.getItem(BB_USUARIO_CHAVE) || '';
+    } catch (e) {
+      return '';
+    }
+  });
+  const [modoOutro, setModoOutro] = useState(() => {
+    try {
+      const u = localStorage.getItem(BB_USUARIO_CHAVE) || '';
+      return Boolean(u) && !BB_PESSOAS.includes(u);
+    } catch (e) {
+      return false;
+    }
+  });
+  const [produto, setProduto] = useState('');
+  const [lote, setLote] = useState('');
+  const [fisico, setFisico] = useState('');
+  const [inventario, setInventario] = useState('');
+  const [ti, setTi] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [aviso, setAviso] = useState(null);
+  const [hist, setHist] = useState([]);
+  const [carregando, setCarregando] = useState(false);
+  const [erroHist, setErroHist] = useState('');
+  const [busca, setBusca] = useState('');
+  const produtoRef = useRef(null);
+
+  const carregarHist = useCallback(async () => {
+    setCarregando(true);
+    setErroHist('');
+    try {
+      const r = await fetch(`${API_BASE}?action=dados&fonte=ajusteSaldoBBBaterias`);
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.erro || 'Erro ao carregar os ajustes');
+      setHist(j.dados || []);
+    } catch (e) {
+      setErroHist(String(e.message || e));
+    } finally {
+      setCarregando(false);
+    }
+  }, []);
+  useEffect(() => {
+    if (ativo) carregarHist();
+  }, [ativo, carregarHist]);
+
+  const nInt = (v) => (v === '' || v == null ? null : Number(v));
+  const fis = nInt(fisico);
+  const inv = nInt(inventario);
+  const numOk = (n) => n != null && !Number.isNaN(n) && Number.isInteger(n) && n >= 0;
+  const valido = usuario.trim() && produto.trim() && numOk(inv) && (ti || numOk(fis));
+  const ajuste = !ti && numOk(fis) && numOk(inv) ? fis - inv : null;
+
+  const enviar = async () => {
+    if (!valido || enviando) return;
+    setEnviando(true);
+    setAviso({ tipo: 'info', texto: 'Enviando para a planilha...' });
+    try {
+      try {
+        localStorage.setItem(BB_USUARIO_CHAVE, usuario.trim());
+      } catch (e) {
+        /* sem armazenamento */
+      }
+      const r = await bbCompraApi('ajuste_saldo', {
+        solicitante: usuario.trim(),
+        produto: produto.trim(),
+        lote: lote.trim(),
+        fisico: ti ? '' : fis,
+        inventario: inv,
+        tiGabriel: ti,
+      });
+      if (r && r.ok) {
+        setAviso({ tipo: 'ok', texto: `Ajuste de ${produto.trim().toUpperCase()} enviado para a planilha (linha ${r.linha}).` });
+        setProduto('');
+        setLote('');
+        setFisico('');
+        setInventario('');
+        setTi(false);
+        carregarHist();
+        if (produtoRef.current) produtoRef.current.focus();
+      } else if (r && r.duplicado) {
+        setAviso({ tipo: 'warn', texto: r.erro || 'Já existe um ajuste pendente desse produto e lote.' });
+      } else {
+        setAviso({ tipo: 'erro', texto: 'Não foi possível enviar: ' + ((r && r.erro) || 'resposta inesperada da planilha.') });
+      }
+    } catch (e) {
+      setAviso({ tipo: 'erro', texto: 'Não foi possível enviar: ' + String(e.message || e).slice(0, 220) });
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const lista = useMemo(() => {
+    const t = sepNorm(busca);
+    const l = [...hist].reverse();
+    return (t ? l.filter((x) => sepNorm(`${x.produto} ${x.lote} ${x.nomes} ${x.status}`).includes(t)) : l).slice(0, 40);
+  }, [hist, busca]);
+
+  const campo = { fontFamily: C.font, fontSize: 14, padding: '8px 10px', borderRadius: C.radius.md, border: `1px solid ${C.bdMid}`, background: C.bgCard, color: C.txtPri, width: '100%', boxSizing: 'border-box' };
+  const rotulo = { fontSize: 12, fontWeight: 700, color: C.txtMuted, marginBottom: 4, display: 'block' };
+
+  return (
+    <div style={{ padding: 20, fontFamily: C.font, color: C.txtPri }}>
+      <LfCard titulo="Ajuste de saldo · BBBaterias" subtitulo='Envia o pedido de ajuste para a aba "AJUSTE SALDO BB" da planilha CALCULADORA. O ajuste (físico − inventário) e o status a planilha calcula.'>
+        {aviso && <LfAviso tipo={aviso.tipo}>{aviso.texto}</LfAviso>}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14, alignItems: 'start' }}>
+          <div>
+            <label style={rotulo} htmlFor="aj-sol">Solicitante</label>
+            <select
+              id="aj-sol"
+              style={campo}
+              value={modoOutro ? '__outro' : usuario}
+              onChange={(e) => {
+                if (e.target.value === '__outro') {
+                  setModoOutro(true);
+                  setUsuario('');
+                } else {
+                  setModoOutro(false);
+                  setUsuario(e.target.value);
+                }
+              }}
+            >
+              <option value="">Escolha...</option>
+              {BB_PESSOAS.map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+              <option value="__outro">Outro...</option>
+            </select>
+            {modoOutro && <input style={{ ...campo, marginTop: 6 }} placeholder="Digite o nome" value={usuario} onChange={(e) => setUsuario(e.target.value)} />}
+          </div>
+          <div>
+            <label style={rotulo} htmlFor="aj-prod">Produto</label>
+            <input id="aj-prod" ref={produtoRef} style={{ ...campo, textTransform: 'uppercase' }} placeholder="Ex.: SSD-700S3W5-240G" value={produto} onChange={(e) => setProduto(e.target.value)} />
+          </div>
+          <div>
+            <label style={rotulo} htmlFor="aj-lote">Lote</label>
+            <input id="aj-lote" style={campo} placeholder="Opcional" value={lote} onChange={(e) => setLote(e.target.value)} />
+          </div>
+          <div>
+            <label style={rotulo} htmlFor="aj-fis">Saldo físico</label>
+            <input id="aj-fis" type="number" min={0} step={1} style={{ ...campo, opacity: ti ? 0.5 : 1 }} disabled={ti} placeholder={ti ? 'GABRIEL PEGOU' : '0'} value={ti ? '' : fisico} onChange={(e) => setFisico(e.target.value)} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }} title='Marca "GABRIEL PEGOU" no estoque físico, como a equipe já fazia na planilha'>
+              <input type="checkbox" checked={ti} onChange={(e) => setTi(e.target.checked)} style={{ width: 17, height: 17, accentColor: '#1a73e8', cursor: 'pointer' }} />
+              Uso T.I / Gabriel
+            </label>
+          </div>
+          <div>
+            <label style={rotulo} htmlFor="aj-inv">Saldo no inventário (Protheus)</label>
+            <input id="aj-inv" type="number" min={0} step={1} style={campo} placeholder="0" value={inventario} onChange={(e) => setInventario(e.target.value)} />
+            <div style={{ fontSize: 12, color: C.txtMuted, marginTop: 8, minHeight: 18 }}>
+              {ajuste != null ? <>Ajuste: <b style={{ color: ajuste === 0 ? C.txtPri : ajuste < 0 ? C.red : C.green }}>{ajuste > 0 ? `+${ajuste}` : ajuste}</b> (físico − inventário)</> : ti ? 'Uso T.I / Gabriel: o físico vai como "GABRIEL PEGOU".' : ''}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+          <LfBtn tipo="primario" disabled={!valido || enviando} onClick={enviar}>
+            {enviando ? 'Enviando...' : 'Enviar ajuste'}
+          </LfBtn>
+        </div>
+      </LfCard>
+
+      <div style={{ height: 14 }} />
+      <LfCard
+        titulo="Últimos ajustes"
+        subtitulo="Como estão na planilha (os mais novos primeiro)"
+        acoes={
+          <>
+            <input className="lf-input" style={{ ...lfInputStyle, width: 220 }} placeholder="Buscar produto, lote, nome..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+            <LfBtn onClick={carregarHist} disabled={carregando}>
+              {carregando ? 'Atualizando...' : 'Atualizar'}
+            </LfBtn>
+          </>
+        }
+        semPadding
+      >
+        {erroHist && <LfAviso tipo="erro">{erroHist}</LfAviso>}
+        <div style={{ overflow: 'auto', maxHeight: '50vh' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                {['Data / hora', 'Solicitante', 'Produto', 'Lote', 'Físico', 'Inventário', 'Ajuste', 'Status', 'Ajustado em'].map((c) => (
+                  <th key={c} style={lfThStyle}>
+                    {c}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {lista.map((x, i) => (
+                <tr key={i}>
+                  <td style={lfTdStyle}>{x.dataHora || '—'}</td>
+                  <td style={lfTdStyle}>{x.nomes || '—'}</td>
+                  <td style={{ ...lfTdStyle, fontWeight: 800 }}>{x.produto}</td>
+                  <td style={lfTdStyle}>{x.lote || '—'}</td>
+                  <td style={lfTdStyle}>{x.estoqueFisico === '' || x.estoqueFisico == null ? '—' : x.estoqueFisico}</td>
+                  <td style={lfTdStyle}>{x.inventarioProtheus === '' || x.inventarioProtheus == null ? '—' : x.inventarioProtheus}</td>
+                  <td style={{ ...lfTdStyle, fontWeight: 800 }}>{x.ajusteSaldo === '' || x.ajusteSaldo == null ? '—' : x.ajusteSaldo}</td>
+                  <td style={lfTdStyle}>{x.status ? <Badge texto={x.status} tipo={tipoStatus(x.status)} /> : <Badge texto="Pendente" tipo="vermelho" />}</td>
+                  <td style={lfTdStyle}>{x.dataHoraAjuste || '—'}</td>
+                </tr>
+              ))}
+              {!lista.length && !carregando && (
+                <tr>
+                  <td style={{ ...lfTdStyle, textAlign: 'center', color: C.txtMuted }} colSpan={9}>
+                    Nenhum ajuste encontrado.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </LfCard>
+    </div>
+  );
+}
+
 function TelaListaBB({ ativo }) {
   const [pedidos, setPedidos] = useState([]); // tudo que o agente trouxe da 1020 (como a CALCULADORA)
   const [listaDe, setListaDe] = useState({}); // pedido -> id da lista em que já está
+  const [itemDe, setItemDe] = useState({}); // "pedido|PRODUTO" -> id da lista em que o item já está
+  const [visiveis, setVisiveis] = useState(null); // pedidos que aparecem na tela com os filtros do Via Leitor (null = sem filtro)
+  const onVisiveis = useCallback((arr) => setVisiveis(arr ? new Set(arr) : null), []);
+  const [soLiberados, setSoLiberados] = useState(() => {
+    try {
+      return localStorage.getItem('bb_so_liberados') === '1';
+    } catch (e) {
+      return false;
+    }
+  }); // gerar a lista sem os itens que aguardam chegada (compra/pedido de venda)
   const [listas, setListas] = useState([]);
   const [atualizadoEm, setAtualizadoEm] = useState('');
   const [carregando, setCarregando] = useState(false);
@@ -16498,8 +17828,15 @@ function TelaListaBB({ ativo }) {
       return '';
     }
   });
+  const [modoOutro, setModoOutro] = useState(false); // digitar um nome que não está na lista
+  const [compras, setCompras] = useState({}); // "pedido|PRODUTO" -> status na planilha (Pendente, Comprado, Chegou...)
+  const [comprasDatas, setComprasDatas] = useState({}); // "pedido|PRODUTO" -> {solic, compra, chegou} (datas da planilha)
+  const [enviandoCompra, setEnviandoCompra] = useState({});
+  const [avisoCompra, setAvisoCompra] = useState(null); // {tipo, texto}
   const [gerando, setGerando] = useState(false);
   const [aberta, setAberta] = useState(null); // { id, itens }
+  const [pedVenda, setPedVenda] = useState({}); // "pedido|PRODUTO" -> {qtd, equipa01, endereco}: itens com status Comprar no Relatório 1020
+  const [locFonte, setLocFonte] = useState(''); // 'estoque' | 'arquivo'
   const [locMap, setLocMap] = useState({}); // produto (maiúsculas) -> {localizacao, saldo_fd, atualizado_em}
   const [ordemImp, setOrdemImp] = useState(() => {
     try {
@@ -16508,6 +17845,21 @@ function TelaListaBB({ ativo }) {
       return 'produto';
     }
   });
+  const [folhaImp, setFolhaImp] = useState(() => {
+    try {
+      return localStorage.getItem('bb_folha_imp') === 'paisagem' ? 'paisagem' : 'retrato';
+    } catch (e) {
+      return 'retrato';
+    }
+  });
+  const trocarFolha = (v) => {
+    setFolhaImp(v);
+    try {
+      localStorage.setItem('bb_folha_imp', v);
+    } catch (e) {
+      /* sem armazenamento */
+    }
+  };
   const trocarOrdem = (v) => {
     setOrdemImp(v);
     try {
@@ -16520,8 +17872,16 @@ function TelaListaBB({ ativo }) {
   const [buscaHist, setBuscaHist] = useState('');
   const [subindoLoc, setSubindoLoc] = useState(false);
   const inputLocRef = useRef(null);
+  const ultPVRef = useRef(0); // última leitura da aba Relatório 1020 (pedido de venda)
+  const pvAtualRef = useRef({}); // itens "Comprar" que estão no relatório agora
+  const pvMantidoRef = useRef({}); // itens "Comprar" vistos nas últimas 24 h (banco), mesmo que já tenham saído do relatório
+  const pvGravadoRef = useRef({}); // chave -> quando este navegador gravou por último
+  const ultPvDbRef = useRef(0); // última leitura do banco
+  const ultEstRef = useRef(0); // quando foi a última leitura da localização no estoque
+  const estOkRef = useRef(false);
+  const ultComprasRef = useRef(0); // quando foi a última leitura dos status na planilha
 
-  const carregar = useCallback(async () => {
+  const carregar = useCallback(async (forcarLeitura) => {
     setCarregando(true);
     try {
       const ag = await sepBuscarTudo(
@@ -16530,24 +17890,158 @@ function TelaListaBB({ ativo }) {
           '&order=data_limite.asc.nullslast,pedido.asc'
       );
       const mapa = {};
-      for (const lote of lfChunk(ag.map((p) => String(p.pedido)), 150)) {
-        const r = await lfApi('/bb_lista_itens?select=pedido,lista_id&pedido=in.(' + lote.map(encodeURIComponent).join(',') + ')');
+      const mapaItens = {}; // "pedido|PRODUTO" -> lista em que o item já está
+      for (const lote of lfChunk(ag.map((p) => String(p.pedido)), 100)) {
+        const r = await lfApi('/bb_lista_itens?select=pedido,produto,lista_id&pedido=in.(' + lote.map(encodeURIComponent).join(',') + ')&limit=5000');
         (Array.isArray(r) ? r : []).forEach((x) => {
-          mapa[String(x.pedido)] = x.lista_id;
+          mapaItens[bbCompraChave(x.pedido, x.produto)] = x.lista_id;
+          // um pedido pode estar em mais de uma lista ("Gerar tudo"): vale a mais recente
+          if (!mapa[String(x.pedido)] || x.lista_id > mapa[String(x.pedido)]) mapa[String(x.pedido)] = x.lista_id;
         });
       }
-      try {
-        const loc = await sepBuscarTudo('/bb_localizacao?select=produto,localizacao,saldo_fd,atualizado_em');
-        const m = {};
-        loc.forEach((x) => {
-          m[bbChave(x.produto)] = x;
+      // Localização e saldo: do estoque (view v_bb_localizacao), a cada ~3 min; sem isso, da tabela bb_localizacao (arquivo enviado).
+      const forcarAgora = Boolean(forcarLeitura && forcarLeitura.type === 'click');
+      let locFeito = false;
+      if (EST_SUPABASE_URL && EST_SUPABASE_ANON) {
+        if (estOkRef.current && !forcarAgora && Date.now() - ultEstRef.current < 170000) {
+          locFeito = true; // mantém o último mapa do estoque
+        } else {
+          try {
+            const est = await bbLerLocalizacaoEstoque();
+            const m = {};
+            est.forEach((x) => {
+              m[bbChave(x.produto)] = x;
+            });
+            setLocMap(m);
+            setLocFonte('estoque');
+            estOkRef.current = true;
+            ultEstRef.current = Date.now();
+            locFeito = true;
+          } catch (eEst) {
+            estOkRef.current = false; // estoque fora do ar: cai para a tabela bb_localizacao
+          }
+        }
+      }
+      if (!locFeito) {
+        try {
+          const loc = await sepBuscarTudo('/bb_localizacao?select=produto,localizacao,saldo_fd,atualizado_em');
+          const m = {};
+          loc.forEach((x) => {
+            m[bbChave(x.produto)] = x;
+          });
+          setLocMap(m);
+          setLocFonte('arquivo');
+        } catch (eLoc) {
+          /* tabela ainda não criada: a tela funciona sem localização */
+        }
+      }
+      // Pedido de venda: itens com status "Comprar" na aba Relatório 1020 (a mesma leitura da tela "Pedido de Venda").
+      // Usa o que as outras telas já baixaram; só busca sozinho se não houver nada (a cada ~3 min, aba visível).
+      // O relatório é atualizado de hora em hora e o item "Comprar" some dele, mas a peça ainda está vindo: o banco guarda por 24 h.
+      const gravarPvBanco = (m) => {
+        const agora = Date.now();
+        const novos = Object.entries(m).filter(([k]) => agora - (pvGravadoRef.current[k] || 0) > 25 * 60000);
+        if (!novos.length) return;
+        novos.forEach(([k]) => {
+          pvGravadoRef.current[k] = agora;
         });
-        setLocMap(m);
-      } catch (eLoc) {
-        /* tabela ainda não criada: a tela funciona sem localização */
+        for (let i = 0; i < novos.length; i += 300) {
+          const lote = novos.slice(i, i + 300);
+          lfApi('/bb_pedido_venda?on_conflict=chave', {
+            method: 'POST',
+            headers: { Prefer: 'resolution=merge-duplicates,return=minimal', 'Content-Type': 'application/json' },
+            body: JSON.stringify(lote.map(([k, v]) => ({ chave: k, pedido: v.pedido, produto: v.produto, dados: { qtd: v.qtd, equipa01: v.equipa01, endereco: v.endereco } }))),
+          }).catch(() => {
+            lote.forEach(([k]) => {
+              delete pvGravadoRef.current[k]; // não gravou (tabela ainda não criada ou sem rede): tenta de novo na próxima
+            });
+          });
+        }
+      };
+      const lerPvBanco = async () => {
+        if (Date.now() - ultPvDbRef.current < 240000) return;
+        ultPvDbRef.current = Date.now();
+        try {
+          const desde = new Date(Date.now() - BB_PV_RETENCAO_H * 3600000).toISOString();
+          const rows = await lfApi(`/bb_pedido_venda?select=chave,dados,ultimo_visto&ultimo_visto=gte.${encodeURIComponent(desde)}&limit=5000`);
+          const mm = {};
+          (Array.isArray(rows) ? rows : []).forEach((x) => {
+            mm[x.chave] = { ...(x.dados || {}), mantido: true, visto: x.ultimo_visto };
+          });
+          pvMantidoRef.current = mm;
+          setPedVenda({ ...mm, ...pvAtualRef.current });
+        } catch (eBd) {
+          /* tabela ainda não criada: vale só o que está no relatório agora */
+        }
+      };
+      const montarPV = (regs) => {
+        const m = {};
+        (Array.isArray(regs) ? regs : []).forEach((x) => {
+          const st = normalizar(x.status);
+          if (st.includes('comprar') && !st.includes('nao comprar') && x.pedido && x.produto) {
+            m[bbCompraChave(x.pedido, x.produto)] = { qtd: x.quantidadeLiberada, equipa01: x.equipa01, endereco: x.endereco, pedido: String(x.pedido), produto: String(x.produto) };
+          }
+        });
+        pvAtualRef.current = m;
+        setPedVenda({ ...pvMantidoRef.current, ...m });
+        gravarPvBanco(m);
+      };
+      const cachePV = getCacheDadosPainel('pedidoVenda1020');
+      if (cachePV && cachePV.length) {
+        montarPV(cachePV);
+      } else if (!document.hidden && (forcarAgora || Date.now() - ultPVRef.current > 170000)) {
+        ultPVRef.current = Date.now();
+        fetch(`${API_BASE}?action=dados&fonte=pedidoVenda1020`)
+          .then((resp) => resp.json())
+          .then((json) => {
+            if (json && json.ok) {
+              setCacheDadosPainel('pedidoVenda1020', json.dados || []);
+              montarPV(json.dados || []);
+            }
+          })
+          .catch(() => {
+            /* sem a leitura: nenhum item é marcado como pedido de venda */
+          });
+      }
+      lerPvBanco();
+      // Status das solicitações de compra: vem do Supabase (espelho da planilha "Pedido venda BB", tabela bb_compras).
+      // Se a tabela ainda não existe/está vazia, usa a leitura direta da planilha pelo Apps Script (a cada ~3 min, só com a aba visível).
+      const aplicarCompras = (itens) => {
+        const m = {};
+        const md = {};
+        // do mais antigo para o mais novo: a linha mais nova do mesmo pedido+produto vale
+        itens.forEach(([ped, prod, st, solic, compra, chegou]) => {
+          const k = bbCompraChave(ped, prod);
+          m[k] = st || 'Solicitado';
+          md[k] = { solic: solic || '', compra: compra || '', chegou: chegou || '' };
+        });
+        setCompras(m);
+        setComprasDatas(md);
+      };
+      let comprasDoSupabase = false;
+      try {
+        const cp = await lfApi('/bb_compras?select=pedido,produto,status,solicitado_em,comprado_em,chegou_em&order=linha.desc&limit=1000');
+        if (Array.isArray(cp) && cp.length) {
+          aplicarCompras(cp.reverse().map((x) => [x.pedido, x.produto, x.status, x.solicitado_em, x.comprado_em, x.chegou_em]));
+          comprasDoSupabase = true;
+        }
+      } catch (eCompras) {
+        /* tabela bb_compras ainda não criada */
+      }
+      const forcar = forcarAgora;
+      if (!comprasDoSupabase && BB_COMPRA_URL && (forcar || (!document.hidden && Date.now() - ultComprasRef.current > 170000))) {
+        ultComprasRef.current = Date.now();
+        bbCompraApi('listar')
+          .then((r) => {
+            if (r && r.ok) aplicarCompras(r.itens || []);
+          })
+          .catch(() => {
+            /* sem a planilha: os selos ficam como estavam */
+          });
       }
       setPedidos(ag);
       setListaDe(mapa);
+      setItemDe(mapaItens);
       setAtualizadoEm(ag.reduce((m, p) => (p.atualizado_em && p.atualizado_em > m ? p.atualizado_em : m), ''));
       const h = await lfApi('/bb_listas?select=*&order=id.desc&limit=300');
       setListas(Array.isArray(h) ? h : []);
@@ -16575,7 +18069,50 @@ function TelaListaBB({ ativo }) {
   }, [ativo, carregar]);
 
   const semLista = useMemo(() => pedidos.filter((p) => !listaDe[String(p.pedido)]), [pedidos, listaDe]);
-  const linhasNovas = useMemo(() => bbExplodirPedidos(semLista, locMap, ordemImp), [semLista, locMap, ordemImp]);
+  // O que a lista leva: o que está na tela (com filtro) ou tudo (sem filtro)
+  const pedidosTela = useMemo(() => (visiveis ? pedidos.filter((p) => visiveis.has(String(p.pedido))) : pedidos), [pedidos, visiveis]);
+  const semListaTela = useMemo(() => (visiveis ? semLista.filter((p) => visiveis.has(String(p.pedido))) : semLista), [semLista, visiveis]);
+  // Item que ainda não pode ser catado: pedido de venda (peça vindo da 0101) ou compra pedida/comprada e ainda sem chegar.
+  const aguardaChegada = useCallback(
+    (pedido, produto) => {
+      const k = bbCompraChave(pedido, produto);
+      const st = compras[k];
+      // foi solicitado: está vindo, qualquer que seja o status, até a planilha marcar "Chegou"
+      if (st) return bbStatusCompra(st).texto !== 'Chegou';
+      return Boolean(pedVenda[k]); // pedido de venda ainda sem solicitação de compra
+    },
+    [pedVenda, compras]
+  );
+  // Texto curto da situação do item (lista impressa e histórico): "Pedido de venda", "Aguardando compra", "Comprado · aguardando chegada"...
+  const situacaoTexto = useCallback(
+    (pedido, produto) => {
+      const k = bbCompraChave(pedido, produto);
+      const partes = [];
+      if (pedVenda[k]) partes.push('Pedido de venda');
+      if (compras[k]) partes.push(bbStatusCompra(compras[k]).texto);
+      return partes.join(' · ');
+    },
+    [pedVenda, compras]
+  );
+  const linhasTudoBrutas = useMemo(() => bbExplodirPedidos(pedidosTela, locMap, ordemImp), [pedidosTela, locMap, ordemImp]);
+  const linhasNovasBrutas = useMemo(() => bbExplodirPedidos(semListaTela, locMap, ordemImp), [semListaTela, locMap, ordemImp]);
+  // Com "só os liberados" ligado, a lista leva só os itens que podem ser catados. "Novos" passa a olhar o item: o que ficou de fora
+  // (aguardando chegada) entra numa lista futura, quando chegar.
+  const linhasTudo = useMemo(() => (soLiberados ? linhasTudoBrutas.filter((l) => !aguardaChegada(l.pedido, l.produto)) : linhasTudoBrutas), [soLiberados, linhasTudoBrutas, aguardaChegada]);
+  const linhasNovas = useMemo(
+    () => (soLiberados ? linhasTudoBrutas.filter((l) => !itemDe[bbCompraChave(l.pedido, l.produto)] && !aguardaChegada(l.pedido, l.produto)) : linhasNovasBrutas),
+    [soLiberados, linhasTudoBrutas, linhasNovasBrutas, itemDe, aguardaChegada]
+  );
+  const nPedidos = (ls) => new Set(ls.map((l) => l.pedido)).size;
+  const nFora = linhasTudoBrutas.length - linhasTudoBrutas.filter((l) => !aguardaChegada(l.pedido, l.produto)).length;
+  const trocarSoLiberados = (v) => {
+    setSoLiberados(v);
+    try {
+      localStorage.setItem('bb_so_liberados', v ? '1' : '0');
+    } catch (e) {
+      /* sem armazenamento */
+    }
+  };
   const semLocal = useMemo(() => {
     const falta = new Set();
     pedidos.forEach((p) => bbItensDoPedido(p).forEach((i) => !(locMap[bbChave(i.produto)] || {}).localizacao && falta.add(bbChave(i.produto))));
@@ -16583,20 +18120,119 @@ function TelaListaBB({ ativo }) {
   }, [pedidos, locMap]);
   const locAtualizadaEm = useMemo(() => Object.values(locMap).reduce((m, x) => (x.atualizado_em && x.atualizado_em > m ? x.atualizado_em : m), ''), [locMap]);
 
-  const bbProps = useMemo(() => ({ filial: BB_FILIAL, listaDe, locMap }), [listaDe, locMap]);
+  useEffect(() => {
+    if (!avisoCompra || avisoCompra.tipo === 'info') return undefined;
+    const t = setTimeout(() => setAvisoCompra(null), 12000);
+    return () => clearTimeout(t);
+  }, [avisoCompra]);
+
+  // Vários produtos de uma vez: uma única chamada ao Apps Script grava todas as linhas seguidas.
+  const solicitarLote = useCallback(async (d) => {
+    const keys = d.itens.map((i) => bbCompraChave(i.pedido, i.produto));
+    setEnviandoCompra((x) => {
+      const n = { ...x };
+      keys.forEach((k) => {
+        n[k] = true;
+      });
+      return n;
+    });
+    setAvisoCompra({ tipo: 'info', texto: `Enviando ${d.itens.length} produto(s) para a planilha...` });
+    try {
+      try {
+        localStorage.setItem(BB_USUARIO_CHAVE, d.solicitante);
+      } catch (e) {
+        /* sem armazenamento */
+      }
+      setUsuario(d.solicitante);
+      setModoOutro(!BB_PESSOAS.includes(d.solicitante));
+      const r = await bbCompraApi('solicitar_lote', d);
+      if (r && r.ok && Array.isArray(r.resultados)) {
+        const res = r.resultados;
+        const feitos = res.filter((x) => x && x.ok);
+        const dups = res.filter((x) => x && x.duplicado);
+        const erros = res.filter((x) => x && !x.ok && !x.duplicado);
+        setCompras((m) => {
+          const n = { ...m };
+          res.forEach((x, i) => {
+            if (x && (x.ok || x.duplicado) && d.itens[i]) n[bbCompraChave(d.itens[i].pedido, d.itens[i].produto)] = x.status || 'Pendente';
+          });
+          return n;
+        });
+        const partes = [`${feitos.length} solicitado(s) na planilha`];
+        if (dups.length) partes.push(`${dups.length} já estavam solicitados`);
+        if (erros.length) partes.push(`${erros.length} com erro (${String(erros[0].erro || '').slice(0, 120)})`);
+        setAvisoCompra({ tipo: erros.length || dups.length ? 'warn' : 'ok', texto: partes.join(' · ') + '.' });
+      } else {
+        setAvisoCompra({ tipo: 'erro', texto: 'Não foi possível solicitar: ' + ((r && r.erro) || 'resposta inesperada da planilha.') });
+      }
+    } catch (e) {
+      setAvisoCompra({ tipo: 'erro', texto: 'Não foi possível solicitar: ' + String(e.message || e).slice(0, 220) });
+    } finally {
+      setEnviandoCompra((x) => {
+        const n = { ...x };
+        keys.forEach((k) => {
+          delete n[k];
+        });
+        return n;
+      });
+    }
+  }, []);
+  // Ajuste de saldo de vários produtos de uma vez (aba "AJUSTE SALDO BB" da CALCULADORA).
+  const solicitarAjuste = useCallback(async (d) => {
+    setAvisoCompra({ tipo: 'info', texto: `Enviando ${d.itens.length} ajuste(s) de saldo para a planilha...` });
+    try {
+      try {
+        localStorage.setItem(BB_USUARIO_CHAVE, d.solicitante);
+      } catch (e) {
+        /* sem armazenamento */
+      }
+      setUsuario(d.solicitante);
+      setModoOutro(!BB_PESSOAS.includes(d.solicitante));
+      const r = await bbCompraApi('ajuste_saldo_lote', d);
+      if (r && r.ok && Array.isArray(r.resultados)) {
+        const res = r.resultados;
+        const feitos = res.filter((x) => x && x.ok);
+        const dups = res.filter((x) => x && x.duplicado);
+        const erros = res.filter((x) => x && !x.ok && !x.duplicado);
+        const partes = [`${feitos.length} ajuste(s) enviado(s) para a planilha`];
+        if (dups.length) partes.push(`${dups.length} já tinham ajuste pendente`);
+        if (erros.length) partes.push(`${erros.length} com erro (${String(erros[0].erro || '').slice(0, 120)})`);
+        setAvisoCompra({ tipo: erros.length || dups.length ? 'warn' : 'ok', texto: partes.join(' · ') + '.' });
+      } else {
+        setAvisoCompra({ tipo: 'erro', texto: 'Não foi possível enviar o ajuste: ' + ((r && r.erro) || 'resposta inesperada da planilha.') });
+      }
+    } catch (e) {
+      setAvisoCompra({ tipo: 'erro', texto: 'Não foi possível enviar o ajuste: ' + String(e.message || e).slice(0, 220) });
+    }
+  }, []);
+  const bbProps = useMemo(
+    () => ({ filial: BB_FILIAL, onVisiveis, listaDe, locMap, usuario: usuario.trim(), compras, comprasDatas, pedVenda, enviando: enviandoCompra, avisoCompra, solicitarLote, solicitarAjuste }),
+    [onVisiveis, listaDe, locMap, usuario, compras, comprasDatas, pedVenda, enviandoCompra, avisoCompra, solicitarLote, solicitarAjuste]
+  );
   const listasVisiveis = useMemo(() => {
     const t = buscaHist.trim().toLowerCase();
     if (!t) return listas;
     return listas.filter((l) => bbNumero(l.id).toLowerCase().includes(t) || String(l.usuario || '').toLowerCase().includes(t));
   }, [listas, buscaHist]);
 
-  const gerar = async () => {
+  // modo 'novos' = só pedidos sem lista | 'tudo' = todos os pedidos do Via Leitor (inclusive os que já têm lista)
+  const gerar = async (modo) => {
     const nome = usuario.trim();
     if (!nome) {
-      setMsg({ tipo: 'erro', texto: 'Informe quem está gerando a lista.' });
+      setMsg({ tipo: 'erro', texto: 'Escolha o responsável (quem está gerando a lista).' });
       return;
     }
-    if (!linhasNovas.length) return;
+    const linhas = modo === 'tudo' ? linhasTudo : linhasNovas;
+    if (!linhas.length) return;
+    if (modo === 'tudo') {
+      const jaTem = pedidosTela.length - semListaTela.length;
+      const ok = window.confirm(
+        soLiberados
+          ? `Gerar uma lista com ${linhasTudo.length} itens de ${nPedidos(linhasTudo)} pedidos do Via Leitor, sem os que aguardam chegada` + (jaTem ? ` (inclui itens de pedidos que já estão em outra lista)` : '') + '?'
+          : `Gerar uma lista com ${visiveis ? 'os' : 'TODOS os'} ${pedidosTela.length} pedidos ${visiveis ? 'que estão na tela (filtro aplicado)' : 'do Via Leitor'}` + (jaTem ? `, incluindo ${jaTem} que já estão em outra lista` : '') + '?'
+      );
+      if (!ok) return;
+    }
     setGerando(true);
     setMsg({ tipo: 'info', texto: 'Gerando lista...' });
     try {
@@ -16607,11 +18243,11 @@ function TelaListaBB({ ativo }) {
       }
       const id = await lfApi('/rpc/bb_gerar_lista', {
         method: 'POST',
-        body: JSON.stringify({ p_usuario: nome, p_itens: linhasNovas }),
+        body: JSON.stringify({ p_usuario: nome, p_itens: linhas, p_somente_novos: modo !== 'tudo' && !soLiberados }),
       });
       const [lista] = await lfApi('/bb_listas?id=eq.' + id + '&select=*');
       const itens = await lfApi('/bb_lista_itens?lista_id=eq.' + id + '&select=*&order=produto.asc,pedido.asc');
-      bbImprimir(lista, itens, ordemImp);
+      bbImprimir(lista, itens, ordemImp, { situacao: (i) => situacaoTexto(i.pedido, i.produto), semAguardando: soLiberados, folha: folhaImp });
       await lfApi('/bb_listas?id=eq.' + id, { method: 'PATCH', body: JSON.stringify({ impresso: true }), headers: { Prefer: 'return=minimal' } });
       setMsg({ tipo: 'ok', texto: `Lista ${bbNumero(id)} gerada: ${lista.pedidos} pedidos, ${lista.itens} itens.` });
       await carregar();
@@ -16671,7 +18307,7 @@ function TelaListaBB({ ativo }) {
   const itensDe = async (id) => lfApi('/bb_lista_itens?lista_id=eq.' + id + '&select=*&order=produto.asc,pedido.asc');
   const reimprimir = async (l) => {
     try {
-      bbImprimir(l, await itensDe(l.id), ordemImp);
+      bbImprimir(l, await itensDe(l.id), ordemImp, { situacao: (i) => situacaoTexto(i.pedido, i.produto), folha: folhaImp });
       await lfApi('/bb_listas?id=eq.' + l.id, { method: 'PATCH', body: JSON.stringify({ impresso: true }), headers: { Prefer: 'return=minimal' } });
       setListas((x) => x.map((y) => (y.id === l.id ? { ...y, impresso: true } : y)));
     } catch (e) {
@@ -16687,7 +18323,7 @@ function TelaListaBB({ ativo }) {
     }
   };
   const excluir = async (l) => {
-    if (!window.confirm(`Excluir a lista ${bbNumero(l.id)}? Os ${l.pedidos} pedidos voltam para "aguardando lista".`)) return;
+    if (!window.confirm(`Excluir a lista ${bbNumero(l.id)}? Os pedidos que não estiverem em outra lista voltam para "Gerar Lista".`)) return;
     try {
       await lfApi('/bb_listas?id=eq.' + l.id, { method: 'DELETE', headers: { Prefer: 'return=minimal' } });
       if (aberta && aberta.id === l.id) setAberta(null);
@@ -16727,23 +18363,78 @@ function TelaListaBB({ ativo }) {
             <div style={{ fontSize: 24, fontWeight: 800 }}>Via Leitor</div>
             <div style={{ fontSize: 12, color: C.txtMuted, marginTop: 2 }}>
               Filial {BB_FILIAL} · agente{atualizadoEm ? ' · atualizado às ' + bbHoraBR(atualizadoEm) : ''} · {pedidos.length} pedidos · {semLista.length} aguardando lista
-              {Object.keys(locMap).length ? ` · localização de ${dataHora(locAtualizadaEm)}${semLocal ? ' · ' + semLocal + ' produtos sem localização' : ''}` : ' · localização ainda não carregada'}
+              {Object.keys(locMap).length ? ` · localização ${locFonte === 'estoque' ? 'do estoque' : 'de'} ${dataHora(locAtualizadaEm)}${semLocal ? ' · ' + semLocal + ' produtos sem localização' : ''}` : ' · localização ainda não carregada'}
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <input
-              className="cnl-busca"
-              style={{ marginBottom: 0, width: 180 }}
-              placeholder="Quem está gerando?"
-              value={usuario}
-              onChange={(e) => setUsuario(e.target.value)}
-            />
-            <button style={{ ...btn(true, gerando || !linhasNovas.length), padding: '10px 18px', fontSize: 14 }} disabled={gerando || !linhasNovas.length} onClick={gerar}>
-              {gerando ? 'Gerando...' : `Gerar lista${semLista.length ? ' (' + semLista.length + ' pedidos)' : ''}`}
+            <select
+              className="cnl-sel"
+              style={{ height: 38 }}
+              aria-label="Responsável"
+              value={BB_PESSOAS.includes(usuario) ? usuario : usuario || modoOutro ? '__outro' : ''}
+              onChange={(e) => {
+                if (e.target.value === '__outro') {
+                  setModoOutro(true);
+                  setUsuario('');
+                } else {
+                  setModoOutro(false);
+                  setUsuario(e.target.value);
+                }
+              }}
+            >
+              <option value="">Responsável (quem está usando)</option>
+              {BB_PESSOAS.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+              <option value="__outro">Outro...</option>
+            </select>
+            {!BB_PESSOAS.includes(usuario) && (usuario || modoOutro) && (
+              <input
+                className="cnl-busca"
+                style={{ marginBottom: 0, width: 170 }}
+                placeholder="Digite o nome"
+                value={usuario}
+                onChange={(e) => setUsuario(e.target.value)}
+                autoFocus={modoOutro}
+              />
+            )}
+            {visiveis && (
+              <span title="Há filtro no Via Leitor (busca, lista, prazo, situação...). Gerar novos / Gerar tudo levam só o que está aparecendo." style={{ fontSize: 12.5, fontWeight: 700, color: '#174ea6', background: '#e8f0fe', border: '1px solid #1a73e8', borderRadius: 8, padding: '8px 12px', whiteSpace: 'nowrap' }}>
+                🔎 Só o que está na tela ({pedidosTela.length} {pedidosTela.length === 1 ? 'pedido' : 'pedidos'})
+              </span>
+            )}
+            <label
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', padding: '8px 12px', borderRadius: 8, border: `1px solid ${soLiberados ? '#1a73e8' : C.bdMid}`, background: soLiberados ? '#e8f0fe' : C.bgCard, color: soLiberados ? '#174ea6' : C.txtPri }}
+              title="A lista leva só os itens que já podem ser catados. Ficam de fora os que são pedido de venda ou estão aguardando compra / chegada (planilha de compra)."
+            >
+              <input type="checkbox" checked={soLiberados} onChange={(e) => trocarSoLiberados(e.target.checked)} style={{ width: 17, height: 17, accentColor: '#1a73e8', cursor: 'pointer' }} />
+              Sem os aguardando chegada{nFora > 0 ? ` (${nFora} ${nFora === 1 ? 'item' : 'itens'})` : ''}
+            </label>
+            <button
+              style={{ ...btn(true, gerando || !linhasNovas.length), padding: '10px 18px', fontSize: 14 }}
+              disabled={gerando || !linhasNovas.length}
+              onClick={() => gerar('novos')}
+              title="Lista só com os pedidos que ainda não estão em nenhuma lista"
+            >
+              {gerando ? 'Gerando...' : `Gerar novos (${soLiberados ? nPedidos(linhasNovas) : semListaTela.length})`}
+            </button>
+            <button
+              style={{ ...btn(false, gerando || !linhasTudo.length), padding: '10px 18px', fontSize: 14 }}
+              disabled={gerando || !linhasTudo.length}
+              onClick={() => gerar('tudo')}
+              title="Lista com todos os pedidos que estão no Via Leitor, inclusive os que já têm lista"
+            >
+              {`Gerar tudo (${soLiberados ? nPedidos(linhasTudo) : pedidosTela.length})`}
             </button>
             <select className="cnl-sel" style={{ height: 38 }} value={ordemImp} onChange={(e) => trocarOrdem(e.target.value)} title="Ordem em que a lista é impressa">
               <option value="produto">Imprimir por produto</option>
               <option value="localizacao">Imprimir por localização</option>
+            </select>
+            <select className="cnl-sel" style={{ height: 38 }} value={folhaImp} onChange={(e) => trocarFolha(e.target.value)} title="Orientação da folha na impressão">
+              <option value="retrato">Folha em pé (reta)</option>
+              <option value="paisagem">Folha deitada</option>
             </select>
             <button style={btn(false, subindoLoc)} disabled={subindoLoc} onClick={() => inputLocRef.current && inputLocRef.current.click()}>
               {subindoLoc ? 'Subindo...' : 'Subir localização'}
@@ -16834,6 +18525,15 @@ function TelaListaBB({ ativo }) {
                     <tr>
                       <td colSpan={8} style={{ padding: 0, background: C.bgStripe }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr>
+                              {['Pedido', 'Produto', 'Localização', 'Qtd', 'EST-FD-01', 'Transporte', 'Liberação', 'Situação'].map((c) => (
+                                <th key={c} style={{ textAlign: 'left', padding: '7px 12px', fontSize: 11, fontWeight: 800, color: C.txtMuted, textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: `1px solid ${C.bdMid}` }}>
+                                  {c}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
                           <tbody>
                             {aberta.itens.map((i) => (
                               <tr key={i.id}>
@@ -16844,6 +18544,21 @@ function TelaListaBB({ ativo }) {
                                 <td style={td}>{bbNum(i.estoque_fd)}</td>
                                 <td style={td}>{i.transporte}</td>
                                 <td style={td}>{bbDataBR(i.lib_estoque)} {bbHoraBR(i.lib_estoque)}</td>
+                                <td style={td}>
+                                  {(() => {
+                                    const k = bbCompraChave(i.pedido, i.produto);
+                                    const pv = pedVenda[k];
+                                    const cp = compras[k] ? bbStatusCompra(compras[k]) : null;
+                                    return pv || cp ? (
+                                      <span style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>
+                                        {pv && <span style={{ ...bbBolha, background: '#7c3aed', color: '#fff' }}>📦 Pedido de venda</span>}
+                                        {cp && <span style={{ ...bbBolha, background: cp.bg, color: cp.fg }}>🛒 {cp.texto}</span>}
+                                      </span>
+                                    ) : (
+                                      '—'
+                                    );
+                                  })()}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -18484,6 +20199,25 @@ function TelaIndicadorSeparacao({ ativo, modo }) {
 }
 
 export default function App() {
+  const [menuRecolhido, setMenuRecolhido] = useState(() => {
+    try {
+      return localStorage.getItem(MENU_RECOLHIDO_CHAVE) !== '0'; // 1ª vez: só os símbolos
+    } catch (e) {
+      return true;
+    }
+  });
+  const alternarMenu = useCallback((valor) => {
+    setMenuRecolhido((atual) => {
+      const novo = typeof valor === 'boolean' ? valor : !atual;
+      try {
+        localStorage.setItem(MENU_RECOLHIDO_CHAVE, novo ? '1' : '0');
+      } catch (e) {
+        /* sem armazenamento */
+      }
+      return novo;
+    });
+  }, []);
+  const menuCtx = useMemo(() => ({ recolhido: menuRecolhido, expandir: () => alternarMenu(false) }), [menuRecolhido, alternarMenu]);
   const [tema, alternarTema] = useTema();
   // guardado como 'logistica' ou 'geral' ('true' = login antigo, tratado como geral)
   const [perfil, setPerfil] = useState(() => {
@@ -18522,12 +20256,14 @@ export default function App() {
     'listaFaturamento',
     'separacaoLista',
     'faturamentoBB',
+    'ajusteSaldoBB',
     'cancelamentos',
+    'reenvio',
   ].includes(tela);
   const equipAtiva = ['listaFaturamento', 'separacaoLista'].includes(tela);
-  const bbAtiva = tela === 'faturamentoBB';
-  const [grupoEquipAberto, setGrupoEquipAberto] = useState(true);
-  const [grupoBBAberto, setGrupoBBAberto] = useState(true);
+  const bbAtiva = ['faturamentoBB', 'ajusteSaldoBB'].includes(tela);
+  const [grupoEquipAberto, setGrupoEquipAberto] = useState(false);
+  const [grupoBBAberto, setGrupoBBAberto] = useState(false);
   const producaoAtivo = [
     'producao',
     'producaoResumo',
@@ -18694,12 +20430,16 @@ export default function App() {
       }}
     >
       {/* Sidebar */}
+      <MenuRecolhidoCtx.Provider value={menuCtx}>
+      <div style={{ position: 'relative', flexShrink: 0, alignSelf: 'stretch', display: 'flex' }}>
       <aside
         style={{
-          width: 256,
+          width: menuRecolhido ? 68 : 256,
+          transition: 'width 180ms ease',
+          overflowX: 'hidden',
           background: C.sidebarBg,
           color: '#fff',
-          padding: '20px 12px',
+          padding: menuRecolhido ? '20px 8px' : '20px 12px',
           flexShrink: 0,
           minHeight: '100vh',
           alignSelf: 'stretch',
@@ -18737,6 +20477,7 @@ export default function App() {
           >
             B
           </div>
+          {!menuRecolhido && (
           <div>
             <div
               style={{
@@ -18759,12 +20500,14 @@ export default function App() {
               Painel Operacional
             </div>
           </div>
+          )}
         </div>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <div style={{ display: 'flex', flexDirection: menuRecolhido ? 'column' : 'row', gap: 8, marginBottom: 16 }}>
           <button
             onClick={sair}
+            title="Sair da conta"
             style={{
-              flex: 1,
+              flex: menuRecolhido ? 'none' : 1,
               height: 36,
               border: '1px solid rgba(255,255,255,0.12)',
               background: 'rgba(255,255,255,0.05)',
@@ -18777,10 +20520,11 @@ export default function App() {
               fontFamily: C.font,
             }}
           >
-            Sair da conta
+            {menuRecolhido ? '⏻' : 'Sair da conta'}
           </button>
           <BotaoTema tema={tema} alternar={alternarTema} compacto sobreEscuro />
         </div>
+        {!menuRecolhido && (
         <div
           style={{
             fontSize: 10,
@@ -18794,6 +20538,7 @@ export default function App() {
         >
           Módulos
         </div>
+        )}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <MenuBtn
             icon="D"
@@ -18902,13 +20647,22 @@ export default function App() {
                       {grupoBBAberto ? '▾' : '›'} BBBaterias
                     </SubMenuBtn>
                     {grupoBBAberto && (
-                      <SubMenuBtn
-                        nivel={1}
-                        ativo={tela === 'faturamentoBB'}
-                        onClick={() => setTela('faturamentoBB')}
-                      >
-                        Via Leitor
-                      </SubMenuBtn>
+                      <>
+                        <SubMenuBtn
+                          nivel={1}
+                          ativo={tela === 'faturamentoBB'}
+                          onClick={() => setTela('faturamentoBB')}
+                        >
+                          Via Leitor
+                        </SubMenuBtn>
+                        <SubMenuBtn
+                          nivel={1}
+                          ativo={tela === 'ajusteSaldoBB'}
+                          onClick={() => setTela('ajusteSaldoBB')}
+                        >
+                          Ajuste de saldo
+                        </SubMenuBtn>
+                      </>
                     )}
                   </>
                 )}
@@ -18917,6 +20671,12 @@ export default function App() {
                   onClick={() => setTela('cancelamentos')}
                 >
                   Cancelamentos
+                </SubMenuBtn>
+                <SubMenuBtn
+                  ativo={tela === 'reenvio'}
+                  onClick={() => setTela('reenvio')}
+                >
+                  Reenvio
                 </SubMenuBtn>
               </div>
             )}
@@ -19116,9 +20876,40 @@ export default function App() {
             fontFamily: C.font,
           }}
         >
-          BBDI © {new Date().getFullYear()} · v13.18-bb-vialeitor-eq
+          {menuRecolhido ? 'v13.60' : `BBDI © ${new Date().getFullYear()} · v13.60-menu-icones`}
         </div>
       </aside>
+      <button
+        type="button"
+        onClick={() => alternarMenu()}
+        title={menuRecolhido ? 'Abrir o menu' : 'Recolher o menu (só os símbolos)'}
+        aria-label={menuRecolhido ? 'Abrir o menu' : 'Recolher o menu'}
+        style={{
+          position: 'absolute',
+          top: 26,
+          right: -13,
+          width: 26,
+          height: 26,
+          borderRadius: '50%',
+          border: '1px solid rgba(255,255,255,0.25)',
+          background: '#3f6df0',
+          color: '#fff',
+          fontSize: 14,
+          fontWeight: 800,
+          lineHeight: 1,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+          zIndex: 50,
+          padding: 0,
+        }}
+      >
+        {menuRecolhido ? '›' : '‹'}
+      </button>
+      </div>
+      </MenuRecolhidoCtx.Provider>
       {/* Main */}
       <main
         style={{
@@ -19548,6 +21339,11 @@ export default function App() {
             <TelaListaBB ativo={tela === 'faturamentoBB'} />
           </div>
         )}
+        {ehLogistica && (
+          <div style={{ display: tela === 'ajusteSaldoBB' ? 'block' : 'none' }}>
+            <TelaAjusteSaldoBB ativo={tela === 'ajusteSaldoBB'} />
+          </div>
+        )}
         <div style={{ display: tela === 'postagens' ? 'block' : 'none' }}>
           <TelaPostagens ativo={tela === 'postagens'} />
         </div>
@@ -19556,6 +21352,9 @@ export default function App() {
             <TelaViaLeitor ativo={tela === 'viaLeitor'} />
           </div>
         )}
+        <div style={{ display: tela === 'reenvio' ? 'block' : 'none' }}>
+          <TelaReenvio ativo={tela === 'reenvio'} somenteLeitura={!ehLogistica} />
+        </div>
         <div style={{ display: tela === 'cancelamentos' ? 'block' : 'none' }}>
           <TelaCancelamentos
             ativo={tela === 'cancelamentos'}
