@@ -12809,9 +12809,64 @@ async function lfSalvarFila(itens) {
 }
 
 // ─── Prévia e geração das listas ──────────────────────────────────────
+// ─── Pedidos agendados ───────────────────────────────────────────────
+// Pedido agendado para um dia que ainda não chegou NÃO entra em lista (nem vai para a fila do estoque):
+// ele entra quando o dia chegar. A data vem do próprio CSV (se tiver coluna "Agendado para") e do Via Leitor.
+function lfDataAgendada(v) {
+  const t = String(v == null ? '' : v).trim();
+  if (!t) return '';
+  let m = t.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  let ano;
+  let mes;
+  let dia;
+  if (m) {
+    dia = +m[1];
+    mes = +m[2];
+    ano = +m[3];
+  } else {
+    m = t.match(/(\d{4})-(\d{2})-(\d{2})/) || t.match(/(?:^|\D)(\d{4})(\d{2})(\d{2})(?!\d)/);
+    if (!m) return '';
+    ano = +m[1];
+    mes = +m[2];
+    dia = +m[3];
+  }
+  if (ano < 2000 || ano > 2100 || mes < 1 || mes > 12 || dia < 1 || dia > 31) return '';
+  return ano + '-' + String(mes).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
+}
+async function lfAdiadosPorAgendamento(pedidos, idx) {
+  const hoje = lfHojeBRT();
+  const mapa = new Map(); // pedido -> dia agendado (AAAA-MM-DD)
+  // 1) coluna de agendamento do próprio arquivo, se existir
+  const colunas = Object.keys(idx || {}).filter((k) => /agend/i.test(k));
+  if (colunas.length) {
+    pedidos.forEach((p) => {
+      (p.linhasOriginais || []).forEach((linha) => {
+        colunas.forEach((k) => {
+          const d = lfDataAgendada(linha[idx[k]]);
+          if (d && d > hoje) mapa.set(String(p.pedido).trim(), d);
+        });
+      });
+    });
+  }
+  // 2) Via Leitor (o agente grava agendado_para); se a coluna ainda não existe, só vale o arquivo
+  try {
+    const lista = await sepBuscarTudo('/via_leitor_agente?select=pedido,agendado_para&agendado_para=gt.' + hoje);
+    (Array.isArray(lista) ? lista : []).forEach((x) => {
+      const k = String(x.pedido || '').trim();
+      if (k && !mapa.has(k)) mapa.set(k, String(x.agendado_para || '').slice(0, 10));
+    });
+  } catch (e) {
+    /* sem a coluna agendado_para no Supabase: não bloqueia a geração */
+  }
+  const noArquivo = new Set(pedidos.map((p) => String(p.pedido).trim()));
+  return new Map([...mapa].filter(([k]) => noArquivo.has(k)));
+}
+
 async function lfPreview(rows, idx) {
   const agora = new Date().toISOString();
   const consolidado = lfConsolidar(rows, idx, agora, lfFmtData(agora));
+  const adiados = await lfAdiadosPorAgendamento(consolidado.pedidos, idx);
+  consolidado.pedidos = consolidado.pedidos.filter((p) => !adiados.has(String(p.pedido).trim()));
   const pedidosAtuais = consolidado.pedidos.map((p) => p.pedido);
   const comRegra = consolidado.pedidos
     .filter((p) => lfMotivoEstoque(p))
@@ -12865,6 +12920,7 @@ async function lfPreview(rows, idx) {
     paraEstoque: caixa + insuf,
     bloqueadosEstoque,
     repetidos,
+    agendadosFora: [...adiados].map(([pedido, dia]) => ({ pedido, dia })),
     linhasInvalidas: consolidado.linhasInvalidas,
     aviso,
   };
@@ -12874,6 +12930,8 @@ async function lfGerarListas({ rows, headers, idx, usuario, email, origemArquivo
   const dataExecISO = new Date().toISOString();
   const dataExecTexto = lfFmtData(dataExecISO);
   const consolidado = lfConsolidar(rows, idx, dataExecISO, dataExecTexto);
+  const adiados = await lfAdiadosPorAgendamento(consolidado.pedidos, idx);
+  consolidado.pedidos = consolidado.pedidos.filter((p) => !adiados.has(String(p.pedido).trim()));
   const pedidosAtuais = consolidado.pedidos.map((p) => p.pedido);
   const comRegra = consolidado.pedidos.filter((p) => lfMotivoEstoque(p)).map((p) => p.pedido);
 
@@ -13065,6 +13123,7 @@ async function lfGerarListas({ rows, headers, idx, usuario, email, origemArquivo
       itensFila: resultadoFila.confirmados,
       bloqueadosHistorico,
       bloqueadosEstoque,
+      agendadosFora: adiados.size,
       linhasInvalidas: consolidado.linhasInvalidas,
     },
   };
@@ -13369,6 +13428,51 @@ async function lfLancarPoluido({ pedido, usuario, email }) {
       unidades +
       ' unidade(s) aguardando processamento automático.',
   };
+}
+
+// ─── Exclusão de pedido do estoque (libera o pedido para lançar de novo) ──
+// Consulta o que prende o pedido: linhas em fila_lancamentos (bloqueia o Picking Poluído)
+// e o registro em pedidos_estoque (bloqueia Pedido Caixa / Picking Insuficiente).
+async function lfBuscarPedidoEstoque(pedido) {
+  const colPedido = encodeURIComponent('C9 Pedido');
+  const [fila, est] = await Promise.all([
+    lfApi(
+      '/fila_lancamentos?select=id,motivo,status,erro,enviado_em&' +
+        colPedido +
+        '=eq.' +
+        encodeURIComponent(pedido) +
+        '&order=id.asc&limit=5000'
+    ),
+    lfApi('/pedidos_estoque?select=pedido&pedido=eq.' + encodeURIComponent(pedido) + '&limit=1'),
+  ]);
+  return {
+    pedido,
+    fila: Array.isArray(fila) ? fila : [],
+    noEstoque: Array.isArray(est) && est.length > 0,
+  };
+}
+
+// Apaga o pedido das duas tabelas e grava a auditoria, tudo numa função do Supabase.
+async function lfExcluirPedidoEstoque({ pedido, motivo, usuario, email }) {
+  try {
+    const r = await lfApi('/rpc/excluir_pedido_estoque', {
+      method: 'POST',
+      body: JSON.stringify({ p_pedido: pedido, p_motivo: motivo, p_usuario: usuario, p_email: email }),
+      headers: { Prefer: 'return=representation' },
+    });
+    return r || {};
+  } catch (err) {
+    let msg = err.message;
+    try {
+      msg = JSON.parse(err.message).message || msg;
+    } catch (e) {
+      // resposta em texto simples
+    }
+    if (/PGRST202|Could not find the function/i.test(String(err.message))) {
+      msg = 'A função excluir_pedido_estoque ainda não existe no Supabase. Rode o SQL excluir_pedido_estoque.sql.';
+    }
+    throw new Error(msg);
+  }
 }
 
 // ─── Interface ────────────────────────────────────────────────────────
@@ -15727,6 +15831,7 @@ function TelaListaFaturamento({ ativo }) {
           `Itens confirmados na fila da planilha (Lançamentos): ${s.itensFila}. ` +
           `Pedidos bloqueados pelo histórico: ${s.bloqueadosHistorico}. ` +
           `Pedidos já enviados antes ao estoque (bloqueados): ${s.bloqueadosEstoque}. ` +
+          (s.agendadosFora ? `Pedidos agendados para outro dia (ficaram de fora): ${s.agendadosFora}. ` : '') +
           `Linhas inválidas: ${s.linhasInvalidas}.`,
       });
       setArquivo(null);
@@ -15933,11 +16038,149 @@ function TelaListaFaturamento({ ativo }) {
     }
   };
 
+  // Exclusão de pedidos do estoque (um ou vários de uma vez)
+  const [pedidoExcl, setPedidoExcl] = useState('');
+  const [consultaExcl, setConsultaExcl] = useState(null); // { itens: [{ pedido, fila, noEstoque }] }
+  const [buscandoExcl, setBuscandoExcl] = useState(false);
+  const [motivoExcl, setMotivoExcl] = useState('');
+  const [excluindoExcl, setExcluindoExcl] = useState(false);
+  const [msgExcl, setMsgExcl] = useState(null);
+
+  // Aceita vários números separados por linha, espaço, vírgula ou ponto e vírgula
+  const pedidosDigitadosExcl = useMemo(() => {
+    const vistos = new Set();
+    String(pedidoExcl || '')
+      .split(/[\s,;]+/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .forEach((x) => vistos.add(x));
+    return [...vistos];
+  }, [pedidoExcl]);
+
+  const consultarExclusao = async () => {
+    const pedidos = pedidosDigitadosExcl;
+    if (!pedidos.length) {
+      setMsgExcl({ tipo: 'warn', texto: 'Informe o número de pelo menos um pedido.' });
+      return;
+    }
+    if (pedidos.length > 300) {
+      setMsgExcl({ tipo: 'warn', texto: 'Informe no máximo 300 pedidos por vez.' });
+      return;
+    }
+    setBuscandoExcl(true);
+    setMsgExcl(null);
+    setConsultaExcl(null);
+    setMotivoExcl('');
+    try {
+      const itens = [];
+      for (let i = 0; i < pedidos.length; i += 5) {
+        const lote = await Promise.all(pedidos.slice(i, i + 5).map((ped) => lfBuscarPedidoEstoque(ped)));
+        itens.push(...lote);
+      }
+      setConsultaExcl({ itens });
+      if (!itens.some((x) => x.fila.length || x.noEstoque)) {
+        setMsgExcl({
+          tipo: 'warn',
+          texto:
+            (itens.length === 1 ? 'O pedido ' + itens[0].pedido + ' não está' : 'Nenhum dos pedidos informados está') +
+            ' na fila do estoque nem na tabela pedidos_estoque. Não há nada para excluir.',
+        });
+      }
+    } catch (err) {
+      setMsgExcl({ tipo: 'erro', texto: 'Erro ao consultar: ' + err.message });
+    } finally {
+      setBuscandoExcl(false);
+    }
+  };
+
+  const executarExclusaoEstoque = async (usuario, pedidos, motivo) => {
+    setExcluindoExcl(true);
+    const feitos = [];
+    const vazios = [];
+    const falhas = [];
+    let linhasTotal = 0;
+    try {
+      for (const pedido of pedidos) {
+        try {
+          const r = await lfExcluirPedidoEstoque({ pedido, motivo, usuario: usuario.nome, email: usuario.email });
+          const linhas = Number(r.linhas_fila) || 0;
+          const est = Number(r.pedidos_estoque) || 0;
+          if (!linhas && !est) vazios.push(pedido);
+          else {
+            feitos.push(pedido);
+            linhasTotal += linhas;
+          }
+        } catch (err) {
+          falhas.push({ pedido, erro: err.message });
+          // função inexistente: não adianta tentar os outros
+          if (/ainda não existe/.test(err.message)) break;
+        }
+      }
+      const partes = [];
+      if (feitos.length)
+        partes.push(
+          feitos.length +
+            ' pedido(s) excluído(s) do estoque (' +
+            linhasTotal +
+            ' linha(s) da fila): ' +
+            feitos.join(', ') +
+            '. Já podem ser lançados de novo.'
+        );
+      if (vazios.length) partes.push('Já não estavam no estoque: ' + vazios.join(', ') + '.');
+      if (falhas.length)
+        partes.push('Falharam: ' + falhas.map((f) => f.pedido).join(', ') + ' — ' + falhas[0].erro);
+      setMsgExcl({ tipo: falhas.length ? (feitos.length ? 'warn' : 'erro') : feitos.length ? 'ok' : 'warn', texto: partes.join(' ') });
+      if (falhas.length) {
+        // mantém só o que falhou para tentar de novo
+        const restantes = new Set(falhas.map((f) => f.pedido));
+        setConsultaExcl((c) => (c ? { itens: c.itens.filter((x) => restantes.has(x.pedido)) } : c));
+        setPedidoExcl([...restantes].join('\n'));
+      } else {
+        setConsultaExcl(null);
+        setPedidoExcl('');
+        setMotivoExcl('');
+      }
+    } finally {
+      setExcluindoExcl(false);
+    }
+  };
+
+  const excluirPedidoDoEstoque = () => {
+    if (!consultaExcl) return;
+    const pedidos = consultaExcl.itens.filter((x) => x.fila.length || x.noEstoque).map((x) => x.pedido);
+    if (!pedidos.length) return;
+    const motivo = motivoExcl.trim();
+    if (motivo.length < 5) {
+      alert('Informe um motivo com pelo menos 5 caracteres.');
+      return;
+    }
+    pedirQuem(
+      'Quem está excluindo ' + (pedidos.length > 1 ? 'os ' + pedidos.length + ' pedidos' : 'o pedido') + ' do estoque?',
+      (u) => executarExclusaoEstoque(u, pedidos, motivo)
+    );
+  };
+
+  // Resumo da consulta
+  const resumoExcl = useMemo(() => {
+    const itens = (consultaExcl && consultaExcl.itens) || [];
+    const comRegistro = itens.filter((x) => x.fila.length || x.noEstoque);
+    return {
+      itens,
+      comRegistro: comRegistro.length,
+      semRegistro: itens.length - comRegistro.length,
+      linhas: itens.reduce((t, x) => t + x.fila.length, 0),
+      enviados: itens.filter((x) => x.fila.some((f) => String(f.status).toUpperCase() === 'ENVIADO')).map((x) => x.pedido),
+      pendentes: itens.filter((x) => x.fila.some((f) => ['PENDENTE', 'PROCESSANDO'].includes(String(f.status).toUpperCase()))).length,
+    };
+  }, [consultaExcl]);
+  const exclPodeExcluir = resumoExcl.comRegistro > 0;
+
   const abas = [
     ['importar', 'Importar CSV'],
     ['listas', 'Listas geradas'],
     ['historico', 'Histórico de listas'],
     ['poluido', 'Picking Poluído'],
+    ['exclusao', 'Exclusão pedido estoque'],
     ['vialeitor', 'Via Leitor'],
   ];
   const registrosAbertos = listaAberta ? sessao.registros[listaAberta] || [] : [];
@@ -16023,6 +16266,7 @@ function TelaListaFaturamento({ ativo }) {
                 Atenção: não há pedidos para geração de lista neste arquivo.
                 {preview.repetidos.length + preview.bloqueadosEstoque > 0 &&
                   ` (${preview.repetidos.length} já estavam em listas · ${preview.bloqueadosEstoque} já enviados ao estoque)`}
+                {preview.agendadosFora.length > 0 && ` ${preview.agendadosFora.length} pedido(s) agendado(s) para outro dia ficaram de fora.`}
               </LfAviso>
               {preview.aviso && <LfAviso tipo="warn">{preview.aviso}</LfAviso>}
             </>
@@ -16059,6 +16303,12 @@ function TelaListaFaturamento({ ativo }) {
                   detalhe="bloqueados"
                 />
                 <LfKpi
+                  rotulo="Agendados (outro dia)"
+                  valor={preview.agendadosFora.length}
+                  tipo={preview.agendadosFora.length ? 'info' : 'neutro'}
+                  detalhe="ficam de fora até o dia"
+                />
+                <LfKpi
                   rotulo="Linhas inválidas"
                   valor={preview.linhasInvalidas}
                   tipo={preview.linhasInvalidas ? 'erro' : 'neutro'}
@@ -16085,6 +16335,14 @@ function TelaListaFaturamento({ ativo }) {
                   )}
                 </LfTabela>
               </div>
+              {preview.agendadosFora.length > 0 && (
+                <div style={{ marginTop: 12 }}>
+                  <LfAviso tipo="info">
+                    📅 {preview.agendadosFora.length} pedido(s) agendado(s) para outro dia não entram nas listas agora: {preview.agendadosFora.slice(0, 40).map((x) => `${x.pedido} (${lfAgendadoBR(x.dia)})`).join(', ')}
+                    {preview.agendadosFora.length > 40 ? '…' : ''}
+                  </LfAviso>
+                </div>
+              )}
               {preview.repetidos.length > 0 && (
                 <div style={{ marginTop: 12 }}>
                   <LfAviso tipo="warn">{preview.repetidos.length} pedido(s) já estavam em listas e não serão gerados de novo.</LfAviso>
@@ -16461,6 +16719,125 @@ function TelaListaFaturamento({ ativo }) {
             </LfBtn>
           </div>
           {msgPoluido && <LfAviso tipo={msgPoluido.tipo}>{msgPoluido.texto}</LfAviso>}
+        </LfCard>
+      )}
+
+      {aba === 'exclusao' && (
+        <LfCard
+          titulo="Exclusão pedido estoque"
+          subtitulo="Tira um ou vários pedidos da fila e da tabela de bloqueio do estoque para poderem ser lançados de novo"
+        >
+          <LfAviso>
+            Cole um ou vários números de pedido (um por linha, ou separados por espaço, vírgula ou ponto e vírgula) e clique
+            em Consultar. O sistema mostra onde cada pedido está preso. Ao confirmar, eles são apagados da fila do estoque
+            (fila_lancamentos) e da tabela pedidos_estoque, e a exclusão fica registrada com o motivo e o nome de quem fez.
+          </LfAviso>
+          <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <textarea
+              className="lf-input"
+              style={{ ...lfInputStyle, width: 300, height: 90, padding: 10, boxSizing: 'border-box', resize: 'vertical' }}
+              autoComplete="off"
+              placeholder={'Ex.:\n577120\n577121\n577122'}
+              value={pedidoExcl}
+              onChange={(e) => {
+                setPedidoExcl(e.target.value);
+                setConsultaExcl(null);
+                setMsgExcl(null);
+              }}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <LfBtn tipo="primario" disabled={buscandoExcl} onClick={consultarExclusao}>
+                {buscandoExcl ? 'Consultando...' : '🔎 Consultar'}
+              </LfBtn>
+              <LfBtn
+                onClick={() => {
+                  setPedidoExcl('');
+                  setConsultaExcl(null);
+                  setMotivoExcl('');
+                  setMsgExcl(null);
+                }}
+              >
+                Limpar
+              </LfBtn>
+              <span style={{ fontSize: 12, color: C.textoSuave || '#64748b' }}>
+                {pedidosDigitadosExcl.length} pedido(s) informado(s)
+              </span>
+            </div>
+          </div>
+          {msgExcl && <LfAviso tipo={msgExcl.tipo}>{msgExcl.texto}</LfAviso>}
+
+          {consultaExcl && exclPodeExcluir && (
+            <div style={{ marginTop: 16 }}>
+              <LfKpis>
+                <LfKpi rotulo="Pedidos consultados" valor={resumoExcl.itens.length} tipo="info" />
+                <LfKpi
+                  rotulo="Com o que excluir"
+                  valor={resumoExcl.comRegistro}
+                  tipo={resumoExcl.comRegistro ? 'warn' : 'neutro'}
+                />
+                <LfKpi rotulo="Sem registro" valor={resumoExcl.semRegistro} tipo="neutro" detalhe="nada a excluir" />
+                <LfKpi rotulo="Linhas na fila" valor={resumoExcl.linhas} tipo="neutro" detalhe="bloqueia o Picking Poluído" />
+              </LfKpis>
+
+              <LfTabela colunas={['Pedido', 'Fila do estoque', 'Em pedidos_estoque', 'Situação']} compacta>
+                {resumoExcl.itens.map((x) => {
+                  const grupos = new Map();
+                  x.fila.forEach((f) => {
+                    const k = String(f.motivo || '—') + ' · ' + String(f.status || '—').toUpperCase();
+                    grupos.set(k, (grupos.get(k) || 0) + 1);
+                  });
+                  const tem = x.fila.length > 0 || x.noEstoque;
+                  return (
+                    <tr key={x.pedido}>
+                      <td style={lfTdStyle}>
+                        <b>{x.pedido}</b>
+                      </td>
+                      <td style={lfTdStyle}>
+                        {grupos.size
+                          ? [...grupos.entries()].map(([k, n]) => (
+                              <div key={k}>
+                                {k} <span style={{ opacity: 0.7 }}>({n} linha{n > 1 ? 's' : ''})</span>
+                              </div>
+                            ))
+                          : '—'}
+                      </td>
+                      <td style={lfTdStyle}>{x.noEstoque ? 'Sim' : 'Não'}</td>
+                      <td style={lfTdStyle}>
+                        <LfBadge tipo={tem ? 'warn' : 'neutro'}>{tem ? 'Será excluído' : 'Nada a excluir'}</LfBadge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </LfTabela>
+
+              {resumoExcl.enviados.length > 0 && (
+                <LfAviso tipo="warn">
+                  Já foram gravados na aba Lançamentos da planilha do estoque: {resumoExcl.enviados.join(', ')}. A exclusão NÃO
+                  apaga as linhas da planilha: apague as linhas desses pedidos lá antes de lançar de novo, senão ficam duplicados.
+                </LfAviso>
+              )}
+              {resumoExcl.pendentes > 0 && (
+                <LfAviso tipo="info">
+                  {resumoExcl.pendentes} pedido(s) têm linhas ainda não enviadas à planilha (Pendente/Processando). Excluir cancela
+                  o envio delas.
+                </LfAviso>
+              )}
+
+              <textarea
+                className="lf-input"
+                value={motivoExcl}
+                onChange={(e) => setMotivoExcl(e.target.value)}
+                maxLength={500}
+                placeholder="Explique por que precisa excluir (mínimo 5 caracteres). O mesmo motivo vale para todos os pedidos acima..."
+                style={{ ...lfInputStyle, width: '100%', height: 80, padding: 10, boxSizing: 'border-box', resize: 'vertical', marginTop: 12 }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 10 }}>
+                <LfBtn tipo="perigo" disabled={excluindoExcl} onClick={excluirPedidoDoEstoque}>
+                  {excluindoExcl ? 'Excluindo...' : 'Excluir do estoque (' + resumoExcl.comRegistro + ')'}
+                </LfBtn>
+              </div>
+            </div>
+          )}
         </LfCard>
       )}
 
@@ -20954,7 +21331,7 @@ export default function App() {
             fontFamily: C.font,
           }}
         >
-          {menuRecolhido ? 'v13.60' : `BBDI © ${new Date().getFullYear()} · v13.67-agendado-prazo`}
+          {menuRecolhido ? 'v13.60' : `BBDI © ${new Date().getFullYear()} · v13.70-exclusao-multipla`}
         </div>
       </aside>
       <button
