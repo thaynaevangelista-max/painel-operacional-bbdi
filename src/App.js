@@ -13831,7 +13831,17 @@ const LF_VL_SELECT_FAT = LF_VL_SELECT_BASE + ',separador,separacao_status,separa
 // + andamento da separação no estoque (painel_estoque): itens do pedido, entregues e em separação.
 const LF_VL_SELECT_EST = LF_VL_SELECT_FAT + ',est_itens,est_entregues,est_separando';
 // + itens do pedido (produto e quantidade) para a tela "Ver pedido".
-const LF_VL_SELECT = LF_VL_SELECT_EST + ',itens';
+const LF_VL_SELECT_ITENS = LF_VL_SELECT_EST + ',itens';
+// + data do agendamento ("Agendado para"): existe depois de rodar o criar_faturador_separacao.sql atualizado.
+const LF_VL_SELECT = LF_VL_SELECT_ITENS + ',agendado_para';
+// Hoje (AAAA-MM-DD) no horário de Brasília.
+const lfHojeBRT = (ms) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms == null ? Date.now() : ms));
+// Pedido agendado para um dia que ainda não chegou: fica escondido até o dia (no dia e depois dele aparece).
+const lfAgendadoFuturo = (r, hojeIso) => Boolean(r && r.agendado_para) && String(r.agendado_para).slice(0, 10) > hojeIso;
+const lfAgendadoBR = (v) => {
+  const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+};
 // Produto na tabela: até 2 modelos aparecem; acima disso vira o botão "Ver N itens".
 const LF_VL_MAX_MODELOS = 2;
 function lfVlItens(r) {
@@ -13916,6 +13926,14 @@ function lfVlAjustarInicio(ms) {
   return d;
 }
 // Mesma regra do agente / Apps Script "Performance": soma as horas só dentro do expediente (dias úteis).
+// Pedido agendado: início do prazo = dia agendado + horário da liberação do estoque (se o agendamento é depois da liberação).
+function lfVlBasePrazo(est, agendIso) {
+  const m = String(agendIso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (est == null || !m) return est;
+  const dia0 = Math.floor(est / LF_VL_DIA) * LF_VL_DIA;
+  const ag = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  return ag > dia0 ? ag + (est - dia0) : est;
+}
 function lfVlCalcLimite(ms, horas) {
   let atual = lfVlAjustarInicio(ms);
   let resta = horas * 3600000;
@@ -14180,6 +14198,7 @@ const LF_VL_PAPEIS = [
     (n) => /^(hr|hora)/.test(n) && n.includes('lib') && /fin(anceiro)?$/.test(n),
   ],
   ['libFin', 'Liberação do financeiro (data e hora)', ['datahoraliberacaofinanceiro', 'datahoralibfinanceiro'], (n) => n.includes('financ') && lfVlTemLib(n)],
+  ['agendado', 'Agendado para', ['agendadopara', 'agendado', 'dtagendamento', 'dataagendamento', 'agendamento', 'dataagendada'], (n) => n.includes('agend')],
   ['transp', 'Transportadora', ['transportadora', 'transporte', 'transp', 'nometransportadora', 'carrier']],
   ['produto', 'Produto', ['produto', 'modelo', 'produtomodelo', 'descricaoproduto', 'descricao', 'sku', 'codigoproduto', 'codproduto']],
 ];
@@ -14268,13 +14287,21 @@ function lfVlAgrupar(matriz, mapa, filialPadrao) {
     const chave = filial + '|' + ped;
     let p = por.get(chave);
     if (!p) {
-      p = { filial, pedido: ped, soma: 0, total: null, transp: '', est: null, fin: null, itens: [] };
+      p = { filial, pedido: ped, soma: 0, total: null, transp: '', est: null, fin: null, agend: null, itens: [] };
       por.set(chave, p);
     }
     const q = c.qtd !== undefined ? lfVlNumero(l[c.qtd]) : 0;
     p.soma += q;
     if (c.qtdTotal !== undefined && p.total == null) p.total = lfVlNumero(l[c.qtdTotal]);
     if (c.transp !== undefined && !p.transp) p.transp = String(l[c.transp] == null ? '' : l[c.transp]).trim();
+    if (c.agendado !== undefined) {
+      // "Agendado para": fica a menor data entre as linhas do pedido (vazio/traço = sem agendamento)
+      const dv = lfVlData(l[c.agendado], fmt);
+      if (dv != null) {
+        const iso = new Date(dv).toISOString().slice(0, 10); // lfVlData já devolve o relógio de parede como UTC
+        if (!p.agend || iso < p.agend) p.agend = iso;
+      }
+    }
     if (p.est == null) {
       if (c.libEstData !== undefined) p.est = lfVlDataHora(l[c.libEstData], c.libEstHora !== undefined ? l[c.libEstHora] : null, fmt);
       else if (c.libEst !== undefined && !vazio(l[c.libEst])) p.est = lfVlData(l[c.libEst], fmt);
@@ -14307,7 +14334,9 @@ function lfVlAgrupar(matriz, mapa, filialPadrao) {
       produtos: p.itens.map((i) => i.produto).join(', '),
       itens: p.itens,
       tempo_pedido_horas: horas,
-      data_limite: p.est == null ? null : lfVlIso(lfVlCalcLimite(p.est, horas)),
+      // Agendado: o prazo conta do dia agendado, com o horário em que o estoque liberou.
+      data_limite: p.est == null ? null : lfVlIso(lfVlCalcLimite(lfVlBasePrazo(p.est, p.agend), horas)),
+      ...(p.agend ? { agendado_para: p.agend } : {}),
     };
   });
   return { lista, ign };
@@ -14367,8 +14396,8 @@ function LfViaLeitorUpload({ existentes, agenteHa, onFechar, onFeito }) {
         await enviar(linhas);
       } catch (e1) {
         // Banco ainda sem a coluna "itens" (SQL não rodado): grava sem ela.
-        if (!/itens/i.test(String(e1.message))) throw e1;
-        await enviar(linhas.map(({ itens, ...resto }) => resto));
+        if (!/itens|agendado/i.test(String(e1.message))) throw e1;
+        await enviar(linhas.map(({ itens, agendado_para, ...resto }) => resto));
       }
       // Tira os pedidos da filial que não estão no arquivo (já saíram do Via Leitor).
       for (const f of filiais) {
@@ -14731,6 +14760,7 @@ function LfViaLeitor({ ativo, bb }) {
   const [fLista, setFLista] = useState('');
   const [fPrazo, setFPrazo] = useState('');
   const [fTipoPV, setFTipoPV] = useState(''); // BB: '' | 'pv' (pedido de venda) | 'estoque'
+  const [verAgendados, setVerAgendados] = useState(false); // mostra também os pedidos agendados para dias futuros
   const [limiteTela, setLimiteTela] = useState(200);
   const [fSep, setFSep] = useState('');
   const [semFat, setSemFat] = useState(false); // view ainda sem as colunas de faturador
@@ -14748,6 +14778,7 @@ function LfViaLeitor({ ativo, bb }) {
       // Tenta a view completa; se o SQL ainda não foi rodado/atualizado, cai para a versão anterior (sem quebrar).
       const tentativas = [
         [LF_VL_SELECT, false],
+        [LF_VL_SELECT_ITENS, false],
         [LF_VL_SELECT_EST, false],
         [LF_VL_SELECT_FAT, false],
         [LF_VL_SELECT_BASE, true],
@@ -14758,7 +14789,7 @@ function LfViaLeitor({ ativo, bb }) {
           setSemFat(tentativas[k][1]);
           break;
         } catch (e1) {
-          const colunaFalta = /itens|est_itens|est_entregues|est_separando|separador|separacao_status|faturador|42703|column/i.test(String(e1.message || e1));
+          const colunaFalta = /agendado|itens|est_itens|est_entregues|est_separando|separador|separacao_status|faturador|42703|column/i.test(String(e1.message || e1));
           if (!colunaFalta || k === tentativas.length - 1) throw e1;
         }
       }
@@ -14803,9 +14834,12 @@ function LfViaLeitor({ ativo, bb }) {
     return () => clearInterval(t);
   }, [ativo]);
 
+  const hojeBRT = lfHojeBRT(agora);
+  // Pedidos agendados para um dia futuro ficam fora da tela até o dia agendado.
+  const agendadosFuturos = useMemo(() => (rows || []).filter((r) => lfAgendadoFuturo(r, hojeBRT)).length, [rows, hojeBRT]);
   const lista = useMemo(
     () =>
-      (rows || []).map((r) => {
+      (rows || []).filter((r) => verAgendados || !lfAgendadoFuturo(r, hojeBRT)).map((r) => {
         // A data limite é sempre a do agente (ele já calcula). BBBaterias: o "Tempo Pedido" é sempre 3h.
         const lim = r.data_limite ? new Date(r.data_limite).getTime() : null;
         const o = {
@@ -14845,7 +14879,7 @@ function LfViaLeitor({ ativo, bb }) {
         }
         return o;
       }),
-    [rows, agora, bbListaDe]
+    [rows, agora, bbListaDe, verAgendados, hojeBRT]
   );
   // Quem pode ser escolhido como faturador: a equipe + qualquer nome que já apareceu nos dados.
   const nomesFat = useMemo(() => {
@@ -15263,6 +15297,20 @@ function LfViaLeitor({ ativo, bb }) {
             </select>
           )}
         </div>
+        {agendadosFuturos > 0 && (
+          <div style={{ margin: '-4px 0 12px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 12.5, color: C.txtSec }}>
+            <span>
+              📅 {agendadosFuturos} {agendadosFuturos === 1 ? 'pedido agendado para outro dia está escondido' : 'pedidos agendados para outros dias estão escondidos'} (aparecem no dia agendado).
+            </span>
+            <button
+              type="button"
+              onClick={() => setVerAgendados((v) => !v)}
+              style={{ padding: '3px 10px', borderRadius: 999, border: `1px solid ${C.bdMid}`, background: verAgendados ? '#ede9fe' : C.bgCard, color: verAgendados ? '#6d28d9' : C.txtSec, fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: C.font }}
+            >
+              {verAgendados ? 'Esconder agendados' : 'Mostrar agendados'}
+            </button>
+          </div>
+        )}
         {rows === null && !erro ? (
           <LfVazio>Carregando pedidos do Via Leitor...</LfVazio>
         ) : filtrados.length === 0 ? (
@@ -15273,7 +15321,7 @@ function LfViaLeitor({ ativo, bb }) {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: C.font, fontVariantNumeric: 'tabular-nums' }}>
                 <thead>
                   <tr>
-                    {['Filial', 'Pedido', 'Data Liberação', 'Quant', 'Transporte', 'Produto']
+                    {['Filial', 'Pedido', 'Data Liberação', 'Agendado para', 'Quant', 'Transporte', 'Produto']
                       .concat(bb ? ['Localização'] : [])
                       .concat(['Status', 'Tempo Pedido', 'Data limite', 'Tempo Restante'])
                       .concat(bb ? ['Situação'] : [])
@@ -15340,6 +15388,18 @@ function LfViaLeitor({ ativo, bb }) {
                           </button>
                         </td>
                         <td style={td}>{r.lib_estoque ? sepQuandoSeg(new Date(r.lib_estoque).getTime()) : '—'}</td>
+                        <td style={td}>
+                          {r.agendado_para ? (
+                            <span
+                              title={lfAgendadoFuturo(r, hojeBRT) ? 'Agendado para um dia futuro' : String(r.agendado_para).slice(0, 10) === hojeBRT ? 'Agendado para hoje' : 'Agendado para um dia que já passou'}
+                              style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 6, fontWeight: 800, background: colorida ? 'rgba(255,255,255,0.25)' : '#ede9fe', color: colorida ? '#fff' : '#6d28d9' }}
+                            >
+                              📅 {lfAgendadoBR(r.agendado_para)}
+                            </span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
                         <td style={td}>{sepNum(r.qtd_total)}</td>
                         <td style={{ ...td, textAlign: 'left' }}>{r.transportadora || '—'}</td>
                         <td style={{ ...td, textAlign: 'left', whiteSpace: 'normal', minWidth: 130, maxWidth: 240, wordBreak: 'break-word' }}>
@@ -17895,11 +17955,18 @@ function TelaListaBB({ ativo }) {
   const carregar = useCallback(async (forcarLeitura) => {
     setCarregando(true);
     try {
-      const ag = await sepBuscarTudo(
-        '/via_leitor_agente?select=pedido,qtd_total,transportadora,produtos,itens,lib_estoque,data_limite,tempo_pedido_horas,atualizado_em&filial=eq.' +
-          BB_FILIAL +
-          '&order=data_limite.asc.nullslast,pedido.asc'
-      );
+      const agUrl = (cols) => '/via_leitor_agente?select=' + cols + '&filial=eq.' + BB_FILIAL + '&order=data_limite.asc.nullslast,pedido.asc';
+      const agCols = 'pedido,qtd_total,transportadora,produtos,itens,lib_estoque,data_limite,tempo_pedido_horas,atualizado_em';
+      let agTodos;
+      try {
+        agTodos = await sepBuscarTudo(agUrl(agCols + ',agendado_para'));
+      } catch (eAg) {
+        if (!/agendado|42703|column/i.test(String(eAg.message || eAg))) throw eAg;
+        agTodos = await sepBuscarTudo(agUrl(agCols)); // SQL do agendamento ainda não rodado
+      }
+      // Pedido agendado para um dia futuro não entra (nem em "Gerar novos/tudo") até o dia agendado.
+      const hojeAg = lfHojeBRT();
+      const ag = agTodos.filter((p) => !lfAgendadoFuturo(p, hojeAg));
       const mapa = {};
       const mapaItens = {}; // "pedido|PRODUTO" -> lista em que o item já está
       for (const lote of lfChunk(ag.map((p) => String(p.pedido)), 100)) {
@@ -20887,7 +20954,7 @@ export default function App() {
             fontFamily: C.font,
           }}
         >
-          {menuRecolhido ? 'v13.60' : `BBDI © ${new Date().getFullYear()} · v13.65-impressao-uma-linha`}
+          {menuRecolhido ? 'v13.60' : `BBDI © ${new Date().getFullYear()} · v13.67-agendado-prazo`}
         </div>
       </aside>
       <button
