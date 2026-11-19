@@ -17189,15 +17189,15 @@ function bbImprimir(lista, itens, ordem = 'produto', opcoes = {}) {
     `.resumo b{font-size:12px;color:#111}` +
     `table{width:100%;border-collapse:collapse}` +
     `thead{display:table-header-group}tr{break-inside:avoid}` +
-    `th{background:#eef1f5;color:#1f3a5f;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;text-align:left;padding:${em_pe ? '6px 5px' : '7px 8px'};border-top:1px solid #1f3a5f;border-bottom:2px solid #1f3a5f}` +
-    `td{padding:${em_pe ? '6px 5px' : '7px 8px'};border-bottom:1px solid #d5d9e0;vertical-align:middle;font-size:${em_pe ? '11px' : '12px'}}` +
+    `th{background:#eef1f5;color:#1f3a5f;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;text-align:left;padding:${em_pe ? '5px 4px' : '7px 8px'};border-top:1px solid #1f3a5f;border-bottom:2px solid #1f3a5f}` +
+    `td{padding:${em_pe ? '5px 4px' : '7px 8px'};border-bottom:1px solid #d5d9e0;vertical-align:middle;white-space:nowrap;font-size:${em_pe ? '10px' : '12px'}}` +
     `tbody tr:nth-child(even) td{background:#f8f9fb}` +
     `th.c,td.c,th.q,td.q,th.n,td.n,th.ok,td.ok{text-align:center}` +
-    `td.n{color:#777;font-size:10.5px;width:26px}td.ped{font-weight:700;font-size:${em_pe ? '12px' : '13px'};font-variant-numeric:tabular-nums}` +
-    `td.prod{font-weight:700;font-size:${em_pe ? '12px' : '13px'}}td.loc{font-weight:800;font-size:${em_pe ? '12px' : '13px'};${em_pe ? '' : 'white-space:nowrap'}}` +
-    `td.q{font-weight:800;font-size:15px}.nd{color:#999;font-weight:400}.h{color:#666}` +
-    `td.sit{font-size:10px;font-weight:800;white-space:nowrap}tr.ag td{background:#e9e9e9!important}` +
-    `td.ok{width:44px}.box{display:inline-block;width:16px;height:16px;border:1.5px solid #333;border-radius:3px;background:#fff}` +
+    `td.n{color:#777;font-size:${em_pe ? '9px' : '10.5px'};width:${em_pe ? '18px' : '26px'}}td.ped{font-weight:700;font-size:${em_pe ? '11px' : '13px'};font-variant-numeric:tabular-nums}` +
+    `td.prod{font-weight:700;font-size:${em_pe ? '10.5px' : '13px'}}td.loc{font-weight:800;font-size:${em_pe ? '10px' : '13px'}}` +
+    `td.q{font-weight:800;font-size:${em_pe ? '13px' : '15px'}}.nd{color:#999;font-weight:400}.h{color:#666}` +
+    `td.sit{font-size:${em_pe ? '9px' : '10px'};font-weight:800}tr.ag td{background:#e9e9e9!important}` +
+    `td.ok{width:${em_pe ? '34px' : '44px'}}.box{display:inline-block;width:${em_pe ? '14px' : '16px'};height:${em_pe ? '14px' : '16px'};border:1.5px solid #333;border-radius:3px;background:#fff}` +
     `</style></head><body>` +
     `<div class="topo"><div><div class="marca">BBBaterias · Filial ${bbEsc(BB_FILIAL)}</div><h1>Lista de Separação ${bbNumero(lista.id)}</h1></div>` +
     `<div class="ger">Gerada em <b>${bbEsc(geradaEm)}</b><br>Responsável: <b>${bbEsc(lista.usuario || '—')}</b></div></div>` +
@@ -17206,7 +17206,7 @@ function bbImprimir(lista, itens, ordem = 'produto', opcoes = {}) {
     `<div><span>Ordem</span><b>${ordem === 'localizacao' ? 'Por localização' : 'Por produto'}</b></div>` +
     (opcoes.semAguardando ? `<div><span>Filtro</span><b>Sem itens aguardando chegada</b></div>` : '') +
     `</div>` +
-    `<table><thead><tr><th class="n">#</th><th class="ok">Catado</th><th>Pedido</th><th>Produto</th><th class="q">Qtd</th><th>Localização</th><th class="c">Saldo FD-01</th><th>Transporte</th><th class="c">Liberação</th>${comSit ? '<th class="c">Situação</th>' : ''}</tr></thead>` +
+    `<table><thead><tr><th class="n">#</th><th class="ok">Catado</th><th>Pedido</th><th>Produto</th><th class="q">Qtd</th><th>Localização</th><th class="c">Saldo<br>FD-01</th><th>Transporte</th><th class="c">Liberação</th>${comSit ? '<th class="c">Situação</th>' : ''}</tr></thead>` +
     `<tbody>${linhas}</tbody></table>` +
     `</body></html>`;
   const fr = document.createElement('iframe');
@@ -20887,7 +20887,7 @@ export default function App() {
             fontFamily: C.font,
           }}
         >
-          {menuRecolhido ? 'v13.60' : `BBDI © ${new Date().getFullYear()} · v13.64-lupa-pedido`}
+          {menuRecolhido ? 'v13.60' : `BBDI © ${new Date().getFullYear()} · v13.65-impressao-uma-linha`}
         </div>
       </aside>
       <button
